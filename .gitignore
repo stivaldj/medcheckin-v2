@@ -18,3 +18,5 @@ codedb.snapshot
 playwright-report/
 test-results/
 *.tsbuildinfo
+.env.prod
+backups/

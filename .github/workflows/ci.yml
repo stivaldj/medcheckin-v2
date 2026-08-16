@@ -36,6 +36,10 @@ jobs:
       - run: npx playwright install --with-deps chromium
         working-directory: apps/web
       - run: npm run test:e2e
+      - name: docker build (web + scheduler)
+        run: |
+          docker build -f apps/web/Dockerfile -t medcheckin-web:ci .
+          docker build -f apps/scheduler/Dockerfile -t medcheckin-scheduler:ci .
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -1,0 +1,17 @@
+# DOMAIN=app.exemplo.com.br (TLS automático via ACME) ou DOMAIN=localhost (tls internal, só dev/prova).
+{$DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		X-Frame-Options "DENY"
+		-Server
+	}
+	reverse_proxy web:3000 {
+		health_uri /api/health
+		health_interval 30s
+	}
+	{$CADDY_TLS_DIRECTIVE}
+}
