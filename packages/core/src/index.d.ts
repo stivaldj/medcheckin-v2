@@ -44,3 +44,232 @@ export interface SeedCounts {
 }
 /** Seed sintético (D7). Recusa banco populado salvo reset. */
 export function runSeed(db: Knex, opts?: { reset?: boolean }): Promise<SeedCounts>;
+
+/* ---- E2: core portado ---------------------------------------------------- */
+import type { DateTime } from 'luxon';
+
+export type Instant = Date | string | DateTime;
+
+export interface Logger {
+  debug(msg: string, fields?: Record<string, unknown>): void;
+  info(msg: string, fields?: Record<string, unknown>): void;
+  warn(msg: string, fields?: Record<string, unknown>): void;
+  error(msg: string, fields?: Record<string, unknown>): void;
+  child(fields: Record<string, unknown>): Logger;
+}
+export const logger: Logger;
+export function redact<T>(value: T): T;
+export function toDT(value?: Instant): DateTime;
+export function localDate(value: Instant, timezone: string): string;
+
+export interface SchedulePlan {
+  timezone: string;
+  daysOfWeek?: number[];
+  timesHm?: string[];
+  intervalDays?: number;
+  intervalAnchorDate?: string;
+  quietStart?: string;
+  quietEnd?: string;
+}
+export function computeNextAttemptAt(now: DateTime, plan: SchedulePlan): string;
+export function planFromEpisode(
+  episode: { checkin_frequency: string; started_at: Date | string },
+  patient: { timezone: string; checkin_time?: string; quiet_start?: string; quiet_end?: string },
+): SchedulePlan;
+export function inQuietHours(localDt: DateTime, quietStart: string, quietEnd: string): boolean;
+
+export interface Notifier {
+  send(notification: Record<string, unknown>): Promise<{ ok: boolean; error?: string }>;
+}
+
+export function planCheckins(
+  db: Knex,
+  now: Instant,
+): Promise<{ candidates: number; created: number }>;
+export function expireCheckins(db: Knex, now: Instant): Promise<{ missed: number }>;
+export function dispatchDueCheckins(
+  db: Knex,
+  now: Instant,
+  opts: { notifier: Notifier },
+): Promise<{
+  due: number;
+  sent: number;
+  failed: number;
+  deferred: number;
+  skipped_no_respondent: number;
+  exhausted: number;
+}>;
+
+export interface Question {
+  id: string;
+  question_set_id: string;
+  key: string;
+  label: string;
+  kind: 'scale_0_10' | 'yes_no' | 'choice' | 'number' | 'text';
+  options: string[];
+  unit: string | null;
+  sort_order: number;
+  required: boolean;
+  active: boolean;
+  condition_json: { when: string; op: string; value: unknown } | null;
+  alert_threshold_json: { op: string; value: unknown; severity?: string } | null;
+  is_side_effect: boolean;
+  score_direction: 'higher_is_better' | 'lower_is_better' | null;
+  score_weight: number;
+}
+export class EngineError extends Error {
+  code: string;
+}
+export function recordAnswer(
+  db: Knex,
+  input: { checkinId: string; respondentId: string; questionKey: string; value: unknown },
+  now?: Instant,
+): Promise<{ answer: Record<string, unknown>; next: Question | null; completed: boolean }>;
+export function getNextQuestion(db: Knex, checkinId: string): Promise<Question | null>;
+export function completeCheckin(
+  db: Knex,
+  checkinId: string,
+  now?: Instant,
+): Promise<{ already: boolean }>;
+export function enqueueAndSend(
+  db: Knex,
+  notifier: Notifier,
+  row: Record<string, unknown>,
+): Promise<{
+  status: 'sent' | 'failed' | 'duplicate';
+  notification?: Record<string, unknown>;
+  error?: string;
+}>;
+
+export function planMedicationIntakes(
+  db: Knex,
+  now: Instant,
+): Promise<{ medications: number; created: number }>;
+export function dispatchDueIntakes(
+  db: Knex,
+  now: Instant,
+  opts: { notifier: Notifier },
+): Promise<{ due: number; sent: number; failed: number; duplicate: number; no_respondent: number }>;
+export function confirmIntake(
+  db: Knex,
+  input: {
+    intakeId: string;
+    respondentId: string;
+    status: 'taken' | 'skipped';
+    sideEffect?: boolean;
+    note?: string | null;
+  },
+  now?: Instant,
+): Promise<Record<string, unknown>>;
+
+export function runCycle(
+  db: Knex,
+  now: Instant,
+  opts: { notifier: Notifier; force?: boolean },
+): Promise<Record<string, unknown>>;
+
+export function evaluatePatientAlerts(
+  db: Knex,
+  patientId: string,
+  now?: Instant,
+): Promise<{
+  patientId: string;
+  triggered: string[];
+  created: number;
+  touched: number;
+  autoResolved: number;
+}>;
+export function evaluateAllAlerts(
+  db: Knex,
+  now?: Instant,
+): Promise<{ patients: number; results: unknown[] }>;
+export function acknowledgeAlert(
+  db: Knex,
+  input: { alertId: string; userId: string },
+  now?: Instant,
+): Promise<Record<string, unknown>>;
+export function resolveAlert(
+  db: Knex,
+  input: { alertId: string; userId: string; note: string },
+  now?: Instant,
+): Promise<Record<string, unknown>>;
+export function addAlertNote(
+  db: Knex,
+  input: { alertId: string; userId: string; note: string },
+  now?: Instant,
+): Promise<Record<string, unknown>>;
+export function silenceAlerts(
+  db: Knex,
+  input: {
+    patientId: string;
+    code?: string | null;
+    untilAt: Instant;
+    reason?: string | null;
+    userId: string;
+  },
+): Promise<Record<string, unknown>>;
+export function listOpenAlerts(
+  db: Knex,
+  input: { clinicId: string; patientId?: string | null },
+): Promise<Array<Record<string, unknown>>>;
+export function listAlertActions(
+  db: Knex,
+  alertId: string,
+): Promise<Array<Record<string, unknown>>>;
+export function detectScoreRules(
+  rows: Array<{ date: string; score: number | null; trend?: number | null }>,
+): Array<{ code: string; severity: string; title: string; context: Record<string, unknown> }>;
+export function evaluateThreshold(
+  threshold: { op: string; value: unknown } | null,
+  value: unknown,
+): boolean;
+
+export function computeDailyScore(
+  db: Knex,
+  checkinId: string,
+): Promise<{
+  patient_id: string;
+  date: string;
+  score: number | null;
+  trend: number | null;
+  risk_level: string | null;
+  n: number;
+} | null>;
+export function normalizeToTen(
+  value: number,
+  min: number,
+  max: number,
+  direction?: string,
+): number | null;
+export function computeTrend(today: number, previous: Array<number | null>): number | null;
+export function aggregateScore(
+  items: Array<{ value: number | null; weight?: number }>,
+): number | null;
+export function inferRiskLevel(
+  score: number | null,
+  trend: number | null,
+): 'low' | 'medium' | 'high' | null;
+
+export function compareBeforeAfterByDose(input: {
+  doseEvents: Array<{
+    id: string;
+    effective_from: Date | string;
+    dose_amount?: number;
+    dose_unit?: string;
+  }>;
+  series: Array<{ date: string; value: number }>;
+  windowDays?: number;
+}): Array<{
+  dose_event_id: string | null;
+  anchor_date: string | null;
+  before_avg: number | null;
+  after_avg: number | null;
+  delta: number | null;
+  n_before: number;
+  n_after: number;
+}>;
+export function mean(values: unknown[]): number | null;
+export function rollingWindow(
+  rows: Array<Record<string, unknown>>,
+  opts?: { valueField?: string; dateField?: string; windowDays?: number },
+): Array<{ date: string; n: number; value: number | null }>;

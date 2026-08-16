@@ -5,5 +5,6 @@ export default defineConfig({
     include: ['test/**/*.test.js'],
     fileParallelism: false,
     testTimeout: 15000,
+    env: { LOG_LEVEL: 'error' },
   },
 });
