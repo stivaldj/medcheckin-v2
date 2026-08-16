@@ -179,6 +179,13 @@ export interface CycleSummary {
   intakes: { medications: number; created: number };
   alarms: { due: number; sent: number; failed: number; duplicate: number; no_respondent: number };
   alerts: { patients: number; results: unknown[] } | null;
+  retention: {
+    notifications: number;
+    sessions: number;
+    auth_tokens: number;
+    access_audit: number;
+    at: string;
+  } | null;
 }
 export function runCycle(
   db: Knex,
@@ -719,7 +726,7 @@ export function respondentHistory(
 ): Promise<{ days: HistoryDay[]; timezone: string }>;
 
 /* ---- E6: hoje, séries, system_state ------------------------------------ */
-export const STATE_KEYS: { lastCycle: string; lastAlerts: string };
+export const STATE_KEYS: { lastCycle: string; lastAlerts: string; lastRetention: string };
 export function resetCycleState(): void;
 export function getSystemState(db: Knex): Promise<Record<string, unknown>>;
 export function setSystemState(db: Knex, key: string, value: unknown): Promise<void>;
@@ -801,3 +808,117 @@ export function symptomDoseSeries(
   patientId: string,
   opts: { questionKey: string; days?: number; now?: Instant; windowDays?: number },
 ): Promise<SymptomDoseSeries>;
+
+/* ---- E7: relatório, LGPD, retenção -------------------------------------- */
+export interface PatientReport {
+  patient: {
+    id: string;
+    name: string;
+    birth_date: string | Date | null;
+    condition_tags: string[];
+    status: string;
+  };
+  period: { from: string; to: string; days: number; timezone: string; generated_at: string };
+  checkins: {
+    total: number;
+    sent: number;
+    completed: number;
+    missed: number;
+    completion_rate: number | null;
+  };
+  adherence: {
+    scheduled: number;
+    taken: number;
+    late: number;
+    skipped: number;
+    unconfirmed: number;
+    rate: number | null;
+  };
+  symptoms: Array<{
+    key: string;
+    label: string;
+    kind: string;
+    unit: string | null;
+    n: number;
+    mean: number | null;
+    min: number | null;
+    max: number | null;
+    last: number | null;
+  }>;
+  scores: {
+    n: number;
+    mean: number | null;
+    last: number | null;
+    risk_last: string | null;
+    series: Array<{ date: string; score: number | null; risk_level: string | null }>;
+  };
+  doses: Array<{
+    effective_from: string;
+    dose_amount: number;
+    dose_unit: string;
+    times_per_day: number;
+    schedule_times: string[];
+    reason: string | null;
+    product_name: string;
+  }>;
+  alerts: Array<
+    AlertRow & {
+      actions: Array<{
+        id: string;
+        action: string;
+        note: string | null;
+        at: string | Date;
+        user_name: string | null;
+      }>;
+    }
+  >;
+  side_effects: Array<{ date: string; source: 'checkin' | 'intake'; detail: string }>;
+}
+export function patientReport(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  opts?: { days?: number; now?: Instant },
+): Promise<PatientReport>;
+export interface ExportData {
+  manifest: {
+    generated_at: string;
+    patient_id: string;
+    clinic_id: string;
+    consent: { version: string | null; at: unknown };
+    counts: Record<string, number>;
+    note: string;
+  };
+  files: Record<string, unknown>;
+}
+export function exportPatientData(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  now?: Instant,
+): Promise<ExportData>;
+export function buildExportZip(data: ExportData): Promise<Buffer>;
+export function anonymizePatient(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  input: { reason: string },
+  now?: Instant,
+): Promise<{ patient: PatientRow; respondents: number }>;
+export const RETENTION_DEFAULTS: {
+  notificationsDays: number;
+  sessionsDays: number;
+  authTokensDays: number;
+  accessAuditDays: number;
+};
+export function applyRetention(
+  db: Knex,
+  now?: Instant,
+  opts?: Partial<typeof RETENTION_DEFAULTS>,
+): Promise<{
+  notifications: number;
+  sessions: number;
+  auth_tokens: number;
+  access_audit: number;
+  at: string;
+}>;

@@ -80,3 +80,7 @@ export {
 export { getSystemState, setSystemState, STATE_KEYS, resetCycleState } from './scheduler/cycle.js';
 export { dashboardToday } from './dashboard/today.js';
 export { symptomDoseSeries } from './analytics/series.js';
+export { patientReport } from './report/patientReport.js';
+export { exportPatientData, buildExportZip } from './lgpd/export.js';
+export { anonymizePatient } from './lgpd/anonymize.js';
+export { applyRetention, RETENTION_DEFAULTS } from './lgpd/retention.js';

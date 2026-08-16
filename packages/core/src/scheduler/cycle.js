@@ -3,13 +3,16 @@ import { planCheckins, expireCheckins } from './planner.js';
 import { dispatchDueCheckins } from '../checkin/engine.js';
 import { planMedicationIntakes, dispatchDueIntakes } from './reminders.js';
 import { evaluateAllAlerts } from '../alerts/evaluate.js';
+import { applyRetention } from '../lgpd/retention.js';
 import { logger } from '../logger.js';
 
 const ALERTS_EVERY_MINUTES = 60;
 export const STATE_KEYS = {
   lastCycle: 'scheduler.last_cycle_at',
   lastAlerts: 'alerts.last_run_at',
+  lastRetention: 'retention.last_run_at',
 };
+const RETENTION_EVERY_HOURS = 24;
 let cache = {}; // só otimização; a verdade é system_state
 
 export async function setSystemState(db, key, value) {
@@ -51,6 +54,14 @@ export async function runCycle(db, now, { notifier, force = false } = {}) {
     alerts = await evaluateAllAlerts(db, nowDT);
     await setSystemState(db, STATE_KEYS.lastAlerts, nowDT.toISO());
   }
+  let retention = null;
+  const lastRetRaw =
+    cache[STATE_KEYS.lastRetention] ?? (await getSystemState(db))[STATE_KEYS.lastRetention] ?? null;
+  const lastRet = lastRetRaw ? toDT(new Date(lastRetRaw)) : null;
+  if (force || !lastRet || nowDT.diff(lastRet, 'hours').hours >= RETENTION_EVERY_HOURS) {
+    retention = await applyRetention(db, nowDT);
+    await setSystemState(db, STATE_KEYS.lastRetention, nowDT.toISO());
+  }
   await setSystemState(db, STATE_KEYS.lastCycle, nowDT.toISO());
 
   const summary = {
@@ -62,6 +73,7 @@ export async function runCycle(db, now, { notifier, force = false } = {}) {
     intakes,
     alarms,
     alerts,
+    retention,
   };
   logger.info('scheduler.cycle', summary);
   return summary;

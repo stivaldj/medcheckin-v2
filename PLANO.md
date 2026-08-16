@@ -363,9 +363,46 @@ $ npx playwright test → 8 passed (workers=1: specs compartilham o banco)
    (ajuste de hoje); tabela antes/depois com "6 gotas". Screenshot enviado ao dono.
 ```
 
-### E7 — Relatório 30d, LGPD, retenção, RUNBOOK `[ ]`
+### E7 — Relatório 30d, LGPD, retenção, RUNBOOK `[x]`
 
 **Prova:** export.zip com contagens; anonimizar mantém séries; `docs/LGPD.md`.
+
+**Spec (antes do código):**
+
+| Peça                           | Conteúdo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core/report/patientReport.js` | `patientReport(db, session, patientId, {days:30})` → `{patient, period, checkins:{sent, completed, missed, completion_rate}, adherence:{scheduled, taken, late, skipped, unconfirmed, rate (só confirmações — L4)}, symptoms:[{key,label,n,mean,min,max,last}], scores:{n, mean, last, risk_last}, doses:[…], alerts:[…com condutas], side_effects:[…]}`; **sem dado → null**; audit `report`                                                                                                                                                                                                                                                                                                        |
+| `core/lgpd/export.js`          | `exportPatientData(db, session, patientId)` → `{manifest:{generated_at, patient_id, counts:{tabela:n}, consent}, files:{'patient.json',…}}` + `buildExportZip(...)` (jszip) → Buffer; audit `export`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `core/lgpd/anonymize.js`       | `anonymizePatient(db, session, patientId, {reason})` (transação): `patients.name`→"Paciente anonimizado <8 hex>", `birth_date`→null, `status`→discharged; `respondents.name`→"Respondente N", email/phone/relationship→null, `invite_token` rotacionado, sessões revogadas, `push_subscriptions` apagadas; `answers.value_text`→"[removido]"; `notifications.payload`→{}; `medication_intakes.note`/`dose_events.note`→null; **mantém**: `answers.value_num/value_choice`, `patient_scores_daily`, `dose_events` (valores), `alerts`/`alert_actions` (condutas), `episodes`, `access_audit`; grava audit `anonymize` com `reason`. Não há hard delete (prontuário tem guarda legal — `docs/LGPD.md`) |
+| `core/lgpd/retention.js`       | `applyRetention(db, now, {notificationsDays:90, sessionsDays:30, authTokensDays:7, accessAuditDays:730})` → apaga notificações antigas, sessões expiradas/revogadas há >30 d, tokens usados/expirados >7 d, audit >2 anos; `runCycle` chama 1×/dia (carimbo em `system_state`)                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| API                            | `GET /api/patients/[id]/report` · `GET /api/patients/[id]/export` (zip, `Content-Disposition`) · `POST /api/patients/[id]/anonymize {reason, confirmName}` (nome deve bater) · `GET /api/settings`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Telas                          | `/pacientes/[id]/relatorio` (imprimível: `@media print`, botão Imprimir; números com n) · na página do paciente: botões "Relatório 30 d", "Exportar dados (LGPD)", "Anonimizar" (dialog: motivo + digitar o nome) · `/configuracoes` (perfil/clínica; respondentes convidados por paciente com status; sistema: scheduler heartbeat, retenção, push configurado)                                                                                                                                                                                                                                                                                                                                     |
+| Docs                           | `docs/LGPD.md` (bases legais, dados tratados, direitos: acesso/portabilidade → export; eliminação → anonimização + retenção; consentimento por respondente; incidentes) · `docs/RUNBOOK.md` (subir, migrar, seed, scheduler, logs, export/anonimizar, retenção, incidentes; backup/restore apontam para E8)                                                                                                                                                                                                                                                                                                                                                                                          |
+
+**RED planejado:** `core/test/lgpd.test.js`, `core/test/report.test.js` · `web/test/lgpd-api.test.ts` · `web/e2e/lgpd.spec.ts` (relatório imprimível + export download + anonimizar).
+
+**RED:** `lgpd.test.js` (relatório + LGPD num arquivo) → "Failed to load url ../src/report/patientReport.js"; `lgpd-api.test.ts` → rotas ausentes; E2E sem telas.
+
+**GREEN — provas (2026-08-16):**
+
+```
+$ npm test -w @medcheckin/core → ✓ lgpd.test.js (5): relatório (check-ins 3/3, adesão só por confirmação
+  taken 3 · skipped 2 · sem confirmação 1 → 60 %, dor n=3 mín 3 máx 8 média 5,67, scores n=3, doses c/ 5 gotas,
+  alerta side_effect resolvido c/ conduta, efeitos; paciente sem dado → nulls);
+  PROVA export: manifest.counts {respondents 1, medications 1, dose_events 3, intakes 6, episodes 1, checkins 3,
+  answers 19, …} + zip legível (manifest.json + 10 json; notifications só metadados) + audit `export`, cross-clinic
+  not_found; PROVA anonimizar: nome → "Paciente anonimizado <hash>", nascimento null, alta, respondente
+  "Respondente 1" sem e-mail/telefone, token rotacionado, sessões revogadas, push apagado, texto livre "[removido]",
+  notes null, payload {} — e as SÉRIES iguais antes/depois (symptomDoseSeries, doses, scores, conduta mantida),
+  audit `anonymize`, idempotente; retenção: notificações >90 d, sessões >30 d, tokens >7 d, audit >2 anos, 1×/dia
+  via runCycle (carimbo system_state)  → 136 core
+$ npm test -w @medcheckin/web → ✓ lgpd-api.test.ts (4): report; export zip (content-disposition, manifest);
+  anonymize (nome errado 400, sem motivo 400, ok 200); settings  → 28 web (164)
+$ npm run check → verde
+$ npx playwright test → 9 passed
+ ✓ lgpd.spec.ts: relatório imprimível → botão Exportar baixa medcheckin-export-…zip (manifest lido no teste)
+   → Anonimizar (botão só habilita com o nome exato) → "Paciente anonimizado" → scores e doses idênticos, e-mail null
+```
 
 ### E8 — Deploy `[ ]`
 
@@ -387,6 +424,7 @@ Critério de sucesso e de aborto definidos antes. **Prova:** relatório final; d
 | Data       | Etapa | Evento                                                                                                                                                                                                                                                       |
 | ---------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 2026-08-16 | —     | Auditoria do v1 lida; `PLANO.md`, `ACHADOS.md`, `DECISOES.md` criados. Aguardando "ok" para E0.                                                                                                                                                              |
+| 2026-08-16 | E7    | Relatório 30 d imprimível, export.zip LGPD, anonimização (mantém séries), retenção 1×/dia, /configuracoes, docs/LGPD.md e RUNBOOK.md. 164 testes + 9 E2E. Aguardando "ok, avance" para E8.                                                                   |
 | 2026-08-16 | E6    | Loop fechado: system_state (carimbos duráveis), Hoje da médica (4 blocos + heartbeat), alertas → conduta (UI), gráfico sintoma × dose com marcadores + antes/depois; E2E clock falso 48 h. 155 testes + 8 E2E. Aguardando "ok, avance" para E7.              |
 | 2026-08-16 | E5    | PWA do respondente: convite/consentimento, Hoje (alarmes tomei/não tomei/efeito, check-in formulário), histórico, SW + manifest + Web Push (VAPID) com prova contra push service local; scheduler real. 147 testes + 5 E2E. Aguardando "ok, avance" para E6. |
 | 2026-08-16 | E4    | API + telas da médica (Pacientes, Paciente com dose vigente/ajuste/episódio/grade, Perguntas & planos), shadcn+Tailwind, CSRF Origin, Playwright E2E verde. 133 testes + 3 E2E. Aguardando "ok, avance" para E5.                                             |
