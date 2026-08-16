@@ -20,7 +20,8 @@
     "migrate": "node packages/core/scripts/migrate.js",
     "seed": "node packages/core/scripts/seed.js",
     "dev:web": "npm run dev -w @medcheckin/web",
-    "dev:scheduler": "npm run dev -w @medcheckin/scheduler"
+    "dev:scheduler": "npm run dev -w @medcheckin/scheduler",
+    "test:e2e": "npm run test:e2e -w @medcheckin/web"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

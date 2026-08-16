@@ -42,3 +42,27 @@ export { acceptInvite, rotateInviteToken } from './auth/invite.js';
 export { createSession, getSession, revokeSession, revokeAllForPrincipal } from './auth/session.js';
 export { requirePatientInClinic, logAccess } from './auth/access.js';
 export { createSmtpMailer, fakeMailer } from './auth/mailer.js';
+export {
+  createPatient,
+  updatePatient,
+  listPatients,
+  getPatientDetail,
+  addRespondent,
+  updateRespondent,
+  patientGrid,
+  ValidationError,
+} from './patients/index.js';
+export {
+  listProducts,
+  createProduct,
+  addMedication,
+  adjustDose,
+  setEpisode,
+} from './medications/index.js';
+export {
+  listQuestionSets,
+  createQuestionSet,
+  saveQuestions,
+  slugify,
+  validateQuestion,
+} from './questions/index.js';

@@ -25,7 +25,10 @@ export default tseslint.config(
       // DECISOES.md regra 2: nenhum catch silencioso.
       'no-empty': ['error', { allowEmptyCatch: false }],
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
+      ],
     },
   },
   prettier,

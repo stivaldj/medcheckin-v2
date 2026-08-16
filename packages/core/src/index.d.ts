@@ -360,3 +360,238 @@ export function logAccess(
   input: { session: Session; patientId?: string | null; route: string; action?: string },
   now?: Instant,
 ): Promise<Record<string, unknown>>;
+
+/* ---- E4: serviços da médica ------------------------------------------- */
+export class ValidationError extends Error {
+  code: 'validation';
+  field: string | null;
+}
+export interface PatientRow {
+  id: string;
+  clinic_id: string;
+  name: string;
+  birth_date: string | Date | null;
+  condition_tags: string[];
+  timezone: string;
+  status: 'active' | 'paused' | 'discharged';
+  checkin_time: string;
+  quiet_start: string;
+  quiet_end: string;
+  consent_version: string | null;
+  consent_at: Date | string | null;
+  created_by: string;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+export interface RespondentRow {
+  id: string;
+  patient_id: string;
+  kind: 'patient' | 'caregiver';
+  name: string;
+  email: string | null;
+  phone: string | null;
+  relationship: string | null;
+  can_answer: boolean;
+  receives_alarms: boolean;
+  invite_token: string;
+  accepted_at: Date | string | null;
+  consent_version: string | null;
+  consent_at: Date | string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+export interface ProductRow {
+  id: string;
+  clinic_id: string;
+  name: string;
+  cbd_mg_ml: number | null;
+  thc_mg_ml: number | null;
+  form: string;
+}
+export interface MedicationRow {
+  id: string;
+  patient_id: string;
+  product_id: string;
+  active: boolean;
+  product_name: string;
+  form: string;
+  cbd_mg_ml: number | null;
+  thc_mg_ml: number | null;
+  current_dose: DoseEvent | null;
+}
+export interface EpisodeRow {
+  id: string;
+  patient_id: string;
+  kind: 'titration' | 'maintenance';
+  started_at: Date | string;
+  ended_at: Date | string | null;
+  checkin_frequency: 'daily' | 'weekly' | 'biweekly';
+  question_set_id: string;
+  dose_event_id: string | null;
+}
+export interface AlertRow {
+  id: string;
+  patient_id: string;
+  code: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  title: string;
+  context: Record<string, unknown>;
+  status: 'open' | 'acknowledged' | 'resolved';
+  resolved_reason: string | null;
+  first_seen_at: Date | string;
+  last_seen_at: Date | string;
+  resolved_at: Date | string | null;
+  created_at: Date | string;
+}
+export interface QuestionSetRow {
+  id: string;
+  clinic_id: string;
+  name: string;
+  active: boolean;
+  created_at: Date | string;
+}
+export interface RespondentInput {
+  kind?: 'patient' | 'caregiver';
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  relationship?: string | null;
+  can_answer?: boolean;
+  receives_alarms?: boolean;
+}
+export interface PatientInput {
+  name?: string;
+  birth_date?: string | null;
+  condition_tags?: string[] | string;
+  timezone?: string;
+  checkin_time?: string;
+  quiet_start?: string;
+  quiet_end?: string;
+  status?: 'active' | 'paused' | 'discharged';
+  consent_version?: string | null;
+  respondents?: RespondentInput[];
+}
+export function createPatient(
+  db: Knex,
+  session: Session,
+  input: PatientInput | Record<string, unknown>,
+  now?: Instant,
+): Promise<{ patient: PatientRow; respondents: RespondentRow[] }>;
+export function updatePatient(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  input: Record<string, unknown>,
+  now?: Instant,
+): Promise<PatientRow>;
+export interface PatientSummary extends PatientRow {
+  episode: Pick<EpisodeRow, 'id' | 'kind' | 'checkin_frequency' | 'started_at'> | null;
+  open_alerts: number;
+  last_checkin_at: Date | string | null;
+  respondents_count: number;
+  medications: MedicationRow[];
+}
+export function listPatients(
+  db: Knex,
+  input: { clinicId: string },
+  now?: Instant,
+): Promise<PatientSummary[]>;
+export interface Grid {
+  days: string[];
+  questions: Array<{
+    key: string;
+    label: string;
+    kind: string;
+    unit: string | null;
+    is_side_effect: boolean;
+  }>;
+  cells: Record<string, Record<string, number | string | null>>;
+  scores: Record<string, number | null>;
+  risk: Record<string, string | null>;
+  doseMarkers: Array<{
+    date: string;
+    dose_amount: number;
+    dose_unit: string;
+    reason: string | null;
+  }>;
+  timezone: string;
+}
+export function patientGrid(
+  db: Knex,
+  patientId: string,
+  opts?: { days?: number; now?: Instant },
+): Promise<Grid>;
+export interface PatientDetail {
+  patient: PatientRow;
+  respondents: Array<RespondentRow & { invite_url: string }>;
+  medications: Array<MedicationRow & { dose_history: DoseEvent[] }>;
+  episode: (EpisodeRow & { question_set_name: string | null }) | null;
+  alerts: AlertRow[];
+  grid: Grid;
+}
+export function getPatientDetail(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  opts?: { baseUrl?: string; now?: Instant },
+): Promise<PatientDetail>;
+export function addRespondent(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  input: Record<string, unknown>,
+  now?: Instant,
+): Promise<RespondentRow>;
+export function updateRespondent(
+  db: Knex,
+  session: Session,
+  respondentId: string,
+  input: Record<string, unknown>,
+  now?: Instant,
+): Promise<RespondentRow>;
+export function listProducts(db: Knex, clinicId: string): Promise<ProductRow[]>;
+export function createProduct(
+  db: Knex,
+  session: Session,
+  input: Record<string, unknown>,
+): Promise<ProductRow>;
+export function addMedication(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  input: { product_id: string },
+  now?: Instant,
+): Promise<{ id: string; patient_id: string; product_id: string; active: boolean }>;
+export function adjustDose(
+  db: Knex,
+  session: Session,
+  medicationId: string,
+  input: Record<string, unknown>,
+  now?: Instant,
+): Promise<DoseEvent>;
+export function setEpisode(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  input: { kind: string; checkin_frequency: string; question_set_id: string },
+  now?: Instant,
+): Promise<EpisodeRow>;
+export function listQuestionSets(
+  db: Knex,
+  clinicId: string,
+): Promise<Array<QuestionSetRow & { questions: Question[] }>>;
+export function createQuestionSet(
+  db: Knex,
+  session: Session,
+  input: { name: string },
+): Promise<QuestionSetRow>;
+export function saveQuestions(
+  db: Knex,
+  session: Session,
+  setId: string,
+  list: unknown[],
+): Promise<Question[]>;
+export function slugify(text: string): string;
+export function validateQuestion(
+  input: Record<string, unknown>,
+): { ok: true; data: Record<string, unknown> } | { ok: false; error: string };

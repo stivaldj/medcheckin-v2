@@ -228,10 +228,48 @@ POST /api/p/accept {seed-c2, v1}       → 200 · set-cookie: mc_resp=…; Max-A
 POST /api/auth/logout                  → set-cookie: mc_user=; Max-Age=0 · depois GET P1 → 401
 ```
 
-### E4 — API + telas da médica `[ ]`
+### E4 — API + telas da médica `[x]`
 
-Pacientes, Paciente (grade 14d, medicações, ajustar dose), Perguntas & planos.
 **Prova:** Playwright: cadastrar paciente → convidar cuidador → criar dose → ver dose vigente.
+
+**Spec (antes do código):**
+
+| Camada                                                                                                                            | Conteúdo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core/patients/`                                                                                                                  | `createPatient(db, session, input)` (dados + respondentes; `invite_token` gerado por respondente; audit `create`) · `updatePatient` (campos, `status` pause/discharge) · `listPatients(db, {clinicId})` com resumo (episódio atual, último check-in, alertas abertos, dose vigente por medicação) · `getPatientDetail(db, session, id)` (paciente, respondentes **com link de convite** — D12, medicações + dose vigente + histórico, episódio aberto, alertas abertos, `grid`) · `addRespondent`, `updateRespondent` · `patientGrid(db, patientId, {days:14})` → datas × perguntas (última resposta do dia) + score/risco por dia |
+| `core/medications/`                                                                                                               | `listProducts`/`createProduct` (por clínica) · `addMedication(patientId, productId)` · `adjustDose(db, session, {medicationId, effective_from, dose_amount, dose_unit, times_per_day, schedule_times, reason, note, open_titration?})` — valida, insere `dose_events`, e se `open_titration` fecha o episódio aberto e abre `titration/daily` ancorado no ajuste (D5) · `setEpisode(patientId, {kind, checkin_frequency, question_set_id})`                                                                                                                                                                                        |
+| `core/questions/`                                                                                                                 | `listQuestionSets(clinicId)` · `createQuestionSet` · `saveQuestions(setId, questions[])` (upsert por `key`; slug automático de `label` quando `key` ausente; valida `kind`, `options` p/ choice, `condition_json.when` existente e anterior na ordem, `alert_threshold_json`, `score_direction`) · `deactivateQuestion` (nunca apaga: `answers` referenciam) — lógica portada do editor EJS do v1                                                                                                                                                                                                                                  |
+| API (`requireUser` + tenancy + `access_audit` em toda rota de paciente; **`assertSameOrigin` em toda rota mutável** — ACHADOS E3) | `GET/POST /api/patients` · `GET/PATCH /api/patients/[id]` · `GET /api/patients/[id]/grid` · `POST /api/patients/[id]/respondents` · `PATCH /api/respondents/[id]` · `POST /api/respondents/[id]/rotate` · `POST /api/patients/[id]/medications` · `POST /api/medications/[id]/doses` · `POST /api/patients/[id]/episodes` · `GET/POST /api/products` · `GET/POST /api/question-sets` · `PUT /api/question-sets/[id]/questions`                                                                                                                                                                                                     |
+| Telas (`app/(medica)/`, layout com nav + guard de sessão; shadcn/ui + Tailwind)                                                   | `/pacientes` (lista com resumo; "Novo paciente") · `/pacientes/novo` (dados + respondentes + consentimento **do responsável pelo cadastro** = `consent_version` do paciente) · `/pacientes/[id]` (cabeçalho + pausar/alta; respondentes com **link copiável** e rotate; medicações com **dose vigente** e "Ajustar dose" (dialog: dose, unidade, vezes/dia, horários, motivo, abrir titulação); episódio atual (trocar); grade 14 d × perguntas com "—" sem dado; alertas abertos) · `/perguntas` (conjuntos + editor: tipo, opções, obrigatória, condição, limiar, efeito adverso, score; slug automático)                        |
+| Regras de UI                                                                                                                      | nenhum número sem fonte (grade/dose vêm da API); sem dado → "—"; toast só após 2xx; erros da API exibidos; sem `catch {}`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| E2E                                                                                                                               | Playwright (`apps/web/e2e/`), servidor `next dev` no `DATABASE_URL_TEST`; sessão criada via `createSession` do core (sem backdoor de dev) e injetada como cookie                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+
+**RED planejado:** `core/test/patients.test.js`, `medications.test.js`, `questions.test.js` (serviços) · `web/test/medica-api.test.ts` (rotas + Origin) · `web/e2e/medica.spec.ts` (fluxo da prova).
+
+**RED:** `core/test/services.test.js` → "Failed to load url ../src/patients/index.js"; `web/test/medica-api.test.ts` → 7 falhando (rotas ausentes); E2E não rodava (sem páginas).
+
+**GREEN — provas (2026-08-16):**
+
+```
+$ npm test -w @medcheckin/core → ✓ services.test.js (13): createPatient (respondentes com invite_token, audit,
+  ≥1 can_answer), listPatients (escopo + episódio + alertas + dose vigente), getPatientDetail (invite_url,
+  histórico de dose, grade 14d, not_found cross-clinic), updatePatient (pausar/alta), add/updateRespondent,
+  patientGrid (última resposta do dia, null sem dado, score); products; adjustDose (validações, mesma data,
+  open_titration fecha o anterior); setEpisode; slugify/validateQuestion; saveQuestions (upsert por key,
+  ordem, condição só p/ anterior, desativa em vez de apagar); not_found  → 116 core
+$ npm test -w @medcheckin/web  → ✓ medica-api.test.ts (7): CSRF Origin (403/201/201 sem Origin), lista+POST
+  (400 validation), detalhe+audit+PATCH, respondentes+rotate, medications+doses+episodes, products,
+  question-sets+PUT  → 17 web (133 total)
+$ npm run check → verde
+$ npx playwright test (apps/web, next dev no DATABASE_URL_TEST, sessão via createSession do core):
+  ✓ fluxo completo (12 s): /pacientes → Novo paciente (dados + cuidadora + consentimento) → detalhe com
+    link de convite "/p/convite/…" e "convite pendente" → Convidar cuidador (dialog) → Adicionar medicação
+    ("Sem dose vigente") → Ajustar dose 3 gotas 2×/dia 08:00/20:00 → "Dose vigente: 3 gotas · 2×/dia
+    (08:00, 20:00)" → episódio "Titulação · check-in diário" → grade → lista mostra "3 gotas · 2×/dia"
+  ✓ perguntas: criar conjunto → adicionar pergunta → "chave: como_esta_a_ansiedade_hoje" → Salvo.
+  ✓ sem sessão → /login
+  3 passed (18 s) · screenshot test-results/paciente-e2e.png (enviado ao dono)
+```
 
 ### E5 — PWA do respondente `[ ]`
 
@@ -264,10 +302,11 @@ Critério de sucesso e de aborto definidos antes. **Prova:** relatório final; d
 
 ## Log de progresso
 
-| Data       | Etapa | Evento                                                                                                                                                                                    |
-| ---------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-08-16 | —     | Auditoria do v1 lida; `PLANO.md`, `ACHADOS.md`, `DECISOES.md` criados. Aguardando "ok" para E0.                                                                                           |
-| 2026-08-16 | E3    | Auth próprio (D14): link mágico, convite/consentimento, sessões opacas, tenancy 404, access_audit; Mailpit no compose; DB de teste separado. 113 testes. Aguardando "ok, avance" para E4. |
-| 2026-08-16 | E2    | Core portado: engine (entrada estruturada), planner/next-run com episódios, lembretes, alertas, scoring, analytics, logger, runCycle. 89 testes core. Aguardando "ok, avance" para E3.    |
-| 2026-08-16 | E1    | Schema (migration 001, 20 tabelas), `currentDose`, seed sintético. 21 testes core verdes contra PG. Aguardando "ok, avance" para E2.                                                      |
-| 2026-08-16 | E0    | Scaffold concluído. RED→GREEN, `npm run check` verde, PR #1 com CI verde. Repo: github.com/stivaldj/medcheckin-v2. Aguardando "ok, avance" para E1.                                       |
+| Data       | Etapa | Evento                                                                                                                                                                                                           |
+| ---------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-16 | —     | Auditoria do v1 lida; `PLANO.md`, `ACHADOS.md`, `DECISOES.md` criados. Aguardando "ok" para E0.                                                                                                                  |
+| 2026-08-16 | E4    | API + telas da médica (Pacientes, Paciente com dose vigente/ajuste/episódio/grade, Perguntas & planos), shadcn+Tailwind, CSRF Origin, Playwright E2E verde. 133 testes + 3 E2E. Aguardando "ok, avance" para E5. |
+| 2026-08-16 | E3    | Auth próprio (D14): link mágico, convite/consentimento, sessões opacas, tenancy 404, access_audit; Mailpit no compose; DB de teste separado. 113 testes. Aguardando "ok, avance" para E4.                        |
+| 2026-08-16 | E2    | Core portado: engine (entrada estruturada), planner/next-run com episódios, lembretes, alertas, scoring, analytics, logger, runCycle. 89 testes core. Aguardando "ok, avance" para E3.                           |
+| 2026-08-16 | E1    | Schema (migration 001, 20 tabelas), `currentDose`, seed sintético. 21 testes core verdes contra PG. Aguardando "ok, avance" para E2.                                                                             |
+| 2026-08-16 | E0    | Scaffold concluído. RED→GREEN, `npm run check` verde, PR #1 com CI verde. Repo: github.com/stivaldj/medcheckin-v2. Aguardando "ok, avance" para E1.                                                              |
