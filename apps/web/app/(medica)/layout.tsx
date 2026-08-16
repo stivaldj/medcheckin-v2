@@ -9,6 +9,7 @@ const NAV = [
   { href: '/hoje', label: 'Hoje' },
   { href: '/pacientes', label: 'Pacientes' },
   { href: '/perguntas', label: 'Perguntas & planos' },
+  { href: '/configuracoes', label: 'Configurações' },
 ];
 
 export default async function MedicaLayout({ children }: { children: ReactNode }) {

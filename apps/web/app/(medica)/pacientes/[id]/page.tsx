@@ -5,6 +5,7 @@ import { requireUserPage } from '@/lib/session';
 import { Badge } from '@/components/ui/badge';
 import { fmtDate, STATUS_LABEL } from '@/lib/format';
 import { PatientHeaderActions } from '@/components/medica/PatientHeaderActions';
+import { LgpdActions } from '@/components/medica/LgpdActions';
 import { RespondentsCard } from '@/components/medica/RespondentsCard';
 import { MedicationsCard } from '@/components/medica/MedicationsCard';
 import { EpisodeCard } from '@/components/medica/EpisodeCard';
@@ -70,7 +71,14 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
             ))}
           </div>
         </div>
-        <PatientHeaderActions patientId={p.id} status={p.status} />
+        <div className="flex flex-col items-end gap-2">
+          <PatientHeaderActions patientId={p.id} status={p.status} />
+          <LgpdActions
+            patientId={p.id}
+            patientName={p.name}
+            discharged={p.status === 'discharged'}
+          />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
