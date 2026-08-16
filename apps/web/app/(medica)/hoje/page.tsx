@@ -1,7 +1,7 @@
-import { currentUserSession } from '@/lib/session';
+import { requireUserPage } from '@/lib/session';
 
 export default async function HojePage() {
-  const s = await currentUserSession();
+  const s = await requireUserPage();
   return (
     <div className="space-y-2">
       <h1 className="text-2xl font-semibold">Hoje</h1>

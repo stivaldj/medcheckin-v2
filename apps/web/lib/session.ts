@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { getSession } from '@medcheckin/core';
 import { getDb } from './db';
 import { COOKIE, readCookie, type UserSession, type RespondentSession } from './auth';
@@ -21,4 +22,11 @@ export async function currentRespondentSession(): Promise<RespondentSession | nu
   if (!token) return null;
   const s = await getSession(getDb(), token, new Date());
   return s && s.kind === 'respondent' ? (s as RespondentSession) : null;
+}
+
+/** Páginas renderizam em paralelo ao layout: cada página protege a si mesma. */
+export async function requireUserPage(): Promise<UserSession> {
+  const s = await currentUserSession();
+  if (!s) redirect('/login');
+  return s;
 }

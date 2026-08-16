@@ -1,10 +1,10 @@
 import { listQuestionSets } from '@medcheckin/core';
 import { getDb } from '@/lib/db';
-import { currentUserSession } from '@/lib/session';
+import { requireUserPage } from '@/lib/session';
 import { QuestionSetsEditor } from '@/components/medica/QuestionSetsEditor';
 
 export default async function PerguntasPage() {
-  const session = (await currentUserSession())!;
+  const session = await requireUserPage();
   const sets = await listQuestionSets(getDb(), session.clinicId);
   return (
     <div className="space-y-4">

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { listPatients } from '@medcheckin/core';
 import { getDb } from '@/lib/db';
-import { currentUserSession } from '@/lib/session';
+import { requireUserPage } from '@/lib/session';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -15,7 +15,7 @@ import {
 import { fmt, fmtDateTime, EPISODE_LABEL, FREQ_LABEL, STATUS_LABEL } from '@/lib/format';
 
 export default async function PacientesPage() {
-  const session = (await currentUserSession())!;
+  const session = await requireUserPage();
   const rows = await listPatients(getDb(), { clinicId: session.clinicId }, new Date());
   return (
     <div className="space-y-4">

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getPatientDetail, listProducts, listQuestionSets, AuthError } from '@medcheckin/core';
 import { getDb } from '@/lib/db';
-import { currentUserSession } from '@/lib/session';
+import { requireUserPage } from '@/lib/session';
 import { Badge } from '@/components/ui/badge';
 import { fmtDate, STATUS_LABEL } from '@/lib/format';
 import { PatientHeaderActions } from '@/components/medica/PatientHeaderActions';
@@ -13,7 +13,7 @@ import { AlertsCard } from '@/components/medica/AlertsCard';
 
 export default async function PacientePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = (await currentUserSession())!;
+  const session = await requireUserPage();
   const db = getDb();
   let detail;
   try {

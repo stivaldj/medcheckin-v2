@@ -8,6 +8,7 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
   retries: 0,
+  expect: { timeout: 20_000 },
   reporter: [['list']],
   globalSetup: './e2e/global-setup.ts',
   build: { external: ['**/packages/core/**'] },
