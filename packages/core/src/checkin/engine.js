@@ -29,7 +29,8 @@ export async function enqueueAndSend(db, notifier, row) {
   const [n] = await db('notifications')
     .insert({ ...row, payload: JSON.stringify(row.payload ?? {}) })
     .onConflict('dedup_key')
-    .merge({ failed_at: null, error: null })
+    // reenvio após falha: mantém o último erro e conta a tentativa (observabilidade), limpa failed_at
+    .merge({ failed_at: null, attempts: db.raw('notifications.attempts + 1') })
     .where('notifications.sent_at', null)
     .returning('*');
   if (!n) return { status: 'duplicate' };

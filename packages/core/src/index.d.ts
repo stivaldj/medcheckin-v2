@@ -726,7 +726,13 @@ export function respondentHistory(
 ): Promise<{ days: HistoryDay[]; timezone: string }>;
 
 /* ---- E6: hoje, séries, system_state ------------------------------------ */
-export const STATE_KEYS: { lastCycle: string; lastAlerts: string; lastRetention: string };
+export const STATE_KEYS: {
+  lastCycle: string;
+  lastAlerts: string;
+  lastRetention: string;
+  cycleCount: string;
+  maxGapMin: string;
+};
 export function resetCycleState(): void;
 export function getSystemState(db: Knex): Promise<Record<string, unknown>>;
 export function setSystemState(db: Knex, key: string, value: unknown): Promise<void>;
@@ -926,3 +932,18 @@ export function startHealthServer(
   db: Knex,
   opts?: { port?: number; staleMinutes?: number },
 ): Promise<{ port: number; close(): Promise<void> }>;
+export const SHADOW_CRITERIA: ReadonlyArray<{
+  metric: string;
+  label: string;
+  op: '>=' | '<=' | '==';
+  threshold: number;
+  unit: string;
+}>;
+export function shadowReport(
+  db: Knex,
+  input: { clinicId: string; from: string; to: string; now?: Instant },
+): Promise<Record<string, unknown>>;
+export function renderShadowReportMarkdown(
+  report: Record<string, unknown>,
+  criteria?: typeof SHADOW_CRITERIA,
+): string;

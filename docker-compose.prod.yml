@@ -98,6 +98,7 @@ services:
       BACKUP_CRON: ${BACKUP_CRON:-15 3 * * *}
     volumes:
       - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
+      - ./scripts/restore-drill.sh:/usr/local/bin/restore-drill.sh:ro
       - backups:/backups
     entrypoint:
       - /bin/sh

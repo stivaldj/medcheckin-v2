@@ -2,11 +2,14 @@ import { NextResponse } from 'next/server';
 import { requestMagicLink } from '@medcheckin/core';
 import { getDb } from '@/lib/db';
 import { getMailer } from '@/lib/mailer';
+import { limitOr429 } from '@/lib/ratelimit';
 
 export const dynamic = 'force-dynamic';
 
 /** Sempre 202 (sem enumeração). E-mail só sai se o endereço for de um usuário da clínica. */
 export async function POST(req: Request) {
+  const limited = limitOr429(req, 'magic-link', 5, 15 * 60_000);
+  if (limited) return limited;
   let email = '';
   try {
     const body = (await req.json()) as { email?: string };
