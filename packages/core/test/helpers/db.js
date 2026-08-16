@@ -6,8 +6,9 @@ import { migrationConfig } from '../../src/migrate.js';
  * para garantir schema limpo. Nunca SQLite (D6).
  */
 export async function freshDb() {
-  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL obrigatória nos testes');
-  const db = createDb(process.env.DATABASE_URL);
+  const url = process.env.DATABASE_URL_TEST || process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL_TEST (ou DATABASE_URL) obrigatória nos testes');
+  const db = createDb(url);
   await db.migrate.rollback(migrationConfig, true);
   await db.migrate.latest(migrationConfig);
   return db;

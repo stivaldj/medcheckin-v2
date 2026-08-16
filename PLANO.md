@@ -175,10 +175,58 @@ intakes: 5 | todos pending: true                                                
 Engine (entrada estruturada `recordAnswer`), scheduler/next-run com episódios, alertas (regras + efeito adverso + `no_response` só com envio real), scoring (`null` sem dado), logger (redige `text`, `value`, `notes`).
 **Prova:** ≥ 40 testes core verdes contra PG; teste "check-in não avança sem envio"; teste "lembrete só confirmado pelo respondente".
 
-### E3 — Auth + tenancy + audit `[ ]`
+### E3 — Auth + tenancy + audit `[x]`
 
-Auth.js e-mail mágico (médica e respondente), middleware de tenancy, `access_audit`.
 **Prova:** teste 401/404 cross-clinic; linha em `access_audit` ao abrir paciente.
+
+**Spec (escrita antes do código):**
+
+| Peça                      | API / comportamento                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Migration 003             | `auth_tokens(id, kind[magic_link], email, user_id, token_hash unique, expires_at, used_at, created_at)`; `sessions(id, token_hash unique, user_id?, respondent_id?, clinic_id, expires_at, last_seen_at, revoked_at, ua, created_at)` com CHECK "exatamente um principal"; índices por `token_hash`, `expires_at`                                                                                                                                                        |
+| `core/auth/tokens.js`     | `newToken()` (32 bytes aleatórios, base64url) · `hashToken(t)` (sha256) — só o hash vai ao banco                                                                                                                                                                                                                                                                                                                                                                         |
+| `core/auth/magic-link.js` | `requestMagicLink(db, {email, baseUrl, mailer}, now)`: se existe `users.email` → cria token (validade 15 min), envia e-mail com `${baseUrl}/auth/verify?token=…`; se não existe → **mesma resposta** (sem enumeração), só `logger.warn`; throttle 3 pedidos/15 min por e-mail. `verifyMagicLink(db, {token, ua}, now)`: hash → token não usado e não expirado → marca `used_at`, cria sessão (30 d) → `{sessionToken, session}`; inválido → `AuthError('invalid_token')` |
+| `core/auth/invite.js`     | `acceptInvite(db, {inviteToken, consentVersion, ua}, now)` (D12): respondente por `invite_token` → se `accepted_at` nulo, grava `accepted_at`, `consent_version`, `consent_at` (consentimento obrigatório: sem `consentVersion` → erro); cria sessão do respondente (180 d). Reuso do link cria nova sessão (dispositivo novo). `rotateInviteToken(db, respondentId)` para invalidar link vazado                                                                         |
+| `core/auth/session.js`    | `getSession(db, sessionToken, now)` → `{kind:'user'                                                                                                                                                                                                                                                                                                                                                                                                                      | 'respondent', clinicId, userId?, role?, respondentId?, patientId?, name}`ou`null`(expirada/revogada);`last_seen_at`atualizado no máx. 1×/5 min.`revokeSession`, `revokeAllForPrincipal` |
+| `core/auth/access.js`     | `requirePatientInClinic(db, session, patientId)` → paciente ou `AuthError('not_found')` (**404, nunca 403** — sem enumeração cross-clinic); respondente só acessa `session.patientId`. `logAccess(db, {session, patientId, route, action})` → `access_audit`                                                                                                                                                                                                             |
+| `core/auth/mailer.js`     | interface `{ sendMail({to, subject, text}) }`; `createSmtpMailer(env)` (nodemailer; **fail-closed**: sem `SMTP_HOST`/`EMAIL_FROM` → lança); `fakeMailer()` nos testes                                                                                                                                                                                                                                                                                                    |
+| `apps/web/lib/auth.ts`    | `readSessionCookie(req)`, `setSessionCookie(res, token, {kind})` (`HttpOnly; SameSite=Lax; Path=/; Secure` em produção), `requireUser(req)` / `requireRespondent(req)` → 401 JSON                                                                                                                                                                                                                                                                                        |
+| Rotas                     | `POST /api/auth/magic-link {email}` → 202 sempre · `GET /auth/verify?token=` → seta cookie e redireciona `/hoje` (ou `/auth/invalido`) · `POST /api/auth/logout` · `POST /api/p/accept {token, consentVersion}` → cookie do respondente · `GET /api/patients/:id` (mínimo em E3: nome/status; **grava `access_audit`**)                                                                                                                                                  |
+| Compose/env               | serviço `mailpit` (SMTP 1025, UI 8025) no compose de dev; `.env.example` ganha `APP_BASE_URL`; `DATABASE_URL_TEST` (banco `medcheckin_test`) para os testes — ACHADOS E2                                                                                                                                                                                                                                                                                                 |
+
+**RED planejado:** `core/test/auth.test.js` (magic link: envia só p/ e-mail existente, mesma resposta p/ inexistente, token usado/expirado falha, sessão válida/expirada/revogada, throttle; invite: aceite grava consentimento, sem consentimento falha, reuso cria 2ª sessão, rotate invalida; access: paciente da clínica ok, de outra clínica → not_found, respondente só o próprio paciente, `logAccess` grava linha) · `web/test/auth-routes.test.ts` (`GET /api/patients/:id` sem cookie → 401; cookie da clínica A + paciente da clínica B → 404; próprio → 200 **e** linha em `access_audit`; `POST /api/auth/magic-link` → 202 e e-mail no fakeMailer; `GET /auth/verify` → `Set-Cookie` HttpOnly SameSite=Lax; `POST /api/p/accept` → cookie do respondente).
+
+**RED:** `core/test/auth.test.js` → "Failed to load url ../src/auth/tokens.js"; `web/test/auth-routes.test.ts` → 8 falhando (rotas ausentes / alias `@`).
+
+**GREEN — provas (2026-08-16):**
+
+```
+$ npm test -w @medcheckin/core → ✓ auth.test.js (14): tokens; link mágico só p/ e-mail existente,
+  resposta neutra, normalização, throttle 3/15min, verify cria sessão 30d, uso único, expirado;
+  convite exige consentimento, grava accepted/consent, reuso cria 2ª sessão sem sobrescrever,
+  rotate invalida, getSession null p/ expirada/revogada + last_seen; tenancy not_found (nunca
+  forbidden), respondente só o próprio paciente, unauthenticated, logAccess grava linha
+  Test Files 16 · Tests 103
+$ npm test -w @medcheckin/web  → ✓ auth-routes.test.ts (8): 401 sem cookie; 404 cross-clinic;
+  200 + linha em access_audit; cookie de respondente não serve p/ rota da médica; 202 sempre;
+  verify → 302 /hoje + Set-Cookie HttpOnly SameSite=Lax (inválido → /auth/invalido, sem cookie);
+  accept → mc_resp / 400 sem consentimento / 404 token inválido; logout limpa cookie e revoga
+  Tests 10   → total 113
+$ npm run check → verde
+
+$ next dev + Mailpit real (docker compose up -d mailpit):
+POST /api/auth/magic-link {medica@…}   → 202     | {x@nao.test} → 202 (neutro)
+Mailpit: total 1 → medica@medcheckin.test | "Seu acesso ao MedCheck-in" (token 43 chars)
+GET /auth/verify?token=…               → 302 /hoje · set-cookie: mc_user=…; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax
+GET /auth/verify (reuso do token)      → 302 /auth/invalido (uso único)
+GET /api/patients/P1  sem cookie       → 401 {"error":"unauthenticated"}
+GET /api/patients/P1  cookie médica    → 200 {"id","name":"Paciente Sintético Um","status":"active",…}
+GET /api/patients/PB  (Clínica B)      → 404 {"error":"not_found"}   (id inexistente → 404 idêntico)
+access_audit: /api/patients/[id] | view | medica@medcheckin.test | Paciente Sintético Um   (0 linhas p/ PB)
+GET /hoje com cookie → "Olá, Dra. Sintética" · sem cookie → 307 /login
+POST /api/p/accept {seed-c2, v1}       → 200 · set-cookie: mc_resp=…; Max-Age=15552000; HttpOnly; SameSite=Lax
+POST /api/auth/logout                  → set-cookie: mc_user=; Max-Age=0 · depois GET P1 → 401
+```
 
 ### E4 — API + telas da médica `[ ]`
 
@@ -216,9 +264,10 @@ Critério de sucesso e de aborto definidos antes. **Prova:** relatório final; d
 
 ## Log de progresso
 
-| Data       | Etapa | Evento                                                                                                                                                                                 |
-| ---------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-08-16 | —     | Auditoria do v1 lida; `PLANO.md`, `ACHADOS.md`, `DECISOES.md` criados. Aguardando "ok" para E0.                                                                                        |
-| 2026-08-16 | E2    | Core portado: engine (entrada estruturada), planner/next-run com episódios, lembretes, alertas, scoring, analytics, logger, runCycle. 89 testes core. Aguardando "ok, avance" para E3. |
-| 2026-08-16 | E1    | Schema (migration 001, 20 tabelas), `currentDose`, seed sintético. 21 testes core verdes contra PG. Aguardando "ok, avance" para E2.                                                   |
-| 2026-08-16 | E0    | Scaffold concluído. RED→GREEN, `npm run check` verde, PR #1 com CI verde. Repo: github.com/stivaldj/medcheckin-v2. Aguardando "ok, avance" para E1.                                    |
+| Data       | Etapa | Evento                                                                                                                                                                                    |
+| ---------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-16 | —     | Auditoria do v1 lida; `PLANO.md`, `ACHADOS.md`, `DECISOES.md` criados. Aguardando "ok" para E0.                                                                                           |
+| 2026-08-16 | E3    | Auth próprio (D14): link mágico, convite/consentimento, sessões opacas, tenancy 404, access_audit; Mailpit no compose; DB de teste separado. 113 testes. Aguardando "ok, avance" para E4. |
+| 2026-08-16 | E2    | Core portado: engine (entrada estruturada), planner/next-run com episódios, lembretes, alertas, scoring, analytics, logger, runCycle. 89 testes core. Aguardando "ok, avance" para E3.    |
+| 2026-08-16 | E1    | Schema (migration 001, 20 tabelas), `currentDose`, seed sintético. 21 testes core verdes contra PG. Aguardando "ok, avance" para E2.                                                      |
+| 2026-08-16 | E0    | Scaffold concluído. RED→GREEN, `npm run check` verde, PR #1 com CI verde. Repo: github.com/stivaldj/medcheckin-v2. Aguardando "ok, avance" para E1.                                       |

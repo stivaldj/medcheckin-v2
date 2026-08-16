@@ -14,12 +14,15 @@ Documentos de trabalho: [`PLANO.md`](PLANO.md) (etapas e provas) · [`DECISOES.m
 ## Subir em 5 comandos
 
 ```bash
-cp .env.example .env            # preencha POSTGRES_PASSWORD e DATABASE_URL
-docker compose up -d db         # Postgres 16
-npm ci
+cp .env.example .env            # preencha POSTGRES_PASSWORD, DATABASE_URL, DATABASE_URL_TEST, APP_BASE_URL, SMTP_*
+docker compose up -d db mailpit # Postgres 16 + Mailpit (SMTP 1025, UI http://localhost:8025)
+docker compose exec db createdb -U medcheckin medcheckin_test   # banco dos testes (uma vez)
+npm ci && npm run migrate && npm run seed
 npm run check                   # lint + prettier + tsc + testes (precisa do PG)
-npm run dev:web                 # http://localhost:3000 — /api/health responde {ok,db}
+npm run dev:web                 # http://localhost:3000 — /login pede link mágico (e-mail cai no Mailpit)
 ```
+
+Login de dev: `medica@medcheckin.test` (seed). Convite de respondente: `POST /api/p/accept {token:"seed-c2", consentVersion:"v1"}`.
 
 `npm run check` é obrigatório verde em todo PR (CI roda com service Postgres).
 

@@ -36,3 +36,9 @@ export {
 } from './scoring/computeDailyScore.js';
 export { compareBeforeAfterByDose } from './analytics/beforeAfter.js';
 export { mean, rollingWindow } from './analytics/rolling.js';
+export { newToken, hashToken, AuthError } from './auth/tokens.js';
+export { requestMagicLink, verifyMagicLink, normalizeEmail } from './auth/magic-link.js';
+export { acceptInvite, rotateInviteToken } from './auth/invite.js';
+export { createSession, getSession, revokeSession, revokeAllForPrincipal } from './auth/session.js';
+export { requirePatientInClinic, logAccess } from './auth/access.js';
+export { createSmtpMailer, fakeMailer } from './auth/mailer.js';
