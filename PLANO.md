@@ -25,7 +25,7 @@ Monorepo npm workspaces · `apps/web` Next.js App Router (UI médica + PWA `/p/*
 
 Legenda: `[ ]` não iniciada · `[~]` em andamento · `[x]` concluída com prova · `[!]` bloqueada
 
-### E0 — Scaffold `[ ]`
+### E0 — Scaffold `[x]`
 
 Monorepo, Next vazio, core vazio, Postgres compose, CI com PG, `npm run check`, README, `PLANO.md`, `ACHADOS.md`, `DECISOES.md`.
 
@@ -38,18 +38,51 @@ Monorepo, Next vazio, core vazio, Postgres compose, CI com PG, `npm run check`, 
 
 **Prova de saída:** `docker compose up -d db` sobe PG; `npm run check` verde local; CI verde no primeiro PR (branch `e0-scaffold`).
 
-- [ ] `package.json` raiz com workspaces `apps/*`, `packages/*`; scripts `check`, `lint`, `typecheck`, `test`, `migrate`, `seed`
-- [ ] `docker-compose.yml` com `db` (postgres:16) — senha via `POSTGRES_PASSWORD:?` (sem default)
-- [ ] `.env.example` (nomes, sem valores) · `.gitignore` (`.env`, `*.sqlite`, `node_modules`, `.next`)
-- [ ] `packages/core`: `src/config.js` (fail-closed), `src/db.js` (Knex PG), `test/` com os 2 testes acima, `vitest.config`
-- [ ] `apps/web`: Next App Router mínimo + `/api/health`
-- [ ] `apps/scheduler`: entrypoint que só loga "scheduler up" e sai (placeholder honesto, sem cron ainda)
-- [ ] ESLint + Prettier + `tsconfig` base
-- [ ] `.github/workflows/ci.yml` com service `postgres:16` → `npm ci && npm run check`
-- [ ] `README.md` (como subir em 5 comandos)
-- [ ] `git init`, branch `e0-scaffold`, PR, CI verde
+- [x] `package.json` raiz com workspaces `apps/*`, `packages/*`; scripts `check`, `lint`, `typecheck`, `test`, `migrate`, `seed`
+- [x] `docker-compose.yml` com `db` (postgres:16) — senha via `POSTGRES_PASSWORD:?` (sem default)
+- [x] `.env.example` (nomes, sem valores) · `.gitignore` (`.env`, `*.sqlite`, `node_modules`, `.next`)
+- [x] `packages/core`: `src/config.js` (fail-closed), `src/db.js` (Knex PG), `test/` com os 2 testes acima, `vitest.config`
+- [x] `apps/web`: Next App Router mínimo + `/api/health`
+- [x] `apps/scheduler`: entrypoint que só loga "scheduler up" e sai (placeholder honesto, sem cron ainda)
+- [x] ESLint + Prettier + `tsconfig` base
+- [x] `.github/workflows/ci.yml` com service `postgres:16` → `npm ci && npm run check`
+- [x] `README.md` (como subir em 5 comandos)
+- [x] `git init`, branch `e0-scaffold`, PR, CI verde
 
-Provas: _(colar aqui)_
+Provas (2026-08-16):
+
+```
+$ npm run check   # ANTES (RED)
+npm error Missing script: "check"
+$ npx vitest run packages/core/test   # ANTES (RED)
+Test Files  2 failed (2) · Tests  4 failed (4)  — "Failed to load url ../src/config.js"
+
+$ docker compose up -d db && docker compose ps
+cbd-checkin-db-1   Up 5 seconds (healthy)
+
+$ npm run check   # DEPOIS (GREEN)
+eslint .                         → 0 erros
+prettier --check .               → All matched files use Prettier code style!
+tsc --noEmit (apps/web)          → 0 erros
+vitest (apps/web)                → ✓ test/health.test.ts (2 tests)
+vitest (packages/core)           → ✓ env.test.js (2) · ✓ db.smoke.test.js (2)
+Total: 6 testes verdes contra Postgres real
+
+$ curl -s -w ' HTTP %{http_code}' localhost:3100/api/health
+{"ok":true,"db":"up"} HTTP 200
+$ docker compose stop db && curl ... /api/health
+{"ok":false,"db":"down"} HTTP 503          # sem sucesso falso
+$ docker compose start db && curl ... /api/health
+{"ok":true,"db":"up"} HTTP 200
+
+$ node apps/scheduler/src/index.js         # sem DATABASE_URL
+Error: DATABASE_URL ausente: o processo não sobe sem banco configurado.
+
+$ next build → ✓ Compiled successfully · ƒ /api/health
+
+PR #1: https://github.com/stivaldj/medcheckin-v2/pull/1
+CI:    https://github.com/stivaldj/medcheckin-v2/actions/runs/31963809494 → success
+```
 
 ### E1 — Schema + migration 001 + seed sintético `[ ]`
 
@@ -102,6 +135,7 @@ Critério de sucesso e de aborto definidos antes. **Prova:** relatório final; d
 
 ## Log de progresso
 
-| Data       | Etapa | Evento                                                                                          |
-| ---------- | ----- | ----------------------------------------------------------------------------------------------- |
-| 2026-08-16 | —     | Auditoria do v1 lida; `PLANO.md`, `ACHADOS.md`, `DECISOES.md` criados. Aguardando "ok" para E0. |
+| Data       | Etapa | Evento                                                                                                                                              |
+| ---------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-16 | —     | Auditoria do v1 lida; `PLANO.md`, `ACHADOS.md`, `DECISOES.md` criados. Aguardando "ok" para E0.                                                     |
+| 2026-08-16 | E0    | Scaffold concluído. RED→GREEN, `npm run check` verde, PR #1 com CI verde. Repo: github.com/stivaldj/medcheckin-v2. Aguardando "ok, avance" para E1. |
