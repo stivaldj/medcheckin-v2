@@ -404,10 +404,53 @@ $ npx playwright test → 9 passed
    → Anonimizar (botão só habilita com o nome exato) → "Paciente anonimizado" → scores e doses idênticos, e-mail null
 ```
 
-### E8 — Deploy `[ ]`
+### E8 — Deploy `[x]` (local; remoto depende do dono — ver `docs/DEPLOY.md`)
 
-Dockerfile, compose prod (segredos `:?`), Caddy, backup diário + restore drill, uptime.
 **Prova:** `curl https://…/health` 200; restore drill com hash; alerta de uptime recebido.
+
+**Spec (antes do código):**
+
+| Peça                                       | Conteúdo                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/web/Dockerfile`                      | multi-stage (deps → build `next build` standalone → runner `node:22-alpine`, usuário não-root, `HEALTHCHECK` em `/api/health`)                                                                                                                                                                                                                                                       |
+| `apps/scheduler/Dockerfile`                | `node:22-alpine`, só `@medcheckin/core` + `@medcheckin/scheduler`; expõe **`/health`** (porta `SCHEDULER_PORT`, 200 se último ciclo < 5 min, 503 caso contrário) — fecha ACHADOS E5/E6                                                                                                                                                                                               |
+| `/api/health` (web)                        | `{ok, db, scheduler:{last_cycle_at, stale}}`; **503 se banco fora OU (em produção, `HEALTH_REQUIRE_SCHEDULER=1`) scheduler parado** — o monitor externo enxerga scheduler morto                                                                                                                                                                                                      |
+| `docker-compose.prod.yml`                  | serviços `db` (sem porta publicada), `migrate` (one-shot, `npm run migrate`), `web` (depende de migrate ok), `scheduler`, `caddy` (TLS automático por `DOMAIN`; `tls internal` para `localhost`), `backup` (cron diário `scripts/backup.sh`) · **todo segredo com `:?`** (`POSTGRES_PASSWORD`, `VAPID_*`, `SMTP_*`, `BACKUP_PASSPHRASE`) · volumes `pgdata`, `caddy_data`, `backups` |
+| `Caddyfile`                                | `{$DOMAIN}` → `reverse_proxy web:3000`; headers de segurança (HSTS, nosniff, referrer, permissions); rate limit não nativo → **ACHADOS** (E9: plugin ou middleware)                                                                                                                                                                                                                  |
+| `scripts/backup.sh`                        | `pg_dump -Fc` → `openssl enc -aes-256-cbc -pbkdf2` com `BACKUP_PASSPHRASE` → `backups/medcheckin-<data>.dump.enc` + `.sha256`; retém 14 dias; off-site: apontar `BACKUP_RCLONE_REMOTE` (opcional, E9)                                                                                                                                                                                |
+| `scripts/restore-drill.sh`                 | decifra o último backup → restaura em banco `medcheckin_drill` → compara **hash** (`count + md5(string_agg(id))` de todas as tabelas) entre origem e restaurado → imprime `RESTORE DRILL OK <hash>` ou falha; apaga o banco drill                                                                                                                                                    |
+| `scripts/uptime-check.mjs`                 | `GET $HEALTH_URL`; se ≠ 200 (ou timeout) envia e-mail (SMTP do core) para `ALERT_EMAIL`; pensado para cron externo (VPS ou GitHub Actions `schedule`) até haver monitor externo (UptimeRobot etc.)                                                                                                                                                                                   |
+| Docs                                       | `docs/DEPLOY.md` (VPS: Docker, `.env` de produção, DNS, `docker compose -f docker-compose.prod.yml up -d`, primeiro login, verificação), RUNBOOK ganha backup/restore/deploy; CI faz `docker build` das duas imagens                                                                                                                                                                 |
+| **Depende do dono (não bloqueia o resto)** | provedor VPS + domínio (DNS A → IP), e-mail SMTP de produção (D13), destino off-site do backup, monitor externo (UptimeRobot/Better Stack) — registrados em `docs/DEPLOY.md` como checklist                                                                                                                                                                                          |
+
+**Prova local (equivalente ao remoto):** `docker compose -f docker-compose.prod.yml up` com `DOMAIN=localhost` → `curl -k https://localhost/api/health` 200 (e 503 com scheduler parado); `backup.sh` + `restore-drill.sh` → hash igual; `uptime-check.mjs` com web derrubado → e-mail de alerta chega no Mailpit.
+
+**RED:** `web/test/health.test.ts` (bloco scheduler + 503 com `HEALTH_REQUIRE_SCHEDULER=1`) e `core/test/scheduler-health.test.js` → falhando (`health.js` ausente; health sem bloco).
+
+**GREEN — provas (2026-08-16, compose de produção LOCAL, project isolado `medcheckin-prod`):**
+
+```
+$ docker compose -p medcheckin-prod -f docker-compose.prod.yml --env-file .env.prod up -d --build
+ migrate: batch 1 aplicado → 001…004 · db/web/scheduler healthy · caddy · backup (crond)
+$ curl -k https://localhost/api/health
+ {"ok":true,"db":"up","scheduler":{"last_cycle_at":"…","stale":false},"version":"e8-local"}  HTTP 200
+ headers: strict-transport-security · x-content-type-options nosniff · x-frame-options DENY · referrer-policy
+ http://localhost/api/health → 308 https://localhost/api/health
+$ (dentro da rede) curl http://scheduler:3001/health → {"ok":true,"age_minutes":0.1,…} 200
+$ carimbo antigo + scheduler parado → GET /api/health → {"ok":false,"scheduler":{"stale":true}} HTTP 503
+$ scheduler religado → 200 (web e scheduler)
+$ backup.sh → {"msg":"backup.ok","file":"medcheckin-20260816T214618Z.dump.enc","bytes":71616,"sha256":"9c8de0…"}
+$ restore-drill.sh → RESTORE DRILL OK bb09d4d3962b15cc391b9e6255c04d87 (25 tabelas restauradas)
+$ arquivo adulterado → RESTORE DRILL FAIL: sha256 do arquivo não confere (exit 3)
+$ banco alterado após o backup → RESTORE DRILL FAIL: hash origem a301b9… ≠ restaurado bb09d4… (exit 4)
+$ uptime-check.mjs (web no ar) → {"msg":"uptime.ok","status":200}
+$ web derrubado → {"msg":"uptime.down","status":502} → mail.sent → {"msg":"uptime.alert_sent"} · Mailpit 0 → 1:
+   oncall@medcheckin.test | "[MedCheck-in] ALERTA: https://localhost/api/health respondeu 502"
+$ seed em NODE_ENV=production → "seed: recusado em produção (D7)"  ← fail-closed confirmado no container
+$ npm run check → verde (166 testes) · CI agora faz docker build das duas imagens
+```
+
+**Pendente do dono para o deploy remoto** (checklist em `docs/DEPLOY.md`): VPS + domínio/DNS, SMTP de produção, off-site do backup, monitor externo de uptime, e-mail de alertas.
 
 ### E9 — Shadow run (1 semana, equipe) `[ ]`
 
@@ -421,14 +464,15 @@ Critério de sucesso e de aborto definidos antes. **Prova:** relatório final; d
 
 ## Log de progresso
 
-| Data       | Etapa | Evento                                                                                                                                                                                                                                                       |
-| ---------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2026-08-16 | —     | Auditoria do v1 lida; `PLANO.md`, `ACHADOS.md`, `DECISOES.md` criados. Aguardando "ok" para E0.                                                                                                                                                              |
-| 2026-08-16 | E7    | Relatório 30 d imprimível, export.zip LGPD, anonimização (mantém séries), retenção 1×/dia, /configuracoes, docs/LGPD.md e RUNBOOK.md. 164 testes + 9 E2E. Aguardando "ok, avance" para E8.                                                                   |
-| 2026-08-16 | E6    | Loop fechado: system_state (carimbos duráveis), Hoje da médica (4 blocos + heartbeat), alertas → conduta (UI), gráfico sintoma × dose com marcadores + antes/depois; E2E clock falso 48 h. 155 testes + 8 E2E. Aguardando "ok, avance" para E7.              |
-| 2026-08-16 | E5    | PWA do respondente: convite/consentimento, Hoje (alarmes tomei/não tomei/efeito, check-in formulário), histórico, SW + manifest + Web Push (VAPID) com prova contra push service local; scheduler real. 147 testes + 5 E2E. Aguardando "ok, avance" para E6. |
-| 2026-08-16 | E4    | API + telas da médica (Pacientes, Paciente com dose vigente/ajuste/episódio/grade, Perguntas & planos), shadcn+Tailwind, CSRF Origin, Playwright E2E verde. 133 testes + 3 E2E. Aguardando "ok, avance" para E5.                                             |
-| 2026-08-16 | E3    | Auth próprio (D14): link mágico, convite/consentimento, sessões opacas, tenancy 404, access_audit; Mailpit no compose; DB de teste separado. 113 testes. Aguardando "ok, avance" para E4.                                                                    |
-| 2026-08-16 | E2    | Core portado: engine (entrada estruturada), planner/next-run com episódios, lembretes, alertas, scoring, analytics, logger, runCycle. 89 testes core. Aguardando "ok, avance" para E3.                                                                       |
-| 2026-08-16 | E1    | Schema (migration 001, 20 tabelas), `currentDose`, seed sintético. 21 testes core verdes contra PG. Aguardando "ok, avance" para E2.                                                                                                                         |
-| 2026-08-16 | E0    | Scaffold concluído. RED→GREEN, `npm run check` verde, PR #1 com CI verde. Repo: github.com/stivaldj/medcheckin-v2. Aguardando "ok, avance" para E1.                                                                                                          |
+| Data       | Etapa | Evento                                                                                                                                                                                                                                                                    |
+| ---------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-16 | —     | Auditoria do v1 lida; `PLANO.md`, `ACHADOS.md`, `DECISOES.md` criados. Aguardando "ok" para E0.                                                                                                                                                                           |
+| 2026-08-16 | E8    | Deploy provado localmente: Dockerfiles, compose prod (segredos :?), Caddy TLS, /health web+scheduler (503 se scheduler parado), backup cifrado + restore drill com hash, uptime-check com alerta por e-mail, docs/DEPLOY.md. 166 testes. Remoto aguarda decisões do dono. |
+| 2026-08-16 | E7    | Relatório 30 d imprimível, export.zip LGPD, anonimização (mantém séries), retenção 1×/dia, /configuracoes, docs/LGPD.md e RUNBOOK.md. 164 testes + 9 E2E. Aguardando "ok, avance" para E8.                                                                                |
+| 2026-08-16 | E6    | Loop fechado: system_state (carimbos duráveis), Hoje da médica (4 blocos + heartbeat), alertas → conduta (UI), gráfico sintoma × dose com marcadores + antes/depois; E2E clock falso 48 h. 155 testes + 8 E2E. Aguardando "ok, avance" para E7.                           |
+| 2026-08-16 | E5    | PWA do respondente: convite/consentimento, Hoje (alarmes tomei/não tomei/efeito, check-in formulário), histórico, SW + manifest + Web Push (VAPID) com prova contra push service local; scheduler real. 147 testes + 5 E2E. Aguardando "ok, avance" para E6.              |
+| 2026-08-16 | E4    | API + telas da médica (Pacientes, Paciente com dose vigente/ajuste/episódio/grade, Perguntas & planos), shadcn+Tailwind, CSRF Origin, Playwright E2E verde. 133 testes + 3 E2E. Aguardando "ok, avance" para E5.                                                          |
+| 2026-08-16 | E3    | Auth próprio (D14): link mágico, convite/consentimento, sessões opacas, tenancy 404, access_audit; Mailpit no compose; DB de teste separado. 113 testes. Aguardando "ok, avance" para E4.                                                                                 |
+| 2026-08-16 | E2    | Core portado: engine (entrada estruturada), planner/next-run com episódios, lembretes, alertas, scoring, analytics, logger, runCycle. 89 testes core. Aguardando "ok, avance" para E3.                                                                                    |
+| 2026-08-16 | E1    | Schema (migration 001, 20 tabelas), `currentDose`, seed sintético. 21 testes core verdes contra PG. Aguardando "ok, avance" para E2.                                                                                                                                      |
+| 2026-08-16 | E0    | Scaffold concluído. RED→GREEN, `npm run check` verde, PR #1 com CI verde. Repo: github.com/stivaldj/medcheckin-v2. Aguardando "ok, avance" para E1.                                                                                                                       |

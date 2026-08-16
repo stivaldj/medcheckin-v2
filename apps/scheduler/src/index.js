@@ -1,4 +1,11 @@
-import { loadConfig, createDb, createWebPushNotifier, runCycle, logger } from '@medcheckin/core';
+import {
+  loadConfig,
+  createDb,
+  createWebPushNotifier,
+  runCycle,
+  logger,
+  startHealthServer,
+} from '@medcheckin/core';
 
 /**
  * Scheduler: um ciclo (planner → expire → dispatch → intakes → alarmes → alertas 1×/h) a cada
@@ -44,11 +51,23 @@ async function shutdown(signal) {
   clearInterval(timer);
   const wait = () => new Promise((r) => setTimeout(r, 200));
   while (running) await wait();
+  if (health) await health.close();
   await db.destroy();
   process.exit(0);
 }
 
-logger.info('scheduler.up', { intervalMs, once, notifier: notifier.kind });
+let health = null;
+if (!once)
+  health = await startHealthServer(db, {
+    port: Number(process.env.SCHEDULER_PORT || 3001),
+    staleMinutes: 5,
+  });
+logger.info('scheduler.up', {
+  intervalMs,
+  once,
+  notifier: notifier.kind,
+  healthPort: health?.port ?? null,
+});
 const first = await tick();
 if (once) {
   console.log(JSON.stringify({ once: true, summary: first }));

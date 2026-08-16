@@ -46,9 +46,16 @@ npm run dev:web   # + npm run dev:scheduler em outro terminal
 | E-mail de login não chega                     | SMTP mal configurado (`mail.sent` no log?)                                                          | testar SMTP; em dev abrir Mailpit :8025                                                                  |
 | `403 forbidden_origin`                        | `APP_BASE_URL` diferente do domínio real                                                            | corrigir `APP_BASE_URL`                                                                                  |
 
-## Backup / restore
+## Backup / restore (produção)
 
-Definido em **E8** (compose prod, `pg_dump` diário cifrado, restore drill com hash). Até lá: `docker compose exec db pg_dump -U medcheckin medcheckin > backup.sql`.
+- **Backup**: serviço `backup` do `docker-compose.prod.yml` roda `scripts/backup.sh` (cron `BACKUP_CRON`, default 03:15 UTC): `pg_dump -Fc` cifrado com `BACKUP_PASSPHRASE` (aes-256-cbc/pbkdf2) + `.sha256`, retenção `BACKUP_KEEP_DAYS` (14). Volume `backups`. Off-site opcional via `BACKUP_RCLONE_REMOTE`.
+- **Restore drill (mensal, obrigatório)**: `docker compose -p medcheckin -f docker-compose.prod.yml --env-file .env.prod exec backup sh -c 'apk add --no-cache openssl >/dev/null; /usr/local/bin/restore-drill.sh'` → `RESTORE DRILL OK <hash>`. Falha se o sha256 do arquivo não confere, se a restauração falha ou se o conteúdo restaurado difere do banco atual (hash por tabela).
+- **Restore de verdade** (incidente): parar `web` e `scheduler`; `openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in <arquivo> -out /tmp/r.dump -pass env:BACKUP_PASSPHRASE`; `pg_restore --clean --if-exists --no-owner -d medcheckin /tmp/r.dump`; subir de novo; verificar `/api/health` e `/hoje`.
+- Guarde `BACKUP_PASSPHRASE` fora da VPS (gerenciador de senhas da clínica).
+
+## Deploy / atualização
+
+Ver `docs/DEPLOY.md`. Health para monitor externo: `GET /api/health` (503 se banco fora **ou** scheduler parado > 10 min); scheduler interno: `:3001/health`.
 
 ## Incidente de segurança
 

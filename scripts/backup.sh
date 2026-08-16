@@ -1,0 +1,24 @@
+#!/bin/sh
+# Backup diário: pg_dump -Fc → cifrado (aes-256-cbc, pbkdf2) com BACKUP_PASSPHRASE → /backups.
+# Uso: variáveis PG* (libpq) + BACKUP_PASSPHRASE [+ BACKUP_DIR (default /backups), BACKUP_KEEP_DAYS (14)].
+set -eu
+: "${BACKUP_PASSPHRASE:?BACKUP_PASSPHRASE obrigatório}"
+DIR="${BACKUP_DIR:-/backups}"
+KEEP="${BACKUP_KEEP_DAYS:-14}"
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+mkdir -p "$DIR"
+TMP="$DIR/.tmp-$STAMP.dump"
+OUT="$DIR/medcheckin-$STAMP.dump.enc"
+pg_dump -Fc --no-owner --no-acl -f "$TMP"
+openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in "$TMP" -out "$OUT" -pass env:BACKUP_PASSPHRASE
+rm -f "$TMP"
+sha256sum "$OUT" | awk '{print $1}' > "$OUT.sha256"
+SIZE=$(wc -c < "$OUT")
+echo "{\"ts\":\"$(date -u +%FT%TZ)\",\"msg\":\"backup.ok\",\"file\":\"$(basename "$OUT")\",\"bytes\":$SIZE,\"sha256\":\"$(cat "$OUT.sha256")\"}"
+# retenção
+find "$DIR" -name 'medcheckin-*.dump.enc' -mtime +"$KEEP" -print -delete | sed 's/^/{"msg":"backup.pruned","file":"/;s/$/"}/'
+find "$DIR" -name 'medcheckin-*.dump.enc.sha256' -mtime +"$KEEP" -delete
+# off-site opcional
+if [ -n "${BACKUP_RCLONE_REMOTE:-}" ] && command -v rclone >/dev/null 2>&1; then
+  rclone copy "$OUT" "$BACKUP_RCLONE_REMOTE" && rclone copy "$OUT.sha256" "$BACKUP_RCLONE_REMOTE"
+fi

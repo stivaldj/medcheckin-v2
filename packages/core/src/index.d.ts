@@ -922,3 +922,7 @@ export function applyRetention(
   access_audit: number;
   at: string;
 }>;
+export function startHealthServer(
+  db: Knex,
+  opts?: { port?: number; staleMinutes?: number },
+): Promise<{ port: number; close(): Promise<void> }>;

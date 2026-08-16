@@ -1,0 +1,116 @@
+# Produção (1 VPS). Todo segredo é obrigatório (:?) — sem ele o compose não sobe.
+# Uso: docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-medcheckin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatório}
+      POSTGRES_DB: ${POSTGRES_DB:-medcheckin}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-medcheckin} -d ${POSTGRES_DB:-medcheckin}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # sem `ports`: só a rede interna do compose
+
+  migrate:
+    image: ${SCHEDULER_IMAGE:-medcheckin-scheduler:local}
+    build: { context: ., dockerfile: apps/scheduler/Dockerfile }
+    command: ['node', 'packages/core/scripts/migrate.js']
+    environment:
+      DATABASE_URL: 'postgres://${POSTGRES_USER:-medcheckin}:${POSTGRES_PASSWORD:?}@db:5432/${POSTGRES_DB:-medcheckin}'
+    depends_on:
+      db: { condition: service_healthy }
+    restart: 'no'
+
+  web:
+    image: ${WEB_IMAGE:-medcheckin-web:local}
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: 'postgres://${POSTGRES_USER:-medcheckin}:${POSTGRES_PASSWORD:?}@db:5432/${POSTGRES_DB:-medcheckin}'
+      APP_BASE_URL: '${APP_BASE_URL:?APP_BASE_URL obrigatório - https://dominio}'
+      SMTP_HOST: ${SMTP_HOST:?SMTP_HOST obrigatório}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_SECURE: ${SMTP_SECURE:-0}
+      EMAIL_FROM: ${EMAIL_FROM:?EMAIL_FROM obrigatório}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:?VAPID_PUBLIC_KEY obrigatório}
+      HEALTH_REQUIRE_SCHEDULER: ${HEALTH_REQUIRE_SCHEDULER:-1}
+      APP_VERSION: ${APP_VERSION:-unknown}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    expose: ['3000']
+
+  scheduler:
+    image: ${SCHEDULER_IMAGE:-medcheckin-scheduler:local}
+    build: { context: ., dockerfile: apps/scheduler/Dockerfile }
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: 'postgres://${POSTGRES_USER:-medcheckin}:${POSTGRES_PASSWORD:?}@db:5432/${POSTGRES_DB:-medcheckin}'
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:?}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:?VAPID_PRIVATE_KEY obrigatório}
+      VAPID_SUBJECT: '${VAPID_SUBJECT:?VAPID_SUBJECT obrigatório - mailto}'
+      SCHEDULER_INTERVAL_MS: ${SCHEDULER_INTERVAL_MS:-60000}
+      SCHEDULER_PORT: '3001'
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    expose: ['3001']
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      DOMAIN: '${DOMAIN:?DOMAIN obrigatório - ex. app.clinica.com.br ou localhost}'
+      CADDY_TLS_DIRECTIVE: ${CADDY_TLS_DIRECTIVE:-}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web]
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-medcheckin}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?}
+      PGDATABASE: ${POSTGRES_DB:-medcheckin}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:?BACKUP_PASSPHRASE obrigatório}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_CRON: ${BACKUP_CRON:-15 3 * * *}
+    volumes:
+      - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
+      - backups:/backups
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        apk add --no-cache openssl >/dev/null
+        echo "$$BACKUP_CRON /usr/local/bin/backup.sh >> /proc/1/fd/1 2>&1" > /etc/crontabs/root
+        exec crond -f -l 8
+    depends_on:
+      db: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+  backups:
