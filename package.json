@@ -17,8 +17,8 @@
     "format:check": "prettier --check .",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "migrate": "npm run migrate -w @medcheckin/core",
-    "seed": "npm run seed -w @medcheckin/core",
+    "migrate": "node packages/core/scripts/migrate.js",
+    "seed": "node packages/core/scripts/seed.js",
     "dev:web": "npm run dev -w @medcheckin/web",
     "dev:scheduler": "npm run dev -w @medcheckin/scheduler"
   },
