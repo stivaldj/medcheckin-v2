@@ -73,6 +73,16 @@ export function errorResponse(err: unknown): NextResponse {
     return NextResponse.json({ error: 'consent_required', message }, { status: 400 });
   if (code === 'forbidden_origin')
     return NextResponse.json({ error: 'forbidden_origin' }, { status: 403 });
+  if (
+    code === 'invalid_value' ||
+    code === 'required' ||
+    code === 'condition' ||
+    code === 'unknown_question' ||
+    code === 'closed' ||
+    code === 'forbidden'
+  ) {
+    return NextResponse.json({ error: code, message }, { status: 400 });
+  }
   if (code === 'validation') {
     const field = (err as { field?: string | null }).field ?? null;
     return NextResponse.json({ error: 'validation', message, field }, { status: 400 });

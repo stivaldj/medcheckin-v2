@@ -271,10 +271,56 @@ $ npx playwright test (apps/web, next dev no DATABASE_URL_TEST, sessão via crea
   3 passed (18 s) · screenshot test-results/paciente-e2e.png (enviado ao dono)
 ```
 
-### E5 — PWA do respondente `[ ]`
+### E5 — PWA do respondente `[x]`
 
-Aceite/consentimento, Hoje (alarmes + check-in), push VAPID + fila `notifications`, service worker.
 **Prova:** Playwright: cuidador aceita → recebe check-in → responde → `answers` gravadas → próxima pergunta/encerramento; push entregue em navegador de teste (log).
+
+**Spec (antes do código):**
+
+| Camada                                             | Conteúdo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core/push/`                                       | `createWebPushNotifier({vapidPublicKey, vapidPrivateKey, subject}, db)` (lib `web-push`; **fail-closed** sem chaves): `send(notification)` → envia a todas as `push_subscriptions` ativas do `respondent_id` com payload `{title, body, url, kind, ...}`; ≥1 aceita → `{ok:true}`; nenhuma inscrição → `{ok:false, error:'no_subscription'}`; 404/410 do push service → `revoked_at` na inscrição; `savePushSubscription(db, session, {endpoint, keys, ua})` (upsert por endpoint, reativa), `removePushSubscription`                                                                                                                                                                                                                                                             |
+| `core/respondent/`                                 | `respondentToday(db, session, now)` → `{respondent, patient, checkin: {id, status, total, answered, next, completed} \| null, alarms: [{intake_id, scheduled_at, status, product_name, dose_amount, dose_unit, taken_at, side_effect_flag}], push: {subscriptions}}` — check-in de hoje (fuso do paciente) ou o mais recente aberto (<24 h), só se `can_answer`; alarmes só se `receives_alarms`; `respondentHistory(db, session, {days:30})` → por dia: respostas (key→valor) + intakes; `answerFromRespondent(db, session, {checkinId, questionKey, value})` (valida que o check-in é do paciente da sessão → `recordAnswer`); `confirmFromRespondent(db, session, {intakeId, status, sideEffect, note})` → `confirmIntake`. Todas auditam (`access_audit` com `respondent_id`) |
+| API (`respondentRoute`: cookie `mc_resp` + Origin) | `GET /api/p/today` · `POST /api/p/checkins/[id]/answers {questionKey, value}` → `{next, completed}` · `POST /api/p/intakes/[id]/confirm {status, sideEffect, note}` · `GET /api/p/history` · `GET /api/p/vapid` (chave pública) · `POST/DELETE /api/p/push`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| PWA (`app/p/`)                                     | `manifest.webmanifest` (start_url `/p/hoje`, standalone, ícones 192/512 gerados por script) · `public/sw.js` (push → `showNotification`; click → foca `/p/hoje`) · `/p/convite/[token]` (nome do paciente/clínica, termo de consentimento `v1`, aceite → `POST /api/p/accept` → `/p/hoje`) · `/p/hoje` (alarmes de dose com **Tomei / Não tomei / Tive efeito**; check-in do dia como formulário pergunta a pergunta com progresso; botão "Ativar notificações" que registra o SW e assina push) · `/p/historico` (últimos 30 dias) · sem cookie → mensagem "abra o link de convite"                                                                                                                                                                                              |
+| `apps/scheduler`                                   | `runCycle` a cada `SCHEDULER_INTERVAL_MS` (60 s) com o notifier de Web Push; `--once` para rodar um ciclo e sair; SIGTERM limpo; fail-closed sem `VAPID_*`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Prova de push                                      | (a) teste do notifier contra um **push service local** (servidor HTTP no teste): payload cifrado chega, `sent_at` marcado, 410 → `revoked_at` e falha; (b) E2E: SW registrado (`navigator.serviceWorker.ready`) e fluxo do respondente. Chromium headless não tem push service (FCM) → a entrega real de push é provada em (a) e manualmente no Chrome do dono em E9                                                                                                                                                                                                                                                                                                                                                                                                              |
+
+**RED planejado:** `core/test/respondent.test.js`, `core/test/push.test.js` · `web/test/pwa-api.test.ts` · `web/e2e/respondente.spec.ts`.
+
+**RED:** `respondent.test.js`/`push.test.js` → "Failed to load url ../src/push/index.js / respondent/index.js"; `pwa-api.test.ts` → rotas ausentes; E2E sem páginas.
+
+**GREEN — provas (2026-08-16):**
+
+```
+$ npm test -w @medcheckin/core
+ ✓ push.test.js (4) — PROVA E5-a: fail-closed sem VAPID; sem inscrição → failed "no_subscription";
+   savePushSubscription (upsert) + envio REAL: push service local recebe POST com
+   content-encoding aes128gcm + authorization "vapid …" + corpo cifrado → sent_at marcado;
+   410 → inscrição revoked_at, envio failed; removePushSubscription
+ ✓ respondent.test.js (5) — today (check-in c/ progresso e próxima; alarmes com dose; can_answer /
+   receives_alarms respeitados; audit); answer (ordem, condicional, encerra; not_found cross-paciente;
+   invalid_value); confirm (tomei / não tomei+efeito; not_found; status inválido); history
+ ✓ migrations.test.js (1) — latest → seed → rollback total (com respostas puladas) → latest
+ Test Files 20 · Tests 126
+$ npm test -w @medcheckin/web → ✓ pwa-api.test.ts (4): today 401/200; answers (403 Origin, 400 inválido,
+   200 → next + progress + answers.respondent_id); confirm; vapid/push POST+DELETE/history  → 21 web (147)
+$ npm run check → verde
+$ node apps/scheduler/src/index.js --once  (Web Push real, sem inscrições)
+ {"once":true,"summary":{"checkins":{"created":1},"dispatch":{"due":1,"sent":0,"failed":1},"intakes":{"created":5},
+  "alarms":{"due":3,"sent":0,"failed":3}, …}}  ← honesto: sem inscrição = failed
+$ (sem VAPID) → "VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY e VAPID_SUBJECT são obrigatórios" (não sobe)
+$ npx playwright test → 5 passed
+ ✓ respondente: sem sessão → "abra o link de convite"
+ ✓ PROVA E5: /p/convite/seed-c2 (termo v1, aceite desabilitado até concordar) → aceite → /p/hoje "Olá,
+   Cuidadora Sintética" · "Acompanhando Paciente Sintético Dois" · 3 alarmes · "1 de 6" → dor 4 → sono 6 →
+   humor 6 → crises 0 → efeito sim → condicional efeito_qual aparece ("6 de 7") → tontura → obs "tudo bem"
+   → "Check-in concluído" → DB: 7 answers com respondent_id da cuidadora, checkin completed, alerta
+   side_effect aberto → alarme "Tomei" → "Tomou" → SW registrado em /p/ → PushToggle (denied no headless)
+   → /p/historico mostra "dor: 4", "tontura", "tomou". Screenshot enviado ao dono.
+```
+
+Push em navegador real (Chrome/Android/iOS PWA): manual em E9 (shadow run) — Chromium headless não tem push service.
 
 ### E6 — Loop fechado `[ ]`
 
@@ -302,11 +348,12 @@ Critério de sucesso e de aborto definidos antes. **Prova:** relatório final; d
 
 ## Log de progresso
 
-| Data       | Etapa | Evento                                                                                                                                                                                                           |
-| ---------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-08-16 | —     | Auditoria do v1 lida; `PLANO.md`, `ACHADOS.md`, `DECISOES.md` criados. Aguardando "ok" para E0.                                                                                                                  |
-| 2026-08-16 | E4    | API + telas da médica (Pacientes, Paciente com dose vigente/ajuste/episódio/grade, Perguntas & planos), shadcn+Tailwind, CSRF Origin, Playwright E2E verde. 133 testes + 3 E2E. Aguardando "ok, avance" para E5. |
-| 2026-08-16 | E3    | Auth próprio (D14): link mágico, convite/consentimento, sessões opacas, tenancy 404, access_audit; Mailpit no compose; DB de teste separado. 113 testes. Aguardando "ok, avance" para E4.                        |
-| 2026-08-16 | E2    | Core portado: engine (entrada estruturada), planner/next-run com episódios, lembretes, alertas, scoring, analytics, logger, runCycle. 89 testes core. Aguardando "ok, avance" para E3.                           |
-| 2026-08-16 | E1    | Schema (migration 001, 20 tabelas), `currentDose`, seed sintético. 21 testes core verdes contra PG. Aguardando "ok, avance" para E2.                                                                             |
-| 2026-08-16 | E0    | Scaffold concluído. RED→GREEN, `npm run check` verde, PR #1 com CI verde. Repo: github.com/stivaldj/medcheckin-v2. Aguardando "ok, avance" para E1.                                                              |
+| Data       | Etapa | Evento                                                                                                                                                                                                                                                       |
+| ---------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-08-16 | —     | Auditoria do v1 lida; `PLANO.md`, `ACHADOS.md`, `DECISOES.md` criados. Aguardando "ok" para E0.                                                                                                                                                              |
+| 2026-08-16 | E5    | PWA do respondente: convite/consentimento, Hoje (alarmes tomei/não tomei/efeito, check-in formulário), histórico, SW + manifest + Web Push (VAPID) com prova contra push service local; scheduler real. 147 testes + 5 E2E. Aguardando "ok, avance" para E6. |
+| 2026-08-16 | E4    | API + telas da médica (Pacientes, Paciente com dose vigente/ajuste/episódio/grade, Perguntas & planos), shadcn+Tailwind, CSRF Origin, Playwright E2E verde. 133 testes + 3 E2E. Aguardando "ok, avance" para E5.                                             |
+| 2026-08-16 | E3    | Auth próprio (D14): link mágico, convite/consentimento, sessões opacas, tenancy 404, access_audit; Mailpit no compose; DB de teste separado. 113 testes. Aguardando "ok, avance" para E4.                                                                    |
+| 2026-08-16 | E2    | Core portado: engine (entrada estruturada), planner/next-run com episódios, lembretes, alertas, scoring, analytics, logger, runCycle. 89 testes core. Aguardando "ok, avance" para E3.                                                                       |
+| 2026-08-16 | E1    | Schema (migration 001, 20 tabelas), `currentDose`, seed sintético. 21 testes core verdes contra PG. Aguardando "ok, avance" para E2.                                                                                                                         |
+| 2026-08-16 | E0    | Scaffold concluído. RED→GREEN, `npm run check` verde, PR #1 com CI verde. Repo: github.com/stivaldj/medcheckin-v2. Aguardando "ok, avance" para E1.                                                                                                          |

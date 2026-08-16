@@ -22,7 +22,9 @@ npm run check                   # lint + prettier + tsc + testes (precisa do PG)
 npm run dev:web                 # http://localhost:3000 — /login pede link mágico (e-mail cai no Mailpit)
 ```
 
-Login de dev: `medica@medcheckin.test` (seed). Convite de respondente: `POST /api/p/accept {token:"seed-c2", consentVersion:"v1"}`.
+Login de dev: `medica@medcheckin.test` (seed). Convite de respondente (PWA): abra `http://localhost:3000/p/convite/seed-c2`.
+Scheduler: `npm run dev:scheduler` (ciclo a cada 60 s; `node apps/scheduler/src/index.js --once` roda um ciclo). Web Push exige `VAPID_*` no `.env`.
+E2E: `npm run test:e2e` (Playwright; usa `DATABASE_URL_TEST`).
 
 `npm run check` é obrigatório verde em todo PR (CI roda com service Postgres).
 

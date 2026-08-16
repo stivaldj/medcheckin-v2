@@ -595,3 +595,106 @@ export function slugify(text: string): string;
 export function validateQuestion(
   input: Record<string, unknown>,
 ): { ok: true; data: Record<string, unknown> } | { ok: false; error: string };
+
+/* ---- E5: push + respondente ------------------------------------------ */
+export function createWebPushNotifier(
+  cfg: { vapidPublicKey?: string; vapidPrivateKey?: string; subject?: string },
+  db: Knex,
+): Notifier & { kind: 'webpush' };
+export function savePushSubscription(
+  db: Knex,
+  session: Session,
+  input: { endpoint: string; keys: { p256dh: string; auth: string }; ua?: string | null },
+): Promise<{ id: string; respondent_id: string; endpoint: string }>;
+export function removePushSubscription(
+  db: Knex,
+  session: Session,
+  input: { endpoint: string },
+): Promise<number>;
+export interface TodayQuestion {
+  id: string;
+  key: string;
+  label: string;
+  kind: Question['kind'];
+  options: string[];
+  unit: string | null;
+  required: boolean;
+}
+export interface TodayCheckin {
+  id: string;
+  status: string;
+  scheduled_for: string | Date;
+  total: number;
+  answered: number;
+  next: TodayQuestion | null;
+  completed: boolean;
+}
+export interface TodayAlarm {
+  intake_id: string;
+  scheduled_at: string | Date;
+  status: 'pending' | 'taken' | 'skipped' | 'late';
+  taken_at: string | Date | null;
+  side_effect_flag: boolean;
+  note: string | null;
+  product_name: string;
+  dose_amount: number | null;
+  dose_unit: string | null;
+}
+export interface RespondentTodayView {
+  respondent: {
+    id: string;
+    name: string;
+    kind: string;
+    can_answer: boolean;
+    receives_alarms: boolean;
+  };
+  patient: { id: string; name: string; status: string; timezone: string; clinic_name: string };
+  checkin: TodayCheckin | null;
+  alarms: TodayAlarm[];
+  push: { subscriptions: number };
+  now: string;
+}
+export function respondentToday(
+  db: Knex,
+  session: Session,
+  now?: Instant,
+): Promise<RespondentTodayView>;
+export function answerFromRespondent(
+  db: Knex,
+  session: Session,
+  input: { checkinId: string; questionKey: string; value: unknown },
+  now?: Instant,
+): Promise<{
+  answer: Record<string, unknown>;
+  next: Question | null;
+  completed: boolean;
+  progress: TodayCheckin;
+}>;
+export function confirmFromRespondent(
+  db: Knex,
+  session: Session,
+  input: {
+    intakeId: string;
+    status: 'taken' | 'skipped';
+    sideEffect?: boolean;
+    note?: string | null;
+  },
+  now?: Instant,
+): Promise<Record<string, unknown> & { status: string }>;
+export interface HistoryDay {
+  date: string;
+  answers: Record<string, number | string> | null;
+  intakes: Array<{
+    scheduled_at: string | Date;
+    status: string;
+    side_effect_flag: boolean;
+    product_name: string;
+    dose_amount: number | null;
+    dose_unit: string | null;
+  }>;
+}
+export function respondentHistory(
+  db: Knex,
+  session: Session,
+  opts?: { days?: number; now?: Instant },
+): Promise<{ days: HistoryDay[]; timezone: string }>;

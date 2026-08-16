@@ -35,6 +35,8 @@ export async function down(knex) {
   await knex.schema.alterTable('patient_scores_daily', (t) => {
     t.dropColumn('trend');
   });
+  // Linhas "puladas" só existem por causa desta migration; removê-las é o inverso honesto.
+  await knex('answers').where({ skipped: true }).del();
   await knex.schema.alterTable('answers', (t) => {
     t.dropChecks(['chk_answer_has_value']);
     t.dropColumn('skipped');

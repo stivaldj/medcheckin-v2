@@ -8,6 +8,12 @@ export default defineConfig({
     environment: 'node',
     testTimeout: 15000,
     fileParallelism: false,
-    env: { LOG_LEVEL: 'error', MAIL_TRANSPORT: 'fake', APP_BASE_URL: 'http://localhost:3000' },
+    env: {
+      LOG_LEVEL: 'error',
+      MAIL_TRANSPORT: 'fake',
+      VAPID_PUBLIC_KEY:
+        'BOnly_for_tests_not_a_real_key_0000000000000000000000000000000000000000000000000000000000',
+      APP_BASE_URL: 'http://localhost:3000',
+    },
   },
 });
