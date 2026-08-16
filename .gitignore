@@ -17,3 +17,4 @@ codedb.snapshot
 *.log
 playwright-report/
 test-results/
+*.tsbuildinfo

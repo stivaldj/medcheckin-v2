@@ -84,10 +84,39 @@ PR #1: https://github.com/stivaldj/medcheckin-v2/pull/1
 CI:    https://github.com/stivaldj/medcheckin-v2/actions/runs/31963809494 → success
 ```
 
-### E1 — Schema + migration 001 + seed sintético `[ ]`
+### E1 — Schema + migration 001 + seed sintético `[x]`
 
 Migration única PG-first (schema em `DECISOES.md` §Modelo de dados). Seed: 2 pacientes, 1 cuidador, 1 produto, doses, perguntas.
 **Prova:** `npm run migrate && npm run seed` → contagens; testes de constraint (clinic scope, `answers` unique, `notifications.dedup_key` unique, `dose_events` vigente).
+
+**RED (antes de código):** `schema.test.js`, `doses.test.js`, `seed.test.js` + `helpers/db.js` → `3 failed | 2 passed` ("Failed to load url ../src/migrate.js / currentDose.js / seed/index.js").
+
+**GREEN — provas (2026-08-16):**
+
+```
+$ npm test -w @medcheckin/core
+ ✓ test/schema.test.js (8)  — 20 tabelas; clinic_id direto+índice em users/patients/products/question_sets/access_audit;
+                              patients.clinic_id NOT NULL+FK (23502/23503); answers unique (23505);
+                              notifications.dedup_key unique; respondents.invite_token unique + email opcional;
+                              CHECK de enum (23514); só 1 alerta aberto por (patient, code) — reabre após resolved
+ ✓ test/doses.test.js  (4)  — dose vigente = último effective_from <= data; ignora futuro; sem ajuste → null;
+                              unique (medication_id, effective_from)
+ ✓ test/seed.test.js   (5)  — contagens; 1 cuidador com relationship; e-mails .test / fones +55659100…;
+                              recusa banco populado; --reset idempotente
+ Test Files 5 passed · Tests 21 passed   (+2 no web = 23)
+
+$ npm run migrate            → migrate: batch 1 aplicado → 001_init.js
+$ npm run migrate            → migrate: já atualizado (nada a aplicar).
+$ npm run seed               → seed: contagens {"clinics":1,"users":1,"patients":2,"respondents":3,"products":1,
+                                "medications":2,"dose_events":3,"question_sets":1,"questions":7,"episodes":2}
+$ npm run seed               → seed: o banco já contém dados; use { reset: true } (ou --reset) para recriar.
+$ npm run seed -- --reset    → seed: contagens {…mesmas…}
+$ NODE_ENV=production npm run seed → seed: recusado em produção (D7).
+$ psql: 22 tabelas em public (20 + 2 do knex); dose vigente P1 = 4.00 gotas (2026-08-12), P2 = 0.50 ml
+$ npm run check              → verde (lint, prettier, tsc, 23 testes)
+```
+
+Correção de raiz feita no caminho: `pg` devolvia `numeric`/`int8` como string (`'4.00'`); `db.js` agora registra type parsers — evita "4.00" virar string na API/UI (L5/L7).
 
 ### E2 — Core portado `[ ]`
 
@@ -138,4 +167,5 @@ Critério de sucesso e de aborto definidos antes. **Prova:** relatório final; d
 | Data       | Etapa | Evento                                                                                                                                              |
 | ---------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-08-16 | —     | Auditoria do v1 lida; `PLANO.md`, `ACHADOS.md`, `DECISOES.md` criados. Aguardando "ok" para E0.                                                     |
+| 2026-08-16 | E1    | Schema (migration 001, 20 tabelas), `currentDose`, seed sintético. 21 testes core verdes contra PG. Aguardando "ok, avance" para E2.                |
 | 2026-08-16 | E0    | Scaffold concluído. RED→GREEN, `npm run check` verde, PR #1 com CI verde. Repo: github.com/stivaldj/medcheckin-v2. Aguardando "ok, avance" para E1. |
