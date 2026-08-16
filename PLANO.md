@@ -322,10 +322,46 @@ $ npx playwright test → 5 passed
 
 Push em navegador real (Chrome/Android/iOS PWA): manual em E9 (shadow run) — Chromium headless não tem push service.
 
-### E6 — Loop fechado `[ ]`
+### E6 — Loop fechado `[x]`
 
-Scheduler → notificação → resposta → alerta → conduta; tela Hoje da médica; gráfico sintoma × dose.
 **Prova:** E2E com clock falso (48 h): 1 ajuste de dose, 1 efeito adverso → alerta → conduta registrada; gráfico com marcador.
+
+**Spec (antes do código):**
+
+| Camada                     | Conteúdo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migration 004              | `system_state(key pk, value jsonb, updated_at)` — carimbos do scheduler (`scheduler.last_cycle_at`, `alerts.last_run_at`); fecha ACHADOS E2/E5                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `core/scheduler/cycle.js`  | relógio de alertas persistido em `system_state` (não mais em memória); heartbeat `scheduler.last_cycle_at` a cada ciclo; `getSystemState(db)`                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `core/dashboard/today.js`  | `dashboardToday(db, {clinicId}, now)` → `{awaiting: [{patient, checkin, sent_at, attempt_count}] (hoje local: sent/in_progress sem completed) , missed_today, open_alerts (listOpenAlerts), upcoming: [{patient, kind:'checkin'                                                                                                                                                                                                                                                                                                                                                     | 'alarm', at}] (próximas 24 h), intakes: {pending_confirmation:[…] (vencidos sem confirmação), taken, late, skipped}, scheduler: {last_cycle_at, stale:boolean (>10 min)}}` — **cada número com a consulta que o gera** |
+| `core/analytics/series.js` | `symptomDoseSeries(db, patientId, {questionKey, days})` → `{question, points:[{date, value, score}], doseMarkers, beforeAfter: compareBeforeAfterByDose(...)}`; sem resposta no dia → `value null`                                                                                                                                                                                                                                                                                                                                                                                  |
+| API                        | `GET /api/today` · `POST /api/alerts/[id]/ack` · `POST /api/alerts/[id]/resolve {note}` (**409 sem nota**) · `POST /api/alerts/[id]/note` · `GET /api/alerts/[id]/actions` · `GET /api/patients/[id]/series?question=&days=`                                                                                                                                                                                                                                                                                                                                                        |
+| Telas                      | `/hoje` real: 4 blocos (Não respondeu · Alertas abertos → conduta inline · Próximos envios · Confirmações de dose pendentes) + faixa do scheduler ("último ciclo há N min" / **vermelho se parado**) · página do paciente: `AlertsCard` com **Reconhecer / Resolver com conduta** (dialog, nota obrigatória) e lista de condutas; `SymptomDoseChart` (Recharts): linha do sintoma escolhido + score, marcadores verticais nos ajustes de dose, tabela antes/depois por ajuste ("—" sem dado)                                                                                        |
+| E2E (`e2e/loop.spec.ts`)   | **clock falso**: o teste chama o core com `now` explícito (T-1d 09:00 local → `runCycle` c/ fake notifier → check-in enviado; cuidadora responde dor 8 → `threshold:dor`; a médica **ajusta a dose** pela UI (vigente hoje, abre titulação); T0 09:00 → `runCycle` → 2º check-in; cuidadora responde **efeito adverso** → `side_effect`) → `/hoje` lista o alerta → **Resolver com conduta** ("Reduzi para 2 gotas…") → alerta resolvido, conduta na página do paciente → gráfico com **marcador** do ajuste e ponto de dor. Outro paciente sem resposta aparece em "Não respondeu" |
+
+**RED planejado:** `core/test/dashboard.test.js`, `core/test/series.test.js`, `core/test/system-state.test.js` · `web/test/today-api.test.ts` · `web/e2e/loop.spec.ts`.
+
+**RED:** `dashboard.test.js` (dashboard + series + system_state num arquivo) → "Failed to load url ../src/dashboard/today.js"; `today-api.test.ts` → rotas ausentes; `loop.spec.ts` sem telas.
+
+**GREEN — provas (2026-08-16):**
+
+```
+$ npm test -w @medcheckin/core → ✓ dashboard.test.js (5): system_state (carimbos gravados; alertas 1×/h sobrevive a
+  "reinício" — relógio no banco); Hoje: awaiting (sent) → responde → some + threshold aparece; confirmações
+  vencidas × confirmadas; próximos envios 24 h (alarmes + reenvio); heartbeat stale (>10 min); missed separado;
+  escopo por clínica; symptomDoseSeries (null sem resposta, marcador 6 gotas, antes/depois)  → 131 core
+$ npm test -w @medcheckin/web  → ✓ today-api.test.ts (3): /api/today 401/200 escopado; ack → resolve sem nota 400 →
+  com nota 200 + actions (user_name) → alerta de outra clínica 404; series 200/400  → 24 web (155)
+$ npm run check → verde
+$ npx playwright test → 8 passed (workers=1: specs compartilham o banco)
+ ✓ PROVA E6 (loop.spec.ts, clock falso 48 h):
+   T-1d 09:05 runCycle(fake notifier) → planner cria o check-in de "ontem" e envia (sent) → dor 8 → threshold:dor
+   médica (UI) → Ajustar dose 6 gotas vigente hoje → "Dose vigente: 6 gotas" · episódio Titulação
+   T0 09:05 runCycle → 2º check-in enviado (e P2, que ninguém responde) → efeito adverso (sonolência) → side_effect
+   /hoje → "Não respondeu": Paciente Sintético Dois (P1 não) · alerta "Efeito adverso relatado" → Resolver sem nota
+   bloqueado (required) → conduta "Reduzi para 4 gotas…" → alerta some; DB: resolved/doctor + alert_actions [resolve]
+   · faixa do scheduler visível → /pacientes/P1: conduta listada; gráfico com ≥2 pontos (dor 8, 5) e ≥1 marcador
+   (ajuste de hoje); tabela antes/depois com "6 gotas". Screenshot enviado ao dono.
+```
 
 ### E7 — Relatório 30d, LGPD, retenção, RUNBOOK `[ ]`
 
@@ -351,6 +387,7 @@ Critério de sucesso e de aborto definidos antes. **Prova:** relatório final; d
 | Data       | Etapa | Evento                                                                                                                                                                                                                                                       |
 | ---------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 2026-08-16 | —     | Auditoria do v1 lida; `PLANO.md`, `ACHADOS.md`, `DECISOES.md` criados. Aguardando "ok" para E0.                                                                                                                                                              |
+| 2026-08-16 | E6    | Loop fechado: system_state (carimbos duráveis), Hoje da médica (4 blocos + heartbeat), alertas → conduta (UI), gráfico sintoma × dose com marcadores + antes/depois; E2E clock falso 48 h. 155 testes + 8 E2E. Aguardando "ok, avance" para E7.              |
 | 2026-08-16 | E5    | PWA do respondente: convite/consentimento, Hoje (alarmes tomei/não tomei/efeito, check-in formulário), histórico, SW + manifest + Web Push (VAPID) com prova contra push service local; scheduler real. 147 testes + 5 E2E. Aguardando "ok, avance" para E6. |
 | 2026-08-16 | E4    | API + telas da médica (Pacientes, Paciente com dose vigente/ajuste/episódio/grade, Perguntas & planos), shadcn+Tailwind, CSRF Origin, Playwright E2E verde. 133 testes + 3 E2E. Aguardando "ok, avance" para E5.                                             |
 | 2026-08-16 | E3    | Auth próprio (D14): link mágico, convite/consentimento, sessões opacas, tenancy 404, access_audit; Mailpit no compose; DB de teste separado. 113 testes. Aguardando "ok, avance" para E4.                                                                    |

@@ -77,3 +77,6 @@ export {
   answerFromRespondent,
   confirmFromRespondent,
 } from './respondent/index.js';
+export { getSystemState, setSystemState, STATE_KEYS, resetCycleState } from './scheduler/cycle.js';
+export { dashboardToday } from './dashboard/today.js';
+export { symptomDoseSeries } from './analytics/series.js';

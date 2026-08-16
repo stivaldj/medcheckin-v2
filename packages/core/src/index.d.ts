@@ -163,11 +163,28 @@ export function confirmIntake(
   now?: Instant,
 ): Promise<Record<string, unknown>>;
 
+export interface CycleSummary {
+  at: string;
+  ms: number;
+  checkins: { candidates: number; created: number };
+  expired: { missed: number };
+  dispatch: {
+    due: number;
+    sent: number;
+    failed: number;
+    deferred: number;
+    skipped_no_respondent: number;
+    exhausted: number;
+  };
+  intakes: { medications: number; created: number };
+  alarms: { due: number; sent: number; failed: number; duplicate: number; no_respondent: number };
+  alerts: { patients: number; results: unknown[] } | null;
+}
 export function runCycle(
   db: Knex,
   now: Instant,
   opts: { notifier: Notifier; force?: boolean },
-): Promise<Record<string, unknown>>;
+): Promise<CycleSummary>;
 
 export function evaluatePatientAlerts(
   db: Knex,
@@ -262,6 +279,8 @@ export function compareBeforeAfterByDose(input: {
   windowDays?: number;
 }): Array<{
   dose_event_id: string | null;
+  dose_amount: number | null;
+  dose_unit: string | null;
   anchor_date: string | null;
   before_avg: number | null;
   after_avg: number | null;
@@ -698,3 +717,87 @@ export function respondentHistory(
   session: Session,
   opts?: { days?: number; now?: Instant },
 ): Promise<{ days: HistoryDay[]; timezone: string }>;
+
+/* ---- E6: hoje, séries, system_state ------------------------------------ */
+export const STATE_KEYS: { lastCycle: string; lastAlerts: string };
+export function resetCycleState(): void;
+export function getSystemState(db: Knex): Promise<Record<string, unknown>>;
+export function setSystemState(db: Knex, key: string, value: unknown): Promise<void>;
+export interface TodayCheckinRow {
+  checkin_id: string;
+  status: string;
+  attempt_count: number;
+  sent_at: Date | string | null;
+  next_attempt_at: Date | string | null;
+  scheduled_for: Date | string;
+  patient_id: string;
+  patient_name: string;
+}
+export interface TodayIntakeRow {
+  intake_id: string;
+  status: string;
+  scheduled_at: Date | string;
+  side_effect_flag: boolean;
+  patient_id: string;
+  patient_name: string;
+  product_name: string;
+  dose_amount: number | null;
+  dose_unit: string | null;
+}
+export interface DashboardToday {
+  date: string;
+  timezone: string;
+  awaiting: TodayCheckinRow[];
+  missed_today: TodayCheckinRow[];
+  completed_today: number;
+  not_sent_yet: number;
+  open_alerts: Array<AlertRow & { patient_name: string }>;
+  upcoming: Array<{
+    kind: 'checkin' | 'alarm';
+    patient_id: string;
+    patient_name: string;
+    at: Date | string;
+    detail: string;
+  }>;
+  intakes: {
+    pending_confirmation: TodayIntakeRow[];
+    taken: number;
+    late: number;
+    skipped: number;
+    side_effects: TodayIntakeRow[];
+    total: number;
+  };
+  scheduler: { last_cycle_at: Date | null; stale: boolean; last_alerts_at: Date | null };
+}
+export function dashboardToday(
+  db: Knex,
+  input: { clinicId: string },
+  now?: Instant,
+): Promise<DashboardToday>;
+export interface SeriesPoint {
+  date: string;
+  value: number | string | null;
+  score: number | null;
+}
+export interface DoseMarker {
+  id: string;
+  date: string;
+  dose_amount: number;
+  dose_unit: string;
+  times_per_day: number;
+  reason: string | null;
+  product_name: string;
+}
+export interface SymptomDoseSeries {
+  question: { key: string; label: string; kind: string; unit: string | null };
+  timezone: string;
+  points: SeriesPoint[];
+  doseMarkers: DoseMarker[];
+  allDoseMarkers: DoseMarker[];
+  beforeAfter: ReturnType<typeof compareBeforeAfterByDose>;
+}
+export function symptomDoseSeries(
+  db: Knex,
+  patientId: string,
+  opts: { questionKey: string; days?: number; now?: Instant; windowDays?: number },
+): Promise<SymptomDoseSeries>;
