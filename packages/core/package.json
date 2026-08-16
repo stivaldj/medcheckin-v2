@@ -1,0 +1,25 @@
+{
+  "name": "@medcheckin/core",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./config": "./src/config.js",
+    "./db": "./src/db.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "migrate": "node scripts/migrate.js",
+    "seed": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "knex": "^3.1.0",
+    "pg": "^8.13.1"
+  },
+  "types": "src/index.d.ts"
+}
