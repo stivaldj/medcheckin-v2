@@ -1,0 +1,77 @@
+import { NextResponse } from 'next/server';
+import { getSession, revokeSession, AuthError } from '@medcheckin/core';
+import { getDb } from './db';
+
+export const COOKIE = { user: 'mc_user', respondent: 'mc_resp' } as const;
+const MAX_AGE = { user: 30 * 24 * 3600, respondent: 180 * 24 * 3600 } as const;
+
+export function readCookie(req: Request, name: string): string | null {
+  const raw = req.headers.get('cookie') ?? '';
+  for (const part of raw.split(';')) {
+    const [k, ...v] = part.trim().split('=');
+    if (k === name) return decodeURIComponent(v.join('='));
+  }
+  return null;
+}
+
+export function sessionCookie(kind: keyof typeof COOKIE, token: string | null): string {
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  if (token === null) return `${COOKIE[kind]}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`;
+  return `${COOKIE[kind]}=${encodeURIComponent(token)}; Path=/; Max-Age=${MAX_AGE[kind]}; HttpOnly; SameSite=Lax${secure}`;
+}
+
+export type UserSession = {
+  kind: 'user';
+  sessionId: string;
+  userId: string;
+  clinicId: string;
+  role: string;
+  name: string;
+  email: string;
+};
+export type RespondentSession = {
+  kind: 'respondent';
+  sessionId: string;
+  respondentId: string;
+  respondentKind: string;
+  patientId: string;
+  clinicId: string;
+  name: string;
+  canAnswer: boolean;
+  receivesAlarms: boolean;
+};
+
+export async function requireUser(req: Request): Promise<UserSession> {
+  const token = readCookie(req, COOKIE.user);
+  const s = (await getSession(getDb(), token ?? '', new Date())) as UserSession | null;
+  if (!s || s.kind !== 'user') throw new AuthError('unauthenticated', 'Sessão necessária.');
+  return s;
+}
+
+export async function requireRespondent(req: Request): Promise<RespondentSession> {
+  const token = readCookie(req, COOKIE.respondent);
+  const s = (await getSession(getDb(), token ?? '', new Date())) as RespondentSession | null;
+  if (!s || s.kind !== 'respondent') throw new AuthError('unauthenticated', 'Sessão necessária.');
+  return s;
+}
+
+export async function revokeCookieSession(req: Request, kind: keyof typeof COOKIE) {
+  const token = readCookie(req, COOKIE[kind]);
+  if (token) await revokeSession(getDb(), token, new Date());
+}
+
+/** Mapeia AuthError/EngineError → resposta JSON. Nunca 403 para not_found. */
+export function errorResponse(err: unknown): NextResponse {
+  const code = (err as { code?: string })?.code;
+  const message = (err as Error)?.message ?? 'Erro';
+  if (code === 'unauthenticated')
+    return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  if (code === 'not_found') return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  if (code === 'invalid_token')
+    return NextResponse.json({ error: 'invalid_token' }, { status: 404 });
+  if (code === 'consent_required')
+    return NextResponse.json({ error: 'consent_required', message }, { status: 400 });
+  if (code) return NextResponse.json({ error: code, message }, { status: 400 });
+  console.error('[api] erro inesperado', { name: (err as Error)?.name, message });
+  return NextResponse.json({ error: 'internal' }, { status: 500 });
+}

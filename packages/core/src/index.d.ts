@@ -118,6 +118,7 @@ export interface Question {
   score_weight: number;
 }
 export class EngineError extends Error {
+  constructor(code: string, message: string);
   code: string;
 }
 export function recordAnswer(
@@ -273,3 +274,89 @@ export function rollingWindow(
   rows: Array<Record<string, unknown>>,
   opts?: { valueField?: string; dateField?: string; windowDays?: number },
 ): Array<{ date: string; n: number; value: number | null }>;
+
+/* ---- E3: auth ---------------------------------------------------------- */
+export class AuthError extends Error {
+  constructor(code: string, message: string);
+  code: 'unauthenticated' | 'not_found' | 'invalid_token' | 'consent_required' | string;
+}
+export function newToken(): string;
+export function hashToken(token: string): string;
+export interface Mailer {
+  sendMail(msg: {
+    to: string;
+    subject: string;
+    text: string;
+  }): Promise<{ ok: boolean; messageId?: string }>;
+}
+export function createSmtpMailer(env?: Record<string, string | undefined>): Mailer;
+export function fakeMailer(): Mailer & {
+  sent: Array<{ to: string; subject: string; text: string }>;
+};
+export function normalizeEmail(email: string): string;
+export function requestMagicLink(
+  db: Knex,
+  input: { email: string; baseUrl: string; mailer: Mailer },
+  now?: Instant,
+): Promise<{ ok: true }>;
+export type Session =
+  | {
+      kind: 'user';
+      sessionId: string;
+      userId: string;
+      clinicId: string;
+      role: string;
+      name: string;
+      email: string;
+    }
+  | {
+      kind: 'respondent';
+      sessionId: string;
+      respondentId: string;
+      respondentKind: string;
+      patientId: string;
+      clinicId: string;
+      name: string;
+      canAnswer: boolean;
+      receivesAlarms: boolean;
+    };
+export function verifyMagicLink(
+  db: Knex,
+  input: { token: string; ua?: string | null },
+  now?: Instant,
+): Promise<{ sessionToken: string; session: Session }>;
+export function acceptInvite(
+  db: Knex,
+  input: { inviteToken: string; consentVersion?: string | null; ua?: string | null },
+  now?: Instant,
+): Promise<{ sessionToken: string; session: Session }>;
+export function rotateInviteToken(db: Knex, respondentId: string): Promise<string>;
+export function createSession(
+  db: Knex,
+  input: {
+    userId?: string | null;
+    respondentId?: string | null;
+    clinicId: string;
+    ua?: string | null;
+  },
+  now?: Instant,
+): Promise<{ sessionToken: string; session: Session }>;
+export function getSession(db: Knex, sessionToken: string, now?: Instant): Promise<Session | null>;
+export function revokeSession(db: Knex, sessionToken: string, now?: Instant): Promise<number>;
+export function revokeAllForPrincipal(
+  db: Knex,
+  input: { userId?: string | null; respondentId?: string | null },
+  now?: Instant,
+): Promise<number>;
+export function requirePatientInClinic(
+  db: Knex,
+  session: Session | null,
+  patientId: string,
+): Promise<
+  Record<string, unknown> & { id: string; name: string; status: string; timezone: string }
+>;
+export function logAccess(
+  db: Knex,
+  input: { session: Session; patientId?: string | null; route: string; action?: string },
+  now?: Instant,
+): Promise<Record<string, unknown>>;
