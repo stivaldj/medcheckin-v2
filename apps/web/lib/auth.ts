@@ -71,7 +71,32 @@ export function errorResponse(err: unknown): NextResponse {
     return NextResponse.json({ error: 'invalid_token' }, { status: 404 });
   if (code === 'consent_required')
     return NextResponse.json({ error: 'consent_required', message }, { status: 400 });
+  if (code === 'forbidden_origin')
+    return NextResponse.json({ error: 'forbidden_origin' }, { status: 403 });
+  if (code === 'validation') {
+    const field = (err as { field?: string | null }).field ?? null;
+    return NextResponse.json({ error: 'validation', message, field }, { status: 400 });
+  }
   if (code) return NextResponse.json({ error: code, message }, { status: 400 });
   console.error('[api] erro inesperado', { name: (err as Error)?.name, message });
   return NextResponse.json({ error: 'internal' }, { status: 500 });
+}
+
+/**
+ * CSRF (ACHADOS E3): rotas mutáveis só aceitam Origin da própria app (ou ausência de Origin —
+ * clientes não-navegador como curl). Navegadores sempre mandam Origin em POST/PATCH/PUT/DELETE.
+ */
+export function assertSameOrigin(req: Request): void {
+  const origin = req.headers.get('origin');
+  if (!origin) return;
+  const allowed = new Set<string>();
+  if (process.env.APP_BASE_URL) allowed.add(new URL(process.env.APP_BASE_URL).origin);
+  const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host');
+  if (host) {
+    const proto =
+      req.headers.get('x-forwarded-proto') ?? new URL(req.url).protocol.replace(':', '');
+    allowed.add(`${proto}://${host}`);
+  }
+  allowed.add(new URL(req.url).origin);
+  if (!allowed.has(origin)) throw new AuthError('forbidden_origin', 'Origem não permitida.');
 }

@@ -81,12 +81,16 @@ describe('GET /api/patients/[id] — tenancy + audit (PROVA E3)', () => {
     });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toMatchObject({ id: fx.p1, name: 'Paciente Sintético Um', status: 'active' });
+    expect(body.patient).toMatchObject({
+      id: fx.p1,
+      name: 'Paciente Sintético Um',
+      status: 'active',
+    });
     const audit = await db('access_audit').where({ patient_id: fx.p1 });
     expect(audit).toHaveLength(1);
     expect(audit[0]).toMatchObject({
       clinic_id: fx.clinicId,
-      route: '/api/patients/[id]',
+      route: 'patients.detail',
       action: 'view',
     });
     expect(audit[0].user_id).not.toBeNull();

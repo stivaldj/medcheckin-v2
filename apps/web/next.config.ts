@@ -1,3 +1,4 @@
+import path from 'node:path';
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
@@ -5,6 +6,7 @@ const nextConfig: NextConfig = {
   // core é JS puro (ESM) no workspace; transpilar evita problemas de resolução no bundle.
   transpilePackages: ['@medcheckin/core'],
   serverExternalPackages: ['knex', 'pg'],
+  outputFileTracingRoot: path.join(__dirname, '../..'),
 };
 
 export default nextConfig;
