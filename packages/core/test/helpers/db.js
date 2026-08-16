@@ -9,7 +9,8 @@ export async function freshDb() {
   const url = process.env.DATABASE_URL_TEST || process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL_TEST (ou DATABASE_URL) obrigatória nos testes');
   const db = createDb(url);
-  await db.migrate.rollback(migrationConfig, true);
+  // Schema limpo de verdade (imune a bugs de `down`); os `down` são exercitados em migrations.test.js.
+  await db.raw('drop schema public cascade; create schema public');
   await db.migrate.latest(migrationConfig);
   return db;
 }

@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
-import { requireUser, assertSameOrigin, errorResponse, type UserSession } from './auth';
+import {
+  requireUser,
+  requireRespondent,
+  assertSameOrigin,
+  errorResponse,
+  type UserSession,
+  type RespondentSession,
+} from './auth';
 import { getDb } from './db';
 import type { Knex } from 'knex';
 
@@ -41,3 +48,26 @@ export function doctorRoute<P = Record<string, never>>(handler: Handler<P>) {
 }
 
 export const json = (data: unknown, status = 200) => NextResponse.json(data, { status });
+
+type RHandler<P> = (args: {
+  req: Request;
+  db: Knex;
+  session: RespondentSession;
+  params: P;
+  body: unknown;
+}) => Promise<Response>;
+
+/** Envelope das rotas do respondente (cookie mc_resp + Origin nas mutações). */
+export function respondentRoute<P = Record<string, never>>(handler: RHandler<P>) {
+  return async (req: Request, ctx: Ctx<P>): Promise<Response> => {
+    try {
+      const session = await requireRespondent(req);
+      if (req.method !== 'GET' && req.method !== 'HEAD') assertSameOrigin(req);
+      const params = (ctx?.params ? await ctx.params : {}) as P;
+      const body = await readBody(req);
+      return await handler({ req, db: getDb(), session, params, body });
+    } catch (err) {
+      return errorResponse(err);
+    }
+  };
+}
