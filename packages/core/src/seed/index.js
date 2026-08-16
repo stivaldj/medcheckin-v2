@@ -33,6 +33,8 @@ const QUESTIONS = [
     kind: 'scale_0_10',
     sort_order: 1,
     alert_threshold_json: { op: '>=', value: 7 },
+    score_direction: 'lower_is_better',
+    score_weight: 2,
   },
   {
     key: 'sono',
@@ -40,6 +42,7 @@ const QUESTIONS = [
     kind: 'scale_0_10',
     sort_order: 2,
     alert_threshold_json: { op: '<=', value: 3 },
+    score_direction: 'higher_is_better',
   },
   {
     key: 'humor',
@@ -47,6 +50,7 @@ const QUESTIONS = [
     kind: 'scale_0_10',
     sort_order: 3,
     alert_threshold_json: { op: '<=', value: 3 },
+    score_direction: 'higher_is_better',
   },
   {
     key: 'crises',
