@@ -6,12 +6,31 @@ import { evaluateAllAlerts } from '../alerts/evaluate.js';
 import { logger } from '../logger.js';
 
 const ALERTS_EVERY_MINUTES = 60;
-let lastAlertsRunAt = null;
+export const STATE_KEYS = {
+  lastCycle: 'scheduler.last_cycle_at',
+  lastAlerts: 'alerts.last_run_at',
+};
+let cache = {}; // só otimização; a verdade é system_state
+
+export async function setSystemState(db, key, value) {
+  await db('system_state')
+    .insert({ key, value: JSON.stringify(value), updated_at: db.fn.now() })
+    .onConflict('key')
+    .merge();
+  cache[key] = value;
+}
+
+/** { key: value } de todos os carimbos. */
+export async function getSystemState(db) {
+  const rows = await db('system_state');
+  const out = {};
+  for (const r of rows) out[r.key] = r.value;
+  return out;
+}
 
 /**
- * Um ciclo do scheduler, com o MESMO `now` em todas as fases (v1 fazia isso; mantido).
- * Idempotente: rodar duas vezes no mesmo minuto não cria nem envia nada a mais.
- * Alertas rodam no máximo 1×/h por processo (`force: true` para forçar).
+ * Um ciclo do scheduler, com o MESMO `now` em todas as fases. Idempotente.
+ * Alertas no máx. 1×/h (relógio em `system_state`, sobrevive a reinícios); `force: true` força.
  */
 export async function runCycle(db, now, { notifier, force = false } = {}) {
   if (!notifier) throw new Error('runCycle: notifier obrigatório (fail-closed).');
@@ -25,14 +44,14 @@ export async function runCycle(db, now, { notifier, force = false } = {}) {
   const alarms = await dispatchDueIntakes(db, nowDT, { notifier });
 
   let alerts = null;
-  const dueAlerts =
-    force ||
-    !lastAlertsRunAt ||
-    nowDT.diff(lastAlertsRunAt, 'minutes').minutes >= ALERTS_EVERY_MINUTES;
-  if (dueAlerts) {
+  const lastRaw =
+    cache[STATE_KEYS.lastAlerts] ?? (await getSystemState(db))[STATE_KEYS.lastAlerts] ?? null;
+  const last = lastRaw ? toDT(new Date(lastRaw)) : null;
+  if (force || !last || nowDT.diff(last, 'minutes').minutes >= ALERTS_EVERY_MINUTES) {
     alerts = await evaluateAllAlerts(db, nowDT);
-    lastAlertsRunAt = nowDT;
+    await setSystemState(db, STATE_KEYS.lastAlerts, nowDT.toISO());
   }
+  await setSystemState(db, STATE_KEYS.lastCycle, nowDT.toISO());
 
   const summary = {
     at: nowDT.toISO(),
@@ -48,7 +67,7 @@ export async function runCycle(db, now, { notifier, force = false } = {}) {
   return summary;
 }
 
-/** Só para testes: zera o relógio interno de alertas. */
+/** Só para testes: zera o cache em memória (o banco continua sendo a verdade). */
 export function resetCycleState() {
-  lastAlertsRunAt = null;
+  cache = {};
 }

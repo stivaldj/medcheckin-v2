@@ -1,5 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
+process.env.LOG_LEVEL = process.env.LOG_LEVEL || 'warn'; // o próprio teste chama o core
 const PORT = 3210;
 const dbUrl = process.env.DATABASE_URL_TEST || process.env.DATABASE_URL;
 if (!dbUrl) throw new Error('DATABASE_URL_TEST (ou DATABASE_URL) obrigatória para o E2E.');
@@ -8,6 +9,8 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
   retries: 0,
+  workers: 1, // specs compartilham o mesmo banco de teste (e o processo de teste chama o core direto)
+  fullyParallel: false,
   expect: { timeout: 20_000 },
   reporter: [['list']],
   globalSetup: './e2e/global-setup.ts',

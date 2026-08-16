@@ -10,6 +10,7 @@ import { MedicationsCard } from '@/components/medica/MedicationsCard';
 import { EpisodeCard } from '@/components/medica/EpisodeCard';
 import { GridCard } from '@/components/medica/GridCard';
 import { AlertsCard } from '@/components/medica/AlertsCard';
+import { SymptomDoseChart } from '@/components/medica/SymptomDoseChart';
 
 export default async function PacientePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -25,6 +26,22 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
     if (err instanceof AuthError && err.code === 'not_found') notFound();
     throw err;
   }
+  const conducts = await db('alert_actions as x')
+    .join('alerts as a', 'a.id', 'x.alert_id')
+    .leftJoin('users as u', 'u.id', 'x.user_id')
+    .where('a.patient_id', id)
+    .whereIn('x.action', ['resolve', 'note'])
+    .orderBy('x.at', 'desc')
+    .limit(20)
+    .select(
+      'x.id',
+      'x.alert_id',
+      'x.action',
+      'x.note',
+      'x.at',
+      'u.name as user_name',
+      'a.title as alert_title',
+    );
   const [products, questionSets] = await Promise.all([
     listProducts(db, session.clinicId),
     listQuestionSets(db, session.clinicId),
@@ -65,9 +82,10 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
         />
         <EpisodeCard patientId={p.id} episode={detail.episode} questionSets={questionSets} />
         <RespondentsCard patientId={p.id} respondents={detail.respondents} />
-        <AlertsCard alerts={detail.alerts} />
+        <AlertsCard alerts={detail.alerts} conducts={conducts} />
       </div>
 
+      <SymptomDoseChart patientId={p.id} questions={detail.grid.questions} />
       <GridCard grid={detail.grid} />
     </div>
   );
