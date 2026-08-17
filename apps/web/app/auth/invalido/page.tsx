@@ -1,10 +1,20 @@
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
 export default function InvalidoPage() {
   return (
-    <main style={{ maxWidth: 420, margin: '4rem auto', fontFamily: 'system-ui' }}>
-      <h1>Link inválido ou expirado</h1>
-      <p>
-        Peça um novo em <a href="/login">/login</a>.
-      </p>
+    <main className="mx-auto flex min-h-screen max-w-md items-center px-4">
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Link inválido ou expirado</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm">
+          Peça um novo em{' '}
+          <a href="/login" className="underline">
+            /login
+          </a>
+          .
+        </CardContent>
+      </Card>
     </main>
   );
 }
