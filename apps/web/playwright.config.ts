@@ -1,4 +1,8 @@
+import path from 'node:path';
 import { defineConfig } from '@playwright/test';
+import { loadEnvConfig } from '@next/env';
+
+loadEnvConfig(path.resolve(__dirname, '../..'));
 
 process.env.LOG_LEVEL = process.env.LOG_LEVEL || 'warn'; // o próprio teste chama o core
 const PORT = 3210;
