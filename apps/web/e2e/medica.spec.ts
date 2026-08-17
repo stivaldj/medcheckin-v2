@@ -13,7 +13,7 @@ test.describe('PROVA E4 — médica: cadastrar paciente → convidar cuidador �
     await expect(page.getByText('Paciente Sintético Um')).toBeVisible();
 
     // 2. cadastrar paciente com cuidadora
-    await page.getByRole('link', { name: 'Novo paciente' }).click();
+    await page.getByText('Novo paciente', { exact: true }).click();
     await page.getByLabel('Nome', { exact: true }).first().fill('Paciente E2E');
     await page.getByLabel('Data de nascimento').fill('2016-05-20');
     await page.getByLabel('Condições (separadas por vírgula)').fill('epilepsia');
