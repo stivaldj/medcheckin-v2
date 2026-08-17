@@ -127,3 +127,19 @@
     @apply font-sans;
   }
 }
+
+/* Fonte do sistema (o tema base-nova espera --font-sans definido pelo app). */
+@layer base {
+  html,
+  body {
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      Roboto,
+      'Helvetica Neue',
+      Arial,
+      sans-serif;
+  }
+}

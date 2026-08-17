@@ -48,12 +48,18 @@ export function LgpdActions({
   }
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="lgpd-actions">
-      <Button variant="outline" size="sm" render={<a href={`/pacientes/${patientId}/relatorio`} />}>
+      <Button
+        variant="outline"
+        size="sm"
+        nativeButton={false}
+        render={<a href={`/pacientes/${patientId}/relatorio`} />}
+      >
         Relatório 30 d
       </Button>
       <Button
         variant="outline"
         size="sm"
+        nativeButton={false}
         render={<a href={`/api/patients/${patientId}/export`} download />}
         data-testid="export"
       >

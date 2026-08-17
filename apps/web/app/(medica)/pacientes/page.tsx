@@ -21,7 +21,9 @@ export default async function PacientesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Pacientes</h1>
-        <Button render={<Link href="/pacientes/novo" />}>Novo paciente</Button>
+        <Button nativeButton={false} render={<Link href="/pacientes/novo" />}>
+          Novo paciente
+        </Button>
       </div>
       {rows.length === 0 ? (
         <p className="text-muted-foreground">Nenhum paciente cadastrado.</p>
