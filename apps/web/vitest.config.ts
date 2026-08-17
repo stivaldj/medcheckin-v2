@@ -1,5 +1,8 @@
 import { defineConfig } from 'vitest/config';
 import path from 'node:path';
+import { loadEnvConfig } from '@next/env';
+
+loadEnvConfig(path.resolve(__dirname, '../..'));
 
 export default defineConfig({
   resolve: { alias: { '@': path.resolve(__dirname) } },

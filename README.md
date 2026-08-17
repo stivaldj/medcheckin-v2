@@ -19,8 +19,11 @@ docker compose up -d db mailpit # Postgres 16 + Mailpit (SMTP 1025, UI http://lo
 docker compose exec db createdb -U medcheckin medcheckin_test   # banco dos testes (uma vez)
 npm ci && npm run migrate && npm run seed
 npm run check                   # lint + prettier + tsc + testes (precisa do PG)
-npm run dev:web                 # http://localhost:3000 — /login pede link mágico (e-mail cai no Mailpit)
+npm run dev:web                 # http://localhost:3000 — /login pede link mágico (e-mail cai no Mailpit :8025)
+npm run dev:scheduler           # em outro terminal: ciclo a cada 60 s (ou `npm run scheduler:once`)
 ```
+
+Os scripts da raiz carregam o `.env` da raiz automaticamente (`node --env-file`); os testes também. Não é preciso `source .env`.
 
 Login de dev: `medica@medcheckin.test` (seed). Convite de respondente (PWA): abra `http://localhost:3000/p/convite/seed-c2`.
 Scheduler: `npm run dev:scheduler` (ciclo a cada 60 s; `node apps/scheduler/src/index.js --once` roda um ciclo). Web Push exige `VAPID_*` no `.env`.

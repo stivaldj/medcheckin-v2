@@ -17,11 +17,13 @@
     "format:check": "prettier --check .",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "migrate": "node packages/core/scripts/migrate.js",
-    "seed": "node packages/core/scripts/seed.js",
-    "dev:web": "npm run dev -w @medcheckin/web",
-    "dev:scheduler": "npm run dev -w @medcheckin/scheduler",
-    "test:e2e": "npm run test:e2e -w @medcheckin/web"
+    "migrate": "node --env-file-if-exists=.env packages/core/scripts/migrate.js",
+    "seed": "node --env-file-if-exists=.env packages/core/scripts/seed.js",
+    "dev:web": "node --env-file-if-exists=.env node_modules/next/dist/bin/next dev apps/web",
+    "dev:scheduler": "node --env-file-if-exists=.env apps/scheduler/src/index.js",
+    "test:e2e": "npm run test:e2e -w @medcheckin/web",
+    "scheduler:once": "node --env-file-if-exists=.env apps/scheduler/src/index.js --once",
+    "start:web": "node --env-file-if-exists=.env node_modules/next/dist/bin/next start apps/web"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
