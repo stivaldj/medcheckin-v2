@@ -1,8 +1,11 @@
-export default function Home() {
-  return (
-    <main>
-      <h1>MedCheck-in v2</h1>
-      <p>Scaffold (E0). Nada aqui ainda tem dado.</p>
-    </main>
-  );
+import { redirect } from 'next/navigation';
+import { currentUserSession, currentRespondentSession } from '@/lib/session';
+
+export const dynamic = 'force-dynamic';
+
+/** Raiz: médica logada → /hoje; respondente logado → /p/hoje; senão → /login. */
+export default async function Home() {
+  if (await currentUserSession()) redirect('/hoje');
+  if (await currentRespondentSession()) redirect('/p/hoje');
+  redirect('/login');
 }
