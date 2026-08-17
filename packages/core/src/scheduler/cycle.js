@@ -11,6 +11,8 @@ export const STATE_KEYS = {
   lastCycle: 'scheduler.last_cycle_at',
   lastAlerts: 'alerts.last_run_at',
   lastRetention: 'retention.last_run_at',
+  cycleCount: 'scheduler.cycle_count',
+  maxGapMin: 'scheduler.max_gap_min',
 };
 const RETENTION_EVERY_HOURS = 24;
 let cache = {}; // só otimização; a verdade é system_state
@@ -62,6 +64,13 @@ export async function runCycle(db, now, { notifier, force = false } = {}) {
     retention = await applyRetention(db, nowDT);
     await setSystemState(db, STATE_KEYS.lastRetention, nowDT.toISO());
   }
+  // observabilidade do scheduler (shadow run): contagem de ciclos e maior lacuna entre ciclos
+  const prev = await getSystemState(db);
+  const prevLast = prev[STATE_KEYS.lastCycle] ? toDT(new Date(prev[STATE_KEYS.lastCycle])) : null;
+  const gapMin = prevLast ? Math.max(0, nowDT.diff(prevLast, 'minutes').minutes) : 0;
+  const maxGap = Math.max(Number(prev[STATE_KEYS.maxGapMin] ?? 0), Number(gapMin.toFixed(1)));
+  await setSystemState(db, STATE_KEYS.cycleCount, Number(prev[STATE_KEYS.cycleCount] ?? 0) + 1);
+  await setSystemState(db, STATE_KEYS.maxGapMin, maxGap);
   await setSystemState(db, STATE_KEYS.lastCycle, nowDT.toISO());
 
   const summary = {

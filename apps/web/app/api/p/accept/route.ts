@@ -2,11 +2,14 @@ import { NextResponse } from 'next/server';
 import { acceptInvite } from '@medcheckin/core';
 import { getDb } from '@/lib/db';
 import { sessionCookie, errorResponse } from '@/lib/auth';
+import { limitOr429 } from '@/lib/ratelimit';
 
 export const dynamic = 'force-dynamic';
 
 /** D12: aceite do convite (token) + consentimento → sessão do respondente. */
 export async function POST(req: Request) {
+  const limited = limitOr429(req, 'accept', 10, 15 * 60_000);
+  if (limited) return limited;
   let body: { token?: string; consentVersion?: string };
   try {
     body = (await req.json()) as typeof body;

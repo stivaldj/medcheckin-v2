@@ -102,3 +102,12 @@
 | C8  | Score: só perguntas com `score_direction`; `yes_no` normaliza 0/1; sem pontuável → `null/null`; `trend` persistido; risco `low/medium/high` (v1 tinha 4 níveis; UI mostra 3)                                                                                                 | L5/L7                                                                                      |
 | C9  | `runCycle` usa o mesmo `now` em todas as fases; alertas 1×/h por processo (relógio em memória — mover para tabela em E6/E8)                                                                                                                                                  | idempotência; ver ACHADOS                                                                  |
 | C10 | Respondente precisa de `accepted_at` para receber e responder (aceite = consentimento, E5)                                                                                                                                                                                   | L9 fail-closed                                                                             |
+
+## 8. Decisões de E8/E9
+
+| #   | Decisão                                                                                                                      | Por quê                                                                                         |
+| --- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| C11 | `/api/health` devolve 503 quando o scheduler está parado (`HEALTH_REQUIRE_SCHEDULER=1` em produção)                          | o monitor externo é o único que acorda alguém; scheduler morto = produto morto (nada é enviado) |
+| C12 | Backup cifrado no volume da VPS + restore drill mensal obrigatório com hash por tabela; off-site opcional até o dono decidir | backup não testado não é backup (lição do v1: 910 prontuários numa cópia única)                 |
+| C13 | Critérios do shadow run são código (`SHADOW_CRITERIA`) e doc, escritos antes; o relatório é gerado do banco, não digitado    | evita "número sem fonte" na avaliação (L7/L14)                                                  |
+| C14 | Rate limit em memória por IP nas rotas de auth (piloto = 1 instância)                                                        | fecha ACHADOS E3/E8 sem plugin de Caddy; revisar se escalar                                     |

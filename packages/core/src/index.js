@@ -85,3 +85,8 @@ export { exportPatientData, buildExportZip } from './lgpd/export.js';
 export { anonymizePatient } from './lgpd/anonymize.js';
 export { applyRetention, RETENTION_DEFAULTS } from './lgpd/retention.js';
 export { startHealthServer } from './scheduler/health.js';
+export {
+  shadowReport,
+  renderShadowReportMarkdown,
+  SHADOW_CRITERIA,
+} from './report/shadowReport.js';
