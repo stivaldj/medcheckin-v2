@@ -2,6 +2,8 @@ import { DateTime } from 'luxon';
 import { toDT } from '../time.js';
 import { listOpenAlerts } from '../alerts/actions.js';
 import { getSystemState, STATE_KEYS } from '../scheduler/cycle.js';
+import { ADHERENCE_QUESTION_KEY } from '../routine/index.js';
+import { toHm, parseHm } from '../scheduler/next-run.js';
 
 const STALE_MINUTES = 10;
 
@@ -11,8 +13,8 @@ const STALE_MINUTES = 10;
  * - missed_today: check-ins de hoje marcados missed
  * - completed_today: check-ins de hoje concluídos
  * - open_alerts: alerts não resolvidos da clínica (listOpenAlerts)
- * - upcoming: próximos envios (check-ins pending com next_attempt_at ≤ +24h; alarmes pending futuros ≤ +24h)
- * - intakes: de hoje — vencidos sem confirmação × confirmados (taken/late/skipped)
+ * - upcoming: próximos envios (check-ins pending com next_attempt_at ≤ +24h; alarmes da rotina ≤ +24h)
+ * - adherence: respostas de HOJE à pergunta de adesão do check-in (D15; o alarme não confirma nada)
  * - scheduler: heartbeat de system_state (stale se > 10 min)
  */
 export async function dashboardToday(db, { clinicId }, now) {
@@ -62,20 +64,36 @@ export async function dashboardToday(db, { clinicId }, now) {
       'c.next_attempt_at as at',
       'c.attempt_count',
     );
-  const upcomingAlarms = await db('medication_intakes as i')
-    .join('medications as m', 'm.id', 'i.medication_id')
-    .join('patients as p', 'p.id', 'm.patient_id')
-    .join('products as pr', 'pr.id', 'm.product_id')
-    .where('p.clinic_id', clinicId)
-    .andWhere('i.status', 'pending')
-    .andWhere('i.scheduled_at', '>', nowJs)
-    .andWhere('i.scheduled_at', '<=', in24h)
-    .select(
-      'p.name as patient_name',
-      'p.id as patient_id',
-      'i.scheduled_at as at',
-      'pr.name as product_name',
-    );
+  // Alarmes da rotina (E9.1): hoje e amanhã, só dentro do período que cobre cada dia local.
+  const patientsOfClinic = await db('patients')
+    .where({ clinic_id: clinicId, status: 'active' })
+    .select('id', 'name', 'timezone');
+  const upcomingAlarms = [];
+  for (const p of patientsOfClinic) {
+    const ptz = p.timezone || tz;
+    for (const offset of [0, 1]) {
+      const local = nowDT.setZone(ptz).startOf('day').plus({ days: offset });
+      const date = local.toISODate();
+      const period = await db('routine_periods')
+        .where({ patient_id: p.id })
+        .andWhere('starts_on', '<=', date)
+        .andWhere((q) => q.whereNull('ends_on').orWhere('ends_on', '>=', date))
+        .first();
+      if (!period) continue;
+      const alarms = await db('routine_alarms').where({ period_id: period.id }).orderBy('time');
+      for (const a of alarms) {
+        const { hour, minute } = parseHm(toHm(a.time));
+        const at = local.set({ hour, minute }).toUTC().toJSDate();
+        if (at > nowJs && at <= in24h)
+          upcomingAlarms.push({
+            patient_name: p.name,
+            patient_id: p.id,
+            at,
+            product_name: a.description,
+          });
+      }
+    }
+  }
   const upcoming = [
     ...upcomingCheckins.map((u) => ({
       kind: 'checkin',
@@ -93,35 +111,24 @@ export async function dashboardToday(db, { clinicId }, now) {
     })),
   ].sort((a, b) => new Date(a.at) - new Date(b.at));
 
-  const todayIntakes = await db('medication_intakes as i')
-    .join('medications as m', 'm.id', 'i.medication_id')
-    .join('patients as p', 'p.id', 'm.patient_id')
-    .join('products as pr', 'pr.id', 'm.product_id')
-    .leftJoin('dose_events as d', 'd.id', 'i.dose_event_id')
+  // Adesão de hoje: respostas à pergunta de adesão nos check-ins de hoje (D15).
+  const adherenceRows = await db('answers as a')
+    .join('checkins as c', 'c.id', 'a.checkin_id')
+    .join('questions as q', 'q.id', 'a.question_id')
+    .join('patients as p', 'p.id', 'c.patient_id')
     .where('p.clinic_id', clinicId)
-    .andWhere('i.scheduled_at', '>=', dayStart)
-    .andWhere('i.scheduled_at', '<', dayEnd)
-    .orderBy('i.scheduled_at')
-    .select(
-      'i.id as intake_id',
-      'i.status',
-      'i.scheduled_at',
-      'i.side_effect_flag',
-      'p.id as patient_id',
-      'p.name as patient_name',
-      'pr.name as product_name',
-      'd.dose_amount',
-      'd.dose_unit',
-    );
-  const intakes = {
-    pending_confirmation: todayIntakes.filter(
-      (i) => i.status === 'pending' && new Date(i.scheduled_at) <= nowJs,
-    ),
-    taken: todayIntakes.filter((i) => i.status === 'taken').length,
-    late: todayIntakes.filter((i) => i.status === 'late').length,
-    skipped: todayIntakes.filter((i) => i.status === 'skipped').length,
-    side_effects: todayIntakes.filter((i) => i.side_effect_flag),
-    total: todayIntakes.length,
+    .andWhere('q.key', ADHERENCE_QUESTION_KEY)
+    .andWhere('a.skipped', false)
+    .andWhere('c.scheduled_for', '>=', dayStart)
+    .andWhere('c.scheduled_for', '<', dayEnd)
+    .select('p.id as patient_id', 'p.name as patient_name', 'a.value_num');
+  const adherence = {
+    answered: adherenceRows.length,
+    yes: adherenceRows.filter((r) => Number(r.value_num) === 1).length,
+    no: adherenceRows.filter((r) => Number(r.value_num) === 0).length,
+    no_patients: adherenceRows
+      .filter((r) => Number(r.value_num) === 0)
+      .map((r) => ({ patient_id: r.patient_id, patient_name: r.patient_name })),
   };
 
   const state = await getSystemState(db);
@@ -142,7 +149,7 @@ export async function dashboardToday(db, { clinicId }, now) {
     not_sent_yet,
     open_alerts,
     upcoming,
-    intakes,
+    adherence,
     scheduler,
   };
 }

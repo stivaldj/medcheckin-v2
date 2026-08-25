@@ -47,6 +47,17 @@ export async function exportPatientData(db, session, patientId, now) {
   const intakes = medIds.length
     ? await db('medication_intakes').whereIn('medication_id', medIds).orderBy('scheduled_at')
     : [];
+  const routinePeriods = await db('routine_periods')
+    .where({ patient_id: patientId })
+    .orderBy('starts_on');
+  const routineAlarms = routinePeriods.length
+    ? await db('routine_alarms')
+        .whereIn(
+          'period_id',
+          routinePeriods.map((p) => p.id),
+        )
+        .orderBy(['period_id', 'time'])
+    : [];
   const episodes = await db('episodes').where({ patient_id: patientId }).orderBy('started_at');
   const checkinRows = await db('checkins')
     .where({ patient_id: patientId })
@@ -112,6 +123,10 @@ export async function exportPatientData(db, session, patientId, now) {
       dose_events: doseEvents.filter((d) => d.medication_id === m.id),
     })),
     'medication_intakes.json': intakes,
+    'routine_periods.json': routinePeriods.map((p) => ({
+      ...p,
+      alarms: routineAlarms.filter((a) => a.period_id === p.id),
+    })),
     'episodes.json': episodes,
     'checkins.json': checkins,
     'alerts.json': alerts,
@@ -129,6 +144,8 @@ export async function exportPatientData(db, session, patientId, now) {
       medications: medications.length,
       dose_events: doseEvents.length,
       medication_intakes: intakes.length,
+      routine_periods: routinePeriods.length,
+      routine_alarms: routineAlarms.length,
       episodes: episodes.length,
       checkins: checkins.length,
       answers: answers.length,

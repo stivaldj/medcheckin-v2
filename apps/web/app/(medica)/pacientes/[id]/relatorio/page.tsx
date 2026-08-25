@@ -53,9 +53,9 @@ export default async function RelatorioPage({
           testid="stat-checkins"
         />
         <Stat
-          label="Adesão (confirmações)"
+          label="Adesão (pergunta do check-in)"
           value={pct(r.adherence.rate)}
-          sub={`tomou ${r.adherence.taken + r.adherence.late} · não tomou ${r.adherence.skipped} · sem confirmação ${r.adherence.unconfirmed} de ${r.adherence.scheduled}`}
+          sub={`relatou ter tomado em ${r.adherence.yes} de ${r.adherence.answered} dias respondidos · não tomou ${r.adherence.no}`}
           testid="stat-adherence"
         />
         <Stat

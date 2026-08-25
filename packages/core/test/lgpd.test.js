@@ -3,7 +3,7 @@ import { DateTime } from 'luxon';
 import JSZip from 'jszip';
 import { freshDb, seedFixture, fakeNotifier } from './helpers/db.js';
 import { runCycle, resetCycleState, getSystemState } from '../src/scheduler/cycle.js';
-import { answerFromRespondent, confirmFromRespondent } from '../src/respondent/index.js';
+import { answerFromRespondent } from '../src/respondent/index.js';
 import { adjustDose } from '../src/medications/index.js';
 import { resolveAlert } from '../src/alerts/actions.js';
 import { acceptInvite } from '../src/auth/invite.js';
@@ -20,7 +20,7 @@ const AT = (hm, d = 0) => {
   return TODAY.plus({ days: d }).set({ hour: h, minute: m }).toUTC().toJSDate();
 };
 
-/** Cenário: 3 dias de check-ins respondidos, intakes confirmados, 1 ajuste de dose, 1 alerta resolvido. */
+/** Cenário: 3 dias de check-ins respondidos (com adesão), 1 ajuste de dose, 1 alerta resolvido. */
 async function scenario(db, fx) {
   const doctor = { kind: 'user', userId: fx.doctor.id, clinicId: fx.clinic.id, role: 'doctor' };
   const s1 = {
@@ -39,6 +39,7 @@ async function scenario(db, fx) {
       .first();
     const dor = d === -2 ? 8 : d === -1 ? 6 : 3;
     for (const [k, v] of [
+      ['adesao', d === -1 ? 0 : 1],
       ['dor', dor],
       ['sono', 6],
       ['humor', 6],
@@ -54,25 +55,6 @@ async function scenario(db, fx) {
         AT('09:20', d),
       );
     }
-    const intakes = await db('medication_intakes')
-      .where({ medication_id: fx.m1.id })
-      .andWhere('scheduled_at', '>=', AT('00:00', d))
-      .andWhere('scheduled_at', '<', AT('00:00', d + 1))
-      .orderBy('scheduled_at');
-    if (intakes[0])
-      await confirmFromRespondent(
-        db,
-        s1,
-        { intakeId: intakes[0].id, status: 'taken' },
-        AT('08:30', d),
-      );
-    if (intakes[1] && d !== 0)
-      await confirmFromRespondent(
-        db,
-        s1,
-        { intakeId: intakes[1].id, status: 'skipped', note: 'esqueci' },
-        AT('21:00', d),
-      );
   }
   await adjustDose(
     db,
@@ -112,13 +94,14 @@ describe('relatório 30 d', () => {
   });
   afterAll(async () => db.destroy());
 
-  it('resume check-ins, adesão (só confirmações), sintomas com n, scores, doses, alertas+condutas, efeitos', async () => {
+  it('resume check-ins, adesão (pela pergunta do check-in), sintomas com n, scores, doses, alertas+condutas, efeitos', async () => {
     const r = await patientReport(db, doctor, fx.p1.id, { days: 30, now: AT('12:00') });
     expect(r.patient.name).toBe('Paciente Sintético Um');
     expect(r.checkins).toMatchObject({ sent: 3, completed: 3, missed: 0, completion_rate: 1 });
-    // intakes: 3 dias × 2 = 6 (hoje 20:00 ainda pendente): taken 3, skipped 2, unconfirmed 1
-    expect(r.adherence).toMatchObject({ scheduled: 6, taken: 3, skipped: 2, unconfirmed: 1 });
-    expect(r.adherence.rate).toBeCloseTo(3 / 5, 5);
+    // E9.1: adesão vem da pergunta 'adesao' — 3 dias respondidos, 1 "não" (d-1)
+    expect(r.adherence).toMatchObject({ answered: 3, yes: 2, no: 1 });
+    expect(r.adherence.rate).toBeCloseTo(2 / 3, 2);
+    expect(r.adherence.days.filter((d) => !d.took)).toHaveLength(1);
     const dor = r.symptoms.find((s) => s.key === 'dor');
     expect(dor).toMatchObject({ n: 3, min: 3, max: 8, last: 3 });
     expect(dor.mean).toBeCloseTo(17 / 3, 2);
@@ -161,10 +144,11 @@ describe('LGPD — export, anonimização, retenção', () => {
       dose_events: 3,
       episodes: 1,
       checkins: 3,
-      answers: 19,
+      answers: 22, // +3: a pergunta de adesão em cada dia
       alerts: expect.any(Number),
     });
-    expect(data.manifest.counts.medication_intakes).toBe(6);
+    expect(data.manifest.counts.medication_intakes).toBe(0); // D17: nada novo é criado
+    expect(data.manifest.counts).toMatchObject({ routine_periods: 1, routine_alarms: 2 });
     expect(Object.keys(data.files).sort()).toEqual([
       'access_audit.json',
       'alerts.json',
@@ -175,6 +159,7 @@ describe('LGPD — export, anonimização, retenção', () => {
       'notifications.json',
       'patient.json',
       'respondents.json',
+      'routine_periods.json',
       'scores.json',
     ]);
     const buf = await buildExportZip(data);

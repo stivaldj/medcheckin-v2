@@ -2,7 +2,7 @@ import { toDT } from '../time.js';
 import { AuthError } from '../auth/tokens.js';
 import { requirePatientInClinic, logAccess } from '../auth/access.js';
 import { toHm } from '../scheduler/next-run.js';
-import { ValidationError } from '../patients/index.js';
+import { ValidationError } from '../errors.js';
 
 const FORMS = new Set(['oil', 'capsule', 'flower', 'other']);
 const UNITS = new Set(['gotas', 'ml', 'mg', 'cápsulas', 'capsulas']);

@@ -36,7 +36,7 @@ test.describe('PROVA E4 — médica: cadastrar paciente → convidar cuidador �
     await page.getByLabel('Nome').fill('Avó E2E');
     await page.getByLabel('Relação').fill('avó');
     await page.getByRole('button', { name: 'Criar convite' }).click();
-    await expect(page.getByText('Avó E2E')).toBeVisible();
+    await expect(page.getByTestId('respondents-card')).toContainText('Avó E2E');
 
     // 5. medicação: sem dose vigente → ajustar dose → dose vigente
     await expect(page.getByTestId('medications-card')).toContainText('Nenhuma medicação.');

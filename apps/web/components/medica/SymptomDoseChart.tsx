@@ -17,9 +17,15 @@ import { fmt } from '@/lib/format';
 
 type Q = { key: string; label: string; kind: string };
 
+/** Espelha `ADHERENCE_QUESTION_KEY` do core (literal: o core é server-only, não entra no bundle). */
+const ADHERENCE_KEY = 'adesao';
+
 export function SymptomDoseChart({ patientId, questions }: { patientId: string; questions: Q[] }) {
+  // D20: adesão não é sintoma — tem card próprio e não entra no gráfico sintoma × dose.
   const numeric = questions.filter(
-    (q) => q.kind === 'scale_0_10' || q.kind === 'number' || q.kind === 'yes_no',
+    (q) =>
+      q.key !== ADHERENCE_KEY &&
+      (q.kind === 'scale_0_10' || q.kind === 'number' || q.kind === 'yes_no'),
   );
   const [key, setKey] = useState(numeric[0]?.key ?? '');
   const [days, setDays] = useState(30);

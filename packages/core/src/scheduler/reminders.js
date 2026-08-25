@@ -7,6 +7,9 @@ import { logger } from '../logger.js';
 const LATE_AFTER_MINUTES = 60;
 
 /**
+ * @deprecated D17/E9.1 — fora do ciclo desde a rotina por período (`routine_alarms`).
+ * Mantido só para o histórico já gravado em `medication_intakes`.
+ *
  * Cria os `medication_intakes` do dia local para cada medicação ativa de paciente ativo,
  * um por horário da DOSE VIGENTE (D3). Idempotente por unique(medication_id, scheduled_at).
  */
@@ -46,6 +49,8 @@ export async function planMedicationIntakes(db, now) {
 }
 
 /**
+ * @deprecated D17/E9.1 — substituído por `dispatchDueRoutineAlarms`.
+ *
  * Alarme de dose para intakes vencidos e ainda pendentes, aos respondentes `receives_alarms`.
  * L4: enviar NUNCA muda o status do intake — só `confirmIntake` muda.
  */
@@ -107,6 +112,8 @@ export async function dispatchDueIntakes(db, now, { notifier }) {
 const CONFIRM_STATUSES = new Set(['taken', 'skipped']);
 
 /**
+ * @deprecated D17/E9.1 — fora da UI; a adesão vem da pergunta do check-in.
+ *
  * Único caminho que muda `medication_intakes.status` (L4).
  * `taken` mais de 60 min após o horário vira `late`.
  */

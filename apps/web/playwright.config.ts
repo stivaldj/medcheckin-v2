@@ -21,10 +21,13 @@ export default defineConfig({
   build: { external: ['**/packages/core/**'] },
   use: { baseURL: `http://localhost:${PORT}`, trace: 'retain-on-failure' },
   webServer: {
-    command: `npx next dev -p ${PORT}`,
+    // Build de produção (não `next dev`): em dev a primeira compilação de cada rota dispara
+    // "Fast Refresh had to perform a full reload", que aborta o fetch em voo e faz o teste ver
+    // um clique que não fez nada. Aqui o E2E roda contra exatamente o que vai ao ar.
+    command: `npx next build && npx next start -p ${PORT}`,
     url: `http://localhost:${PORT}/api/health`,
     reuseExistingServer: false,
-    timeout: 120_000,
+    timeout: 300_000,
     env: {
       DATABASE_URL: dbUrl,
       APP_BASE_URL: `http://localhost:${PORT}`,

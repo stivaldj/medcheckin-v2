@@ -1,5 +1,5 @@
 import { AuthError } from '../auth/tokens.js';
-import { ValidationError } from '../patients/index.js';
+import { ValidationError } from '../errors.js';
 
 const KINDS = new Set(['scale_0_10', 'yes_no', 'choice', 'number', 'text']);
 const OPS = new Set(['>=', '>', '<=', '<', '==', '!=', 'in']);

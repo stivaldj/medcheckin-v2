@@ -23,16 +23,16 @@ Aparelhos a cobrir (checklist de push abaixo): Android + Chrome, iPhone + Safari
 
 ## Critérios de sucesso (escritos antes — `SHADOW_CRITERIA` em `core/report/shadowReport.js`)
 
-| #   | Critério                                             | Limiar    | Como é medido                                                                                        |
-| --- | ---------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------- |
-| 1   | Entrega de push                                      | ≥ 95 %    | `notifications`: sent / (sent + falhas), falhas contam reenvios (`attempts`)                         |
-| 2   | Check-ins respondidos / enviados                     | ≥ 70 %    | `checkins.completed / checkins.sent_at`                                                              |
-| 3   | Mediana até a 1ª resposta                            | ≤ 120 min | `min(answers.answered_at) − checkins.sent_at`                                                        |
-| 4   | Tomadas confirmadas (tomou ou não tomou) / previstas | ≥ 70 %    | `medication_intakes.status ≠ pending`                                                                |
-| 5   | Mediana até a conduta em alerta clínico              | ≤ 24 h    | 1ª `alert_actions` (ack/resolve) − `alerts.first_seen_at`, excluindo `no_response`/`delivery_failed` |
-| 6   | Ruído: alertas operacionais / total                  | ≤ 50 %    | `no_response` + `delivery_failed` sobre todos                                                        |
-| 7   | Maior lacuna entre ciclos do scheduler               | ≤ 10 min  | `system_state.scheduler.max_gap_min`                                                                 |
-| 8   | Sucessos falsos observados                           | 0         | anotação manual do observador (algo marcado "enviado"/"confirmado" sem ter acontecido)               |
+| #   | Critério                                      | Limiar    | Como é medido                                                                                        |
+| --- | --------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------- |
+| 1   | Entrega de push                               | ≥ 95 %    | `notifications`: sent / (sent + falhas), falhas contam reenvios (`attempts`)                         |
+| 2   | Check-ins respondidos / enviados              | ≥ 70 %    | `checkins.completed / checkins.sent_at`                                                              |
+| 3   | Mediana até a 1ª resposta                     | ≤ 120 min | `min(answers.answered_at) − checkins.sent_at`                                                        |
+| 4   | Adesão relatada no check-in (sim / respostas) | ≥ 70 %    | `answers` da pergunta `adesao` (E9.1/D15: o alarme é lembrete puro, não confirma tomada)             |
+| 5   | Mediana até a conduta em alerta clínico       | ≤ 24 h    | 1ª `alert_actions` (ack/resolve) − `alerts.first_seen_at`, excluindo `no_response`/`delivery_failed` |
+| 6   | Ruído: alertas operacionais / total           | ≤ 50 %    | `no_response` + `delivery_failed` sobre todos                                                        |
+| 7   | Maior lacuna entre ciclos do scheduler        | ≤ 10 min  | `system_state.scheduler.max_gap_min`                                                                 |
+| 8   | Sucessos falsos observados                    | 0         | anotação manual do observador (algo marcado "enviado"/"confirmado" sem ter acontecido)               |
 
 **Critérios de aborto (parar e corrigir antes de continuar):** push não chega em **nenhum** aparelho de uma plataforma por > 24 h; scheduler parado > 60 min sem alerta de uptime; qualquer dado de um participante visível para outro; qualquer sucesso falso.
 

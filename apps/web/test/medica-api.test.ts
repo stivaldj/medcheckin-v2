@@ -293,7 +293,7 @@ describe('perguntas', () => {
     const list = await (
       await GET(req('/api/question-sets', { headers: { cookie: fx.cookie } }), params({}))
     ).json();
-    expect(list[0].questions.length).toBe(7);
+    expect(list[0].questions.length).toBe(8); // +adesao (E9.1)
     const created = await POST(
       req('/api/question-sets', {
         method: 'POST',
@@ -334,5 +334,97 @@ describe('perguntas', () => {
       'como_esta_a_dor_hoje',
       'observacoes_livres',
     ]);
+  });
+});
+
+describe('rotina de alarmes (E9.1)', () => {
+  const day = (n: number) => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+  let created: { id: string };
+
+  it('POST /api/patients/[id]/routine-periods cria; sobreposição → 400 validation; sem alarme → 400', async () => {
+    const { POST } = await import('../app/api/patients/[id]/routine-periods/route');
+    // o seed já dá a P1 um período vigente: pedir as mesmas datas tem de bater na constraint
+    const overlap = await POST(
+      req(`/api/patients/${fx.p1}/routine-periods`, {
+        method: 'POST',
+        headers: H(),
+        body: JSON.stringify({
+          starts_on: day(0),
+          ends_on: day(1),
+          alarms: [{ time: '08:00', description: 'x' }],
+        }),
+      }),
+      params({ id: fx.p1 }),
+    );
+    expect(overlap.status).toBe(400);
+    expect((await overlap.json()).error).toBe('validation');
+
+    const empty = await POST(
+      req(`/api/patients/${fx.p1}/routine-periods`, {
+        method: 'POST',
+        headers: H(),
+        body: JSON.stringify({ starts_on: day(30), alarms: [] }),
+      }),
+      params({ id: fx.p1 }),
+    );
+    expect(empty.status).toBe(400);
+
+    const ok = await POST(
+      req(`/api/patients/${fx.p1}/routine-periods`, {
+        method: 'POST',
+        headers: H(),
+        body: JSON.stringify({
+          starts_on: day(30),
+          ends_on: day(34),
+          alarms: [
+            { time: '20:00', description: '4 gts óleo' },
+            { time: '08:00', description: 'ômega 3 1cp' },
+          ],
+        }),
+      }),
+      params({ id: fx.p1 }),
+    );
+    expect(ok.status).toBe(201);
+    created = await ok.json();
+    expect(created).toMatchObject({ starts_on: day(30), ends_on: day(34) });
+    expect(
+      (created as unknown as { alarms: { time: string }[] }).alarms.map((a) => a.time),
+    ).toEqual(['08:00', '20:00']);
+  });
+
+  it('PATCH /api/routine-periods/[id] edita horários e textos; POST end-today encerra o vigente', async () => {
+    const { PATCH } = await import('../app/api/routine-periods/[id]/route');
+    const res = await PATCH(
+      req(`/api/routine-periods/${created.id}`, {
+        method: 'PATCH',
+        headers: H(),
+        body: JSON.stringify({
+          starts_on: day(31),
+          ends_on: day(34),
+          alarms: [{ time: '09:00', description: 'texto editado' }],
+        }),
+      }),
+      params({ id: created.id }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.starts_on).toBe(day(31));
+    expect(body.alarms).toMatchObject([{ time: '09:00', description: 'texto editado' }]);
+
+    const current = await db('routine_periods')
+      .where({ patient_id: fx.p1 })
+      .andWhere('starts_on', '<=', day(0))
+      .first();
+    const { POST } = await import('../app/api/routine-periods/[id]/end-today/route');
+    const ended = await POST(
+      req(`/api/routine-periods/${current.id}/end-today`, { method: 'POST', headers: H() }),
+      params({ id: current.id }),
+    );
+    expect(ended.status).toBe(200);
+    expect((await ended.json()).ends_on).toBe(day(0));
   });
 });

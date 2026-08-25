@@ -1,12 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import {
-  createDb,
-  migrationConfig,
-  runSeed,
-  createSession,
-  planCheckins,
-  planMedicationIntakes,
-} from '@medcheckin/core';
+import { createDb, migrationConfig, runSeed, createSession, planCheckins } from '@medcheckin/core';
 import type { Knex } from 'knex';
 
 let db: Knex;
@@ -35,7 +28,6 @@ beforeAll(async () => {
     new Date(),
   );
   await planCheckins(db, new Date());
-  await planMedicationIntakes(db, new Date());
   fx = { cookie: `mc_resp=${sessionToken}`, p1: p1.id, r1: r1.id };
 });
 afterAll(async () => db.destroy());
@@ -48,8 +40,10 @@ describe('API do respondente', () => {
     expect(res.status).toBe(200);
     const t = await res.json();
     expect(t.checkin).toBeTruthy();
-    expect(t.checkin.next.key).toBe('dor');
+    expect(t.checkin.next.key).toBe('adesao');
+    // E9.1: lembrete puro — horário + texto livre, sem intake_id nem status
     expect(t.alarms).toHaveLength(2);
+    expect(Object.keys(t.alarms[0]).sort()).toEqual(['description', 'time']);
   });
 
   it('POST /api/p/checkins/[id]/answers grava e devolve próxima; valor inválido → 400; Origin estranho → 403', async () => {
@@ -58,6 +52,14 @@ describe('API do respondente', () => {
       await GET(req('/api/p/today', { headers: { cookie: fx.cookie } }), params({}))
     ).json();
     const { POST } = await import('../app/api/p/checkins/[id]/answers/route');
+    await POST(
+      req(`/api/p/checkins/${t.checkin.id}/answers`, {
+        method: 'POST',
+        headers: H(),
+        body: JSON.stringify({ questionKey: 'adesao', value: 1 }),
+      }),
+      params({ id: t.checkin.id }),
+    );
     const bad = await POST(
       req(`/api/p/checkins/${t.checkin.id}/answers`, {
         method: 'POST',
@@ -87,29 +89,10 @@ describe('API do respondente', () => {
     expect(ok.status).toBe(200);
     const body = await ok.json();
     expect(body.next.key).toBe('sono');
-    expect(body.progress.answered).toBe(1);
+    expect(body.progress.answered).toBe(2);
     const a = await db('answers').where({ checkin_id: t.checkin.id });
-    expect(a).toHaveLength(1);
-    expect(a[0].respondent_id).toBe(fx.r1);
-  });
-
-  it('POST /api/p/intakes/[id]/confirm', async () => {
-    const { GET } = await import('../app/api/p/today/route');
-    const t = await (
-      await GET(req('/api/p/today', { headers: { cookie: fx.cookie } }), params({}))
-    ).json();
-    const { POST } = await import('../app/api/p/intakes/[id]/confirm/route');
-    const id = t.alarms[0].intake_id;
-    const ok = await POST(
-      req(`/api/p/intakes/${id}/confirm`, {
-        method: 'POST',
-        headers: H(),
-        body: JSON.stringify({ status: 'taken' }),
-      }),
-      params({ id }),
-    );
-    expect(ok.status).toBe(200);
-    expect(['taken', 'late']).toContain((await ok.json()).status);
+    expect(a).toHaveLength(2);
+    expect(a.every((x) => x.respondent_id === fx.r1)).toBe(true);
   });
 
   it('GET /api/p/vapid; POST /api/p/push salva inscrição; DELETE remove; GET /api/p/history', async () => {

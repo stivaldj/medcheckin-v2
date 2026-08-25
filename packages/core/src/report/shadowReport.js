@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { toDT } from '../time.js';
 import { getSystemState, STATE_KEYS } from '../scheduler/cycle.js';
+import { ADHERENCE_QUESTION_KEY } from '../routine/index.js';
 
 /** Critérios do shadow run — escritos ANTES da semana (docs/SHADOW_RUN.md). */
 export const SHADOW_CRITERIA = Object.freeze([
@@ -26,8 +27,8 @@ export const SHADOW_CRITERIA = Object.freeze([
     unit: 'min',
   },
   {
-    metric: 'adherence.confirmation_rate',
-    label: 'Tomadas confirmadas (tomou/não tomou) / previstas',
+    metric: 'adherence.rate',
+    label: 'Adesão relatada no check-in (sim / respostas de adesão)',
     op: '>=',
     threshold: 0.7,
     unit: '%',
@@ -137,21 +138,24 @@ export async function shadowReport(db, { clinicId, from, to, now }) {
       median(minutesToFirst) === null ? null : Number(median(minutesToFirst).toFixed(1)),
   };
 
-  const intakes = patientIds.length
-    ? await db('medication_intakes as i')
-        .join('medications as m', 'm.id', 'i.medication_id')
-        .whereIn('m.patient_id', patientIds)
-        .andWhere('i.scheduled_at', '>=', fromJs)
-        .andWhere('i.scheduled_at', '<=', toJs)
-        .select('i.status')
+  // Adesão (D15): pela pergunta do check-in — o alarme virou lembrete puro, sem confirmação.
+  const adherenceRows = patientIds.length
+    ? await db('answers as a')
+        .join('checkins as c', 'c.id', 'a.checkin_id')
+        .join('questions as q', 'q.id', 'a.question_id')
+        .whereIn('c.patient_id', patientIds)
+        .andWhere('q.key', ADHERENCE_QUESTION_KEY)
+        .andWhere('a.skipped', false)
+        .andWhere('c.scheduled_for', '>=', fromJs)
+        .andWhere('c.scheduled_for', '<=', toJs)
+        .select('a.value_num')
     : [];
-  const confirmed = intakes.filter((i) => i.status !== 'pending').length;
+  const adherenceYes = adherenceRows.filter((r) => Number(r.value_num) === 1).length;
   const adherence = {
-    scheduled: intakes.length,
-    confirmed,
-    taken: intakes.filter((i) => i.status === 'taken' || i.status === 'late').length,
-    skipped: intakes.filter((i) => i.status === 'skipped').length,
-    confirmation_rate: ratio(confirmed, intakes.length),
+    answered: adherenceRows.length,
+    yes: adherenceYes,
+    no: adherenceRows.filter((r) => Number(r.value_num) === 0).length,
+    rate: ratio(adherenceYes, adherenceRows.length),
   };
 
   const alertRows = patientIds.length

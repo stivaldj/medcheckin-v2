@@ -138,32 +138,30 @@ export default async function HojePage() {
           </CardContent>
         </Card>
 
-        <Card data-testid="intakes-card">
+        <Card data-testid="adherence-card">
           <CardHeader>
             <CardTitle>
-              Confirmações de dose pendentes{' '}
+              Adesão de hoje{' '}
               <span className="text-muted-foreground">
-                ({d.intakes.pending_confirmation.length})
+                ({d.adherence.yes}/{d.adherence.answered})
               </span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <p className="text-muted-foreground">
-              Hoje: {d.intakes.total} tomadas previstas · tomou {fmt(d.intakes.taken)} · atrasado{' '}
-              {fmt(d.intakes.late)} · não tomou {fmt(d.intakes.skipped)}
-              {d.intakes.side_effects.length
-                ? ` · com efeito ${d.intakes.side_effects.length}`
-                : ''}
+              Pela pergunta do check-in: tomou {fmt(d.adherence.yes)} · não tomou{' '}
+              {fmt(d.adherence.no)} · sem resposta de adesão hoje{' '}
+              {fmt(Math.max(0, d.completed_today - d.adherence.answered))}
             </p>
-            {d.intakes.pending_confirmation.map((i) => (
-              <div key={i.intake_id} className="flex justify-between rounded-md border p-2">
-                <Link href={`/pacientes/${i.patient_id}`} className="font-medium hover:underline">
-                  {i.patient_name}
+            {d.adherence.no_patients.map((p) => (
+              <div
+                key={p.patient_id}
+                className="flex justify-between rounded-md border border-destructive/40 p-2"
+              >
+                <Link href={`/pacientes/${p.patient_id}`} className="font-medium hover:underline">
+                  {p.patient_name}
                 </Link>
-                <span className="text-muted-foreground">
-                  {hm(i.scheduled_at)} · {i.product_name}{' '}
-                  {i.dose_amount != null ? `${fmt(i.dose_amount)} ${i.dose_unit}` : ''}
-                </span>
+                <span className="text-muted-foreground">não tomou as medicações hoje</span>
               </div>
             ))}
           </CardContent>
