@@ -1,7 +1,7 @@
 import { toDT } from '../time.js';
 import { planCheckins, expireCheckins } from './planner.js';
 import { dispatchDueCheckins } from '../checkin/engine.js';
-import { planMedicationIntakes, dispatchDueIntakes } from './reminders.js';
+import { dispatchDueRoutineAlarms } from './routineAlarms.js';
 import { evaluateAllAlerts } from '../alerts/evaluate.js';
 import { applyRetention } from '../lgpd/retention.js';
 import { logger } from '../logger.js';
@@ -45,8 +45,9 @@ export async function runCycle(db, now, { notifier, force = false } = {}) {
   const checkins = await planCheckins(db, nowDT);
   const expired = await expireCheckins(db, nowDT);
   const dispatch = await dispatchDueCheckins(db, nowDT, { notifier });
-  const intakes = await planMedicationIntakes(db, nowDT);
-  const alarms = await dispatchDueIntakes(db, nowDT, { notifier });
+  // E9.1/D15: os alarmes nascem da rotina por período (routine_alarms). `medication_intakes`
+  // está deprecado (D17) — a tabela fica para histórico, mas nada novo é criado.
+  const alarms = await dispatchDueRoutineAlarms(db, nowDT, { notifier });
 
   let alerts = null;
   const lastRaw =
@@ -79,7 +80,6 @@ export async function runCycle(db, now, { notifier, force = false } = {}) {
     checkins,
     expired,
     dispatch,
-    intakes,
     alarms,
     alerts,
     retention,

@@ -1,124 +1,11 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import type { RespondentTodayView, TodayAlarm, TodayQuestion } from '@medcheckin/core';
+import type { RespondentTodayView, TodayQuestion } from '@medcheckin/core';
 import { api, ApiError } from '@/lib/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { NoSession } from './NoSession';
 import { PushToggle } from './PushToggle';
-
-const hm = (v: string | Date) =>
-  new Date(v).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-function AlarmRow({ a, onDone }: { a: TodayAlarm; onDone: () => void }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [effect, setEffect] = useState(false);
-  const [note, setNote] = useState('');
-  async function confirm(status: 'taken' | 'skipped', sideEffect = false) {
-    setBusy(true);
-    setError(null);
-    try {
-      await api(`/api/p/intakes/${a.intake_id}/confirm`, {
-        method: 'POST',
-        json: { status, sideEffect, note: note || null },
-      });
-      onDone();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Erro');
-    } finally {
-      setBusy(false);
-    }
-  }
-  const label: Record<string, string> = {
-    taken: 'Tomou',
-    late: 'Tomou (atrasado)',
-    skipped: 'Não tomou',
-    pending: 'Pendente',
-  };
-  return (
-    <div className="rounded-md border p-3" data-testid="alarm">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="font-medium">
-            {hm(a.scheduled_at)} — {a.product_name}
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {a.dose_amount != null ? `${a.dose_amount} ${a.dose_unit}` : 'dose não definida'}
-          </div>
-        </div>
-        <span className="text-sm" data-testid="alarm-status">
-          {label[a.status] ?? a.status}
-          {a.side_effect_flag ? ' · efeito' : ''}
-        </span>
-      </div>
-      {a.status === 'pending' && (
-        <div className="mt-2 space-y-2">
-          {!effect ? (
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                disabled={busy}
-                onClick={() => confirm('taken')}
-                data-testid="taken"
-              >
-                Tomei
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                onClick={() => confirm('skipped')}
-                data-testid="skipped"
-              >
-                Não tomei
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => setEffect(true)}
-                data-testid="effect"
-              >
-                Tive efeito
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <input
-                className="w-full rounded-md border px-2 py-1 text-sm"
-                placeholder="Qual efeito? (opcional)"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                data-testid="effect-note"
-              />
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => confirm('taken', true)}
-                  data-testid="taken-effect"
-                >
-                  Tomei e tive efeito
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => confirm('skipped', true)}
-                  data-testid="skipped-effect"
-                >
-                  Não tomei por efeito
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
-    </div>
-  );
-}
 
 function QuestionForm({
   checkinId,
@@ -274,7 +161,14 @@ export function TodayView() {
             {data.alarms.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhum horário de medicação hoje.</p>
             ) : (
-              data.alarms.map((a) => <AlarmRow key={a.intake_id} a={a} onDone={load} />)
+              data.alarms.map((a) => (
+                <div key={a.time} className="rounded-md border p-3" data-testid="alarm">
+                  <div className="font-medium tabular-nums">{a.time}</div>
+                  <div className="text-sm text-muted-foreground" data-testid="alarm-description">
+                    {a.description}
+                  </div>
+                </div>
+              ))
             )}
           </CardContent>
         </Card>

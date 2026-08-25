@@ -4,17 +4,13 @@ import { newToken, AuthError } from '../auth/tokens.js';
 import { requirePatientInClinic, logAccess } from '../auth/access.js';
 import { currentDose } from '../doses/currentDose.js';
 import { toHm } from '../scheduler/next-run.js';
+import { ValidationError } from '../errors.js';
+import { listRoutine } from '../routine/index.js';
+
+export { ValidationError };
 
 const PATIENT_STATUS = new Set(['active', 'paused', 'discharged']);
 const RESP_KIND = new Set(['patient', 'caregiver']);
-
-export class ValidationError extends Error {
-  constructor(message, field = null) {
-    super(message);
-    this.code = 'validation';
-    this.field = field;
-  }
-}
 
 function requireDoctor(session) {
   if (!session || session.kind !== 'user')
@@ -294,9 +290,11 @@ export async function getPatientDetail(db, session, patientId, { baseUrl = '', n
     .whereNot('status', 'resolved')
     .orderBy('last_seen_at', 'desc');
   const grid = await patientGrid(db, patientId, { days: 14, now });
+  const routine = await listRoutine(db, session, patientId, { now });
   await logAccess(db, { session, patientId, route: 'patients.detail', action: 'view' }, now);
   return {
     patient,
+    routine,
     respondents,
     medications: meds,
     episode: episode ? { ...episode, question_set_name: questionSet?.name ?? null } : null,

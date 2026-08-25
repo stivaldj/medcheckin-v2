@@ -58,6 +58,7 @@ export async function anonymizePatient(db, session, patientId, { reason }, now) 
     const medIds = trx('medications').select('id').where({ patient_id: patientId });
     await trx('dose_events').whereIn('medication_id', medIds).update({ note: null });
     await trx('medication_intakes').whereIn('medication_id', medIds).update({ note: null });
+    await trx('routine_periods').where({ patient_id: patientId }).update({ note: null });
     await logAccess(
       trx,
       { session, patientId, route: `patients.anonymize:${why.slice(0, 120)}`, action: 'anonymize' },

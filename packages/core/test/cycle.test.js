@@ -9,7 +9,7 @@ const AT = (hm) => {
   return TODAY.set({ hour: h, minute: m }).toUTC().toJSDate();
 };
 
-describe('runCycle — um ciclo do scheduler (planner → expire → dispatch → intakes → alertas)', () => {
+describe('runCycle — um ciclo do scheduler (planner → expire → dispatch → alarmes da rotina → alertas)', () => {
   let db, fx, notifier;
   beforeAll(async () => {
     db = await freshDb();
@@ -31,8 +31,9 @@ describe('runCycle — um ciclo do scheduler (planner → expire → dispatch �
     expect(await db('notifications').where({ kind: 'checkin' }).count().first()).toMatchObject({
       count: 1,
     });
-    // intakes de hoje: 5; alarmes vencidos às 09:00: 08:00 (P1) e 07:00 (P2) → 2 notificações
-    expect(a.intakes.created).toBe(5);
+    // alarmes da rotina vencidos às 09:00: 08:00 (P1) e 07:00 (P2) → 2 notificações; o 2º ciclo não repete
+    expect(a.alarms).toMatchObject({ sent: 2 });
+    expect(b.alarms).toMatchObject({ sent: 0, duplicate: 2 });
     expect(await db('notifications').where({ kind: 'alarm' }).count().first()).toMatchObject({
       count: 2,
     });

@@ -20,6 +20,8 @@ const TABLES_IN_DELETE_ORDER = [
   'medications',
   'products',
   'push_subscriptions',
+  'routine_alarms',
+  'routine_periods',
   'respondents',
   'patients',
   'users',
@@ -28,10 +30,18 @@ const TABLES_IN_DELETE_ORDER = [
 
 const QUESTIONS = [
   {
+    // D15: a adesão passou a ser confirmada AQUI (o alarme virou lembrete puro, sem botões).
+    key: 'adesao',
+    label: 'Tomou as medicações corretamente hoje?',
+    kind: 'yes_no',
+    sort_order: 1,
+    alert_threshold_json: { op: '==', value: 0, severity: 'medium' },
+  },
+  {
     key: 'dor',
     label: 'Como está sua dor hoje? (0 = nenhuma, 10 = pior possível)',
     kind: 'scale_0_10',
-    sort_order: 1,
+    sort_order: 2,
     alert_threshold_json: { op: '>=', value: 7 },
     score_direction: 'lower_is_better',
     score_weight: 2,
@@ -40,7 +50,7 @@ const QUESTIONS = [
     key: 'sono',
     label: 'Como foi seu sono?',
     kind: 'scale_0_10',
-    sort_order: 2,
+    sort_order: 3,
     alert_threshold_json: { op: '<=', value: 3 },
     score_direction: 'higher_is_better',
   },
@@ -48,7 +58,7 @@ const QUESTIONS = [
     key: 'humor',
     label: 'Como está seu humor?',
     kind: 'scale_0_10',
-    sort_order: 3,
+    sort_order: 4,
     alert_threshold_json: { op: '<=', value: 3 },
     score_direction: 'higher_is_better',
   },
@@ -57,14 +67,14 @@ const QUESTIONS = [
     label: 'Quantas crises nas últimas 24h?',
     kind: 'number',
     unit: 'crises',
-    sort_order: 4,
+    sort_order: 5,
     alert_threshold_json: { op: '>=', value: 3 },
   },
   {
     key: 'efeito_adverso',
     label: 'Sentiu algum efeito indesejado (sonolência, tontura, náusea)?',
     kind: 'yes_no',
-    sort_order: 5,
+    sort_order: 6,
     is_side_effect: true,
     alert_threshold_json: { op: '==', value: 1 },
   },
@@ -73,7 +83,7 @@ const QUESTIONS = [
     label: 'Qual efeito?',
     kind: 'choice',
     options: ['sonolência', 'tontura', 'náusea', 'boca seca', 'outro'],
-    sort_order: 6,
+    sort_order: 7,
     required: false,
     is_side_effect: true,
     condition_json: { when: 'efeito_adverso', op: '==', value: 1 },
@@ -82,7 +92,7 @@ const QUESTIONS = [
     key: 'obs',
     label: 'Quer registrar mais alguma coisa?',
     kind: 'text',
-    sort_order: 7,
+    sort_order: 8,
     required: false,
   },
 ];
@@ -179,6 +189,24 @@ export async function runSeed(db, { reset = false } = {}) {
       dose_amount: 4,
       reason: 'titulação: dor persistente',
     });
+    // Rotina de alarmes (E9.1): período vigente com fim previsto, um texto livre por horário.
+    const [rp1] = await trx('routine_periods')
+      .insert({
+        patient_id: p1.id,
+        starts_on: daysAgo(4),
+        ends_on: daysAhead(3),
+        note: 'ciclo atual',
+        created_by: doctor.id,
+      })
+      .returning('id');
+    await trx('routine_alarms').insert([
+      {
+        period_id: rp1.id,
+        time: '08:00',
+        description: 'ômega 3 1cp / 4 gts óleo IBRACAN 10% sublingual (segurar 1–3 min)',
+      },
+      { period_id: rp1.id, time: '20:00', description: '4 gts óleo IBRACAN 10% sublingual' },
+    ]);
     await trx('episodes').insert({
       patient_id: p1.id,
       kind: 'titration',
@@ -238,6 +266,14 @@ export async function runSeed(db, { reset = false } = {}) {
         created_by: doctor.id,
       })
       .returning('id');
+    const [rp2] = await trx('routine_periods')
+      .insert({ patient_id: p2.id, starts_on: daysAgo(40), created_by: doctor.id })
+      .returning('id');
+    await trx('routine_alarms').insert([
+      { period_id: rp2.id, time: '07:00', description: '0,5 ml óleo + vitamina D' },
+      { period_id: rp2.id, time: '13:00', description: '0,5 ml óleo' },
+      { period_id: rp2.id, time: '21:00', description: '0,5 ml óleo antes de dormir' },
+    ]);
     await trx('episodes').insert({
       patient_id: p2.id,
       kind: 'maintenance',
@@ -257,6 +293,10 @@ function daysAgo(n) {
   return d.toISOString().slice(0, 10);
 }
 
+function daysAhead(n) {
+  return daysAgo(-n);
+}
+
 async function counts(trx) {
   const out = {};
   for (const t of [
@@ -270,6 +310,8 @@ async function counts(trx) {
     'question_sets',
     'questions',
     'episodes',
+    'routine_periods',
+    'routine_alarms',
   ]) {
     const [{ count }] = await trx(t).count();
     out[t] = Number(count);

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { DateTime } from 'luxon';
 import { freshDb, seedFixture, fakeNotifier } from './helpers/db.js';
 import { runCycle, resetCycleState, getSystemState } from '../src/scheduler/cycle.js';
-import { answerFromRespondent, confirmFromRespondent } from '../src/respondent/index.js';
+import { answerFromRespondent } from '../src/respondent/index.js';
 import { resolveAlert } from '../src/alerts/actions.js';
 import {
   shadowReport,
@@ -36,6 +36,7 @@ describe('shadowReport — métricas critério × resultado', () => {
       .orderBy('scheduled_for', 'desc')
       .first();
     for (const [k, v] of [
+      ['adesao', 1],
       ['dor', 9],
       ['sono', 5],
       ['humor', 5],
@@ -55,15 +56,6 @@ describe('shadowReport — métricas critério × resultado', () => {
       db,
       { alertId: a.id, userId: fx.doctor.id, note: 'liguei' },
       AT('09:47', -1),
-    );
-    const intakes = await db('medication_intakes')
-      .where({ medication_id: fx.m1.id })
-      .orderBy('scheduled_at');
-    await confirmFromRespondent(
-      db,
-      s1,
-      { intakeId: intakes[0].id, status: 'taken' },
-      AT('08:10', -1),
     );
     // dia 0: enviado, não respondido; uma notificação falha
     notifier.state.failNext = 1;
@@ -87,7 +79,7 @@ describe('shadowReport — métricas critério × resultado', () => {
     expect(r.checkins.completed).toBe(1);
     expect(r.checkins.response_rate).toBeCloseTo(1 / r.checkins.sent, 5);
     expect(r.checkins.median_minutes_to_first_answer).toBe(12);
-    expect(r.adherence.confirmed).toBeGreaterThanOrEqual(1);
+    expect(r.adherence).toMatchObject({ answered: 1, yes: 1, no: 0, rate: 1 });
     expect(r.alerts.by_code['threshold:dor']).toMatchObject({ opened: 1, resolved_by_doctor: 1 });
     expect(r.alerts.median_minutes_to_conduct).toBe(30);
     expect(r.alerts.noise_codes).toEqual(

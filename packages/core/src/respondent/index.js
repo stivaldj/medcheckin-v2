@@ -5,6 +5,7 @@ import { logAccess } from '../auth/access.js';
 import { recordAnswer, getNextQuestion } from '../checkin/engine.js';
 import { confirmIntake } from '../scheduler/reminders.js';
 import { conditionSatisfied } from '../checkin/engine.js';
+import { routineAlarmsForDay } from '../routine/index.js';
 
 function requireRespondent(session) {
   if (!session || session.kind !== 'respondent')
@@ -109,27 +110,14 @@ export async function respondentToday(db, session, now) {
     if (row) checkin = await checkinProgress(db, row);
   }
 
+  // D15: o alarme é LEMBRETE PURO — horário + texto livre da rotina vigente. Nada a confirmar aqui;
+  // a adesão vem da pergunta do check-in.
   let alarms = [];
   if (r.receives_alarms) {
-    alarms = await db('medication_intakes as i')
-      .join('medications as m', 'm.id', 'i.medication_id')
-      .join('products as pr', 'pr.id', 'm.product_id')
-      .leftJoin('dose_events as d', 'd.id', 'i.dose_event_id')
-      .where('m.patient_id', r.patient_id)
-      .andWhere('i.scheduled_at', '>=', dayStart.toUTC().toJSDate())
-      .andWhere('i.scheduled_at', '<', dayEnd.toUTC().toJSDate())
-      .orderBy('i.scheduled_at')
-      .select(
-        'i.id as intake_id',
-        'i.scheduled_at',
-        'i.status',
-        'i.taken_at',
-        'i.side_effect_flag',
-        'i.note',
-        'pr.name as product_name',
-        'd.dose_amount',
-        'd.dose_unit',
-      );
+    alarms = (await routineAlarmsForDay(db, r.patient_id, dayStart.toISODate())).map((a) => ({
+      time: a.time,
+      description: a.description,
+    }));
   }
   const [{ count }] = await db('push_subscriptions')
     .where({ respondent_id: r.id })
@@ -182,6 +170,7 @@ export async function answerFromRespondent(db, session, { checkinId, questionKey
   return { ...out, progress };
 }
 
+/** @deprecated D17 — fora da UI desde E9.1; mantido só para histórico de `medication_intakes`. */
 export async function confirmFromRespondent(
   db,
   session,
@@ -209,7 +198,7 @@ export async function confirmFromRespondent(
   return row;
 }
 
-/** Histórico por dia (fuso do paciente): respostas e intakes. Dias sem nada não aparecem. */
+/** Histórico por dia (fuso do paciente): respostas e alarmes da rotina. Dias sem nada não aparecem. */
 export async function respondentHistory(db, session, { days = 30, now } = {}) {
   requireRespondent(session);
   const nowDT = toDT(now);
@@ -222,7 +211,7 @@ export async function respondentHistory(db, session, { days = 30, now } = {}) {
   const byDay = new Map();
   const day = (d) => {
     const key = DateTime.fromJSDate(new Date(d)).setZone(tz).toISODate();
-    if (!byDay.has(key)) byDay.set(key, { date: key, answers: null, intakes: [] });
+    if (!byDay.has(key)) byDay.set(key, { date: key, answers: null, alarms: [] });
     return byDay.get(key);
   };
   const answers = await db('answers as a')
@@ -238,22 +227,16 @@ export async function respondentHistory(db, session, { days = 30, now } = {}) {
     if (!d.answers) d.answers = {};
     d.answers[a.key] = a.value_num ?? a.value_choice ?? a.value_text;
   }
-  const intakes = await db('medication_intakes as i')
-    .join('medications as m', 'm.id', 'i.medication_id')
-    .join('products as pr', 'pr.id', 'm.product_id')
-    .leftJoin('dose_events as d', 'd.id', 'i.dose_event_id')
-    .where('m.patient_id', r.patient_id)
-    .andWhere('i.scheduled_at', '>=', from.toUTC().toJSDate())
-    .orderBy('i.scheduled_at')
-    .select(
-      'i.scheduled_at',
-      'i.status',
-      'i.side_effect_flag',
-      'pr.name as product_name',
-      'd.dose_amount',
-      'd.dose_unit',
-    );
-  for (const i of intakes) day(i.scheduled_at).intakes.push(i);
+  // Rotina que valia em cada dia (o que o respondente viu no alarme).
+  for (let i = 0; i < days; i += 1) {
+    const date = from.plus({ days: i }).toISODate();
+    if (date > nowDT.setZone(tz).toISODate()) break;
+    const alarms = await routineAlarmsForDay(db, r.patient_id, date);
+    if (!alarms.length) continue;
+    const entry = byDay.get(date) ?? { date, answers: null, alarms: [] };
+    entry.alarms = alarms.map((a) => ({ time: a.time, description: a.description }));
+    byDay.set(date, entry);
+  }
   await logAccess(
     db,
     { session, patientId: r.patient_id, route: 'p.history', action: 'view' },

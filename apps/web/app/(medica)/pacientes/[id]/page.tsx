@@ -8,6 +8,7 @@ import { PatientHeaderActions } from '@/components/medica/PatientHeaderActions';
 import { LgpdActions } from '@/components/medica/LgpdActions';
 import { RespondentsCard } from '@/components/medica/RespondentsCard';
 import { MedicationsCard } from '@/components/medica/MedicationsCard';
+import { RoutineCard } from '@/components/medica/RoutineCard';
 import { EpisodeCard } from '@/components/medica/EpisodeCard';
 import { GridCard } from '@/components/medica/GridCard';
 import { AlertsCard } from '@/components/medica/AlertsCard';
@@ -80,6 +81,13 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
           />
         </div>
       </div>
+
+      <RoutineCard
+        patientId={p.id}
+        routine={detail.routine}
+        medications={detail.medications}
+        questionSets={questionSets}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <MedicationsCard

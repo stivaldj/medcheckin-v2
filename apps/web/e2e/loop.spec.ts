@@ -80,6 +80,7 @@ test.describe('loop fechado (48 h simuladas)', () => {
       .first();
     expect(ck.status).toBe('sent');
     for (const [k, v] of [
+      ['adesao', 1],
       ['dor', 8],
       ['sono', 6],
       ['humor', 6],
@@ -140,6 +141,7 @@ test.describe('loop fechado (48 h simuladas)', () => {
       .first();
     expect(ck.status).toBe('sent');
     for (const [k, v] of [
+      ['adesao', 0], // D15: adesão confirmada NO check-in
       ['dor', 5],
       ['sono', 6],
       ['humor', 6],
@@ -179,6 +181,9 @@ test.describe('loop fechado (48 h simuladas)', () => {
     expect(resolved.resolved_reason).toBe('doctor');
     const acts = await db('alert_actions').where({ alert_id: resolved.id });
     expect(acts.map((a) => a.action)).toEqual(['resolve']);
+    // adesão do dia veio da pergunta do check-in (bloco "Confirmações de dose pendentes" saiu)
+    await expect(page.getByTestId('adherence-card')).toContainText('Paciente Sintético Um');
+    await expect(page.getByTestId('adherence-card')).toContainText('não tomou as medicações hoje');
     // scheduler heartbeat visível
     await expect(page.getByTestId('scheduler-status')).toContainText(/Scheduler/);
 

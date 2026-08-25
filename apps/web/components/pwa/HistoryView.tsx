@@ -4,13 +4,6 @@ import type { HistoryDay } from '@medcheckin/core';
 import { api, ApiError } from '@/lib/client';
 import { NoSession } from './NoSession';
 
-const STATUS: Record<string, string> = {
-  taken: 'tomou',
-  late: 'tomou (atrasado)',
-  skipped: 'não tomou',
-  pending: 'pendente',
-};
-
 export function HistoryView() {
   const [days, setDays] = useState<HistoryDay[] | null>(null);
   const [status, setStatus] = useState<'loading' | 'ok' | 'nosession' | 'error'>('loading');
@@ -42,16 +35,11 @@ export function HistoryView() {
               ))}
             </ul>
           )}
-          {d.intakes.length > 0 && (
+          {d.alarms.length > 0 && (
             <ul className="mt-1 text-muted-foreground">
-              {d.intakes.map((i, idx) => (
-                <li key={idx}>
-                  {new Date(i.scheduled_at).toLocaleTimeString('pt-BR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}{' '}
-                  {i.product_name}: {STATUS[i.status] ?? i.status}
-                  {i.side_effect_flag ? ' · efeito' : ''}
+              {d.alarms.map((a) => (
+                <li key={a.time}>
+                  {a.time} — {a.description}
                 </li>
               ))}
             </ul>

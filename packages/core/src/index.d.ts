@@ -142,26 +142,81 @@ export function enqueueAndSend(
   error?: string;
 }>;
 
-export function planMedicationIntakes(
+/* ---- E9.1: rotina de alarmes por período (D15) -------------------------- */
+export const ADHERENCE_QUESTION_KEY: 'adesao';
+export interface RoutineAlarm {
+  id: string;
+  time: string; // HH:MM
+  description: string; // texto livre: o que tomar naquele horário
+}
+export interface RoutinePeriod {
+  id: string;
+  patient_id: string;
+  starts_on: string; // YYYY-MM-DD
+  ends_on: string | null; // null = sem fim previsto
+  note: string | null;
+  replicated_from: string | null;
+  created_at: Date | string;
+  alarms: RoutineAlarm[];
+}
+export interface RoutineRecipient {
+  id: string;
+  name: string;
+  kind: string;
+  accepted: boolean;
+  push_subscriptions: number;
+}
+export interface RoutineView {
+  today: string;
+  timezone: string;
+  current: RoutinePeriod | null;
+  upcoming: RoutinePeriod[];
+  past: RoutinePeriod[];
+  recipients: RoutineRecipient[];
+}
+export interface RoutinePeriodInput {
+  starts_on: string;
+  ends_on?: string | null;
+  note?: string | null;
+  replicated_from?: string | null;
+  alarms: Array<{ time: string; description: string }>;
+}
+export function createRoutinePeriod(
   db: Knex,
-  now: Instant,
-): Promise<{ medications: number; created: number }>;
-export function dispatchDueIntakes(
+  session: Session,
+  patientId: string,
+  input: RoutinePeriodInput | Record<string, unknown>,
+  now?: Instant,
+): Promise<RoutinePeriod>;
+export function updateRoutinePeriod(
+  db: Knex,
+  session: Session,
+  periodId: string,
+  input: Partial<RoutinePeriodInput> | Record<string, unknown>,
+  now?: Instant,
+): Promise<RoutinePeriod>;
+export function endRoutinePeriodToday(
+  db: Knex,
+  session: Session,
+  periodId: string,
+  now?: Instant,
+): Promise<RoutinePeriod>;
+export function listRoutine(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  opts?: { now?: Instant },
+): Promise<RoutineView>;
+export function routineAlarmsForDay(
+  db: Knex,
+  patientId: string,
+  date: string,
+): Promise<Array<RoutineAlarm & { period_id: string }>>;
+export function dispatchDueRoutineAlarms(
   db: Knex,
   now: Instant,
   opts: { notifier: Notifier },
 ): Promise<{ due: number; sent: number; failed: number; duplicate: number; no_respondent: number }>;
-export function confirmIntake(
-  db: Knex,
-  input: {
-    intakeId: string;
-    respondentId: string;
-    status: 'taken' | 'skipped';
-    sideEffect?: boolean;
-    note?: string | null;
-  },
-  now?: Instant,
-): Promise<Record<string, unknown>>;
 
 export interface CycleSummary {
   at: string;
@@ -176,7 +231,6 @@ export interface CycleSummary {
     skipped_no_respondent: number;
     exhausted: number;
   };
-  intakes: { medications: number; created: number };
   alarms: { due: number; sent: number; failed: number; duplicate: number; no_respondent: number };
   alerts: { patients: number; results: unknown[] } | null;
   retention: {
@@ -389,6 +443,7 @@ export function logAccess(
 
 /* ---- E4: serviços da médica ------------------------------------------- */
 export class ValidationError extends Error {
+  constructor(message: string, field?: string | null);
   code: 'validation';
   field: string | null;
 }
@@ -549,6 +604,7 @@ export function patientGrid(
 ): Promise<Grid>;
 export interface PatientDetail {
   patient: PatientRow;
+  routine: RoutineView;
   respondents: Array<RespondentRow & { invite_url: string }>;
   medications: Array<MedicationRow & { dose_history: DoseEvent[] }>;
   episode: (EpisodeRow & { question_set_name: string | null }) | null;
@@ -655,16 +711,10 @@ export interface TodayCheckin {
   next: TodayQuestion | null;
   completed: boolean;
 }
+/** E9.1: o alarme é LEMBRETE PURO — horário + texto livre. Nada a confirmar. */
 export interface TodayAlarm {
-  intake_id: string;
-  scheduled_at: string | Date;
-  status: 'pending' | 'taken' | 'skipped' | 'late';
-  taken_at: string | Date | null;
-  side_effect_flag: boolean;
-  note: string | null;
-  product_name: string;
-  dose_amount: number | null;
-  dose_unit: string | null;
+  time: string;
+  description: string;
 }
 export interface RespondentTodayView {
   respondent: {
@@ -696,28 +746,10 @@ export function answerFromRespondent(
   completed: boolean;
   progress: TodayCheckin;
 }>;
-export function confirmFromRespondent(
-  db: Knex,
-  session: Session,
-  input: {
-    intakeId: string;
-    status: 'taken' | 'skipped';
-    sideEffect?: boolean;
-    note?: string | null;
-  },
-  now?: Instant,
-): Promise<Record<string, unknown> & { status: string }>;
 export interface HistoryDay {
   date: string;
   answers: Record<string, number | string> | null;
-  intakes: Array<{
-    scheduled_at: string | Date;
-    status: string;
-    side_effect_flag: boolean;
-    product_name: string;
-    dose_amount: number | null;
-    dose_unit: string | null;
-  }>;
+  alarms: TodayAlarm[];
 }
 export function respondentHistory(
   db: Knex,
@@ -746,17 +778,6 @@ export interface TodayCheckinRow {
   patient_id: string;
   patient_name: string;
 }
-export interface TodayIntakeRow {
-  intake_id: string;
-  status: string;
-  scheduled_at: Date | string;
-  side_effect_flag: boolean;
-  patient_id: string;
-  patient_name: string;
-  product_name: string;
-  dose_amount: number | null;
-  dose_unit: string | null;
-}
 export interface DashboardToday {
   date: string;
   timezone: string;
@@ -772,13 +793,12 @@ export interface DashboardToday {
     at: Date | string;
     detail: string;
   }>;
-  intakes: {
-    pending_confirmation: TodayIntakeRow[];
-    taken: number;
-    late: number;
-    skipped: number;
-    side_effects: TodayIntakeRow[];
-    total: number;
+  /** Adesão de hoje pela pergunta do check-in (D15). */
+  adherence: {
+    answered: number;
+    yes: number;
+    no: number;
+    no_patients: Array<{ patient_id: string; patient_name: string }>;
   };
   scheduler: { last_cycle_at: Date | null; stale: boolean; last_alerts_at: Date | null };
 }
@@ -833,12 +853,11 @@ export interface PatientReport {
     completion_rate: number | null;
   };
   adherence: {
-    scheduled: number;
-    taken: number;
-    late: number;
-    skipped: number;
-    unconfirmed: number;
+    answered: number;
+    yes: number;
+    no: number;
     rate: number | null;
+    days: Array<{ date: string; took: boolean }>;
   };
   symptoms: Array<{
     key: string;
@@ -878,7 +897,7 @@ export interface PatientReport {
       }>;
     }
   >;
-  side_effects: Array<{ date: string; source: 'checkin' | 'intake'; detail: string }>;
+  side_effects: Array<{ date: string; source: 'checkin'; detail: string }>;
 }
 export function patientReport(
   db: Knex,

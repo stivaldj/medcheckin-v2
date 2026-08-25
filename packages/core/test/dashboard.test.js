@@ -57,7 +57,7 @@ describe('dashboardToday — tela Hoje da médica (cada número com fonte)', () 
       scheduled_for: AT('09:00'),
       next_attempt_at: AT('09:00'),
     });
-    await runCycle(db, AT('09:05'), { notifier }); // P1 criado+enviado; P2 enviado; intakes 5; alarmes vencidos 2
+    await runCycle(db, AT('09:05'), { notifier }); // P1 criado+enviado; P2 enviado; alarmes de rotina vencidos: P1 08:00, P2 07:00
   });
   afterAll(async () => db.destroy());
 
@@ -70,6 +70,7 @@ describe('dashboardToday — tela Hoje da médica (cada número com fonte)', () 
     expect(d.awaiting[0]).toMatchObject({ status: 'sent', attempt_count: 1 });
     const ck1 = await db('checkins').where({ patient_id: fx.p1.id }).first();
     for (const [k, v] of [
+      ['adesao', 1],
       ['dor', 9],
       ['sono', 5],
       ['humor', 5],
@@ -91,15 +92,16 @@ describe('dashboardToday — tela Hoje da médica (cada número com fonte)', () 
     expect(d.open_alerts[0].patient_name).toBe('Paciente Sintético Um');
   });
 
-  it('confirmações de dose: vencidas sem confirmação vs confirmadas; próximos envios nas 24 h; scheduler heartbeat', async () => {
+  it('adesão de hoje pela pergunta do check-in; próximos alarmes da rotina nas 24 h; scheduler heartbeat', async () => {
     const d = await dashboardToday(db, { clinicId: fx.clinic.id }, AT('09:30'));
-    // vencidos às 09:30: P1 08:00, P2 07:00 → 2 pendentes; futuros: P2 13:00, P1 20:00, P2 21:00 → 3 upcoming alarms
-    expect(d.intakes.pending_confirmation).toHaveLength(2);
-    expect(d.intakes.pending_confirmation[0]).toMatchObject({
-      patient_name: 'Paciente Sintético Dois',
-    });
-    expect(d.intakes.taken + d.intakes.late + d.intakes.skipped).toBe(0);
-    expect(d.upcoming.filter((u) => u.kind === 'alarm')).toHaveLength(3);
+    // E9.1: não existe mais confirmação de tomada — a adesão vem da resposta do check-in
+    expect(d).not.toHaveProperty('intakes');
+    expect(d.adherence).toMatchObject({ answered: 1, yes: 1, no: 0 });
+    expect(d.adherence.no_patients).toEqual([]);
+    // alarmes da rotina do seed nas próximas 24 h: hoje 13:00/20:00/21:00 + amanhã 07:00/08:00
+    const alarms = d.upcoming.filter((u) => u.kind === 'alarm');
+    expect(alarms).toHaveLength(5);
+    expect(alarms[0].detail).toMatch(/óleo/);
     // retry do check-in de P2 às 10:05 aparece como próximo envio de check-in
     expect(d.upcoming.filter((u) => u.kind === 'checkin').map((u) => u.patient_name)).toContain(
       'Paciente Sintético Dois',
@@ -124,7 +126,7 @@ describe('dashboardToday — tela Hoje da médica (cada número com fonte)', () 
     );
     expect(other.awaiting).toEqual([]);
     expect(other.open_alerts).toEqual([]);
-    expect(other.intakes.pending_confirmation).toEqual([]);
+    expect(other.adherence).toMatchObject({ answered: 0, yes: 0, no: 0 });
   });
 
   it('symptomDoseSeries: pontos por dia (null sem resposta), marcadores de dose e antes/depois', async () => {

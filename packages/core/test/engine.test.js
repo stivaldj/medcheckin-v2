@@ -207,17 +207,23 @@ describe('engine — recordAnswer / fluxo condicional / completeCheckin', () => 
 
   it('primeira pergunta é a de menor sort_order; responder avança e muda status para in_progress', async () => {
     const first = await getNextQuestion(db, ck.id);
-    expect(first.key).toBe('dor');
+    expect(first.key).toBe('adesao'); // E9.1: adesão é a 1ª pergunta do pack padrão
+    expect((await answer('adesao', 1)).next.key).toBe('dor');
     const r = await answer('dor', 8);
     expect(r.completed).toBe(false);
     expect(r.next.key).toBe('sono');
     const row = await db('checkins').where({ id: ck.id }).first();
     expect(row.status).toBe('in_progress');
-    const a = await db('answers').where({ checkin_id: ck.id }).first();
+    const a = await db('answers as x')
+      .join('questions as q', 'q.id', 'x.question_id')
+      .where({ 'x.checkin_id': ck.id, 'q.key': 'dor' })
+      .select('x.respondent_id', 'x.value_num')
+      .first();
     expect(a).toMatchObject({ respondent_id: fx.r1.id, value_num: 8 });
   });
 
   it('fluxo condicional: efeito_adverso=1 → efeito_qual; =0 → pula para obs; obs opcional pulável → completed', async () => {
+    await answer('adesao', 1);
     await answer('dor', 2);
     await answer('sono', 7);
     await answer('humor', 7);
@@ -234,6 +240,7 @@ describe('engine — recordAnswer / fluxo condicional / completeCheckin', () => 
   });
 
   it('efeito_adverso=0 pula a condicional', async () => {
+    await answer('adesao', 1);
     await answer('dor', 2);
     await answer('sono', 7);
     await answer('humor', 7);
@@ -243,6 +250,7 @@ describe('engine — recordAnswer / fluxo condicional / completeCheckin', () => 
   });
 
   it('completar calcula score do dia (dor lower_is_better ×2, sono, humor) e avalia alertas (limiar + efeito adverso no dia)', async () => {
+    await answer('adesao', 1);
     await answer('dor', 8); // ≥7 → threshold:dor
     await answer('sono', 6);
     await answer('humor', 6);
@@ -263,6 +271,7 @@ describe('engine — recordAnswer / fluxo condicional / completeCheckin', () => 
 
   it('sem resposta pontuável → score null e risk_level null (L5)', async () => {
     await db('questions').update({ score_direction: null });
+    await answer('adesao', 1);
     await answer('dor', 3);
     await answer('sono', 5);
     await answer('humor', 5);

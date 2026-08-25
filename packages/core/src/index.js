@@ -7,7 +7,16 @@ export { currentDose } from './doses/currentDose.js';
 export { runSeed } from './seed/index.js';
 export { computeNextAttemptAt, planFromEpisode, inQuietHours } from './scheduler/next-run.js';
 export { planCheckins, expireCheckins } from './scheduler/planner.js';
-export { planMedicationIntakes, dispatchDueIntakes, confirmIntake } from './scheduler/reminders.js';
+
+export { dispatchDueRoutineAlarms } from './scheduler/routineAlarms.js';
+export {
+  createRoutinePeriod,
+  updateRoutinePeriod,
+  endRoutinePeriodToday,
+  listRoutine,
+  routineAlarmsForDay,
+  ADHERENCE_QUESTION_KEY,
+} from './routine/index.js';
 export { runCycle } from './scheduler/cycle.js';
 export {
   dispatchDueCheckins,
@@ -42,6 +51,7 @@ export { acceptInvite, rotateInviteToken } from './auth/invite.js';
 export { createSession, getSession, revokeSession, revokeAllForPrincipal } from './auth/session.js';
 export { requirePatientInClinic, logAccess } from './auth/access.js';
 export { createSmtpMailer, fakeMailer } from './auth/mailer.js';
+export { ValidationError } from './errors.js';
 export {
   createPatient,
   updatePatient,
@@ -50,7 +60,6 @@ export {
   addRespondent,
   updateRespondent,
   patientGrid,
-  ValidationError,
 } from './patients/index.js';
 export {
   listProducts,
@@ -71,12 +80,7 @@ export {
   savePushSubscription,
   removePushSubscription,
 } from './push/index.js';
-export {
-  respondentToday,
-  respondentHistory,
-  answerFromRespondent,
-  confirmFromRespondent,
-} from './respondent/index.js';
+export { respondentToday, respondentHistory, answerFromRespondent } from './respondent/index.js';
 export { getSystemState, setSystemState, STATE_KEYS, resetCycleState } from './scheduler/cycle.js';
 export { dashboardToday } from './dashboard/today.js';
 export { symptomDoseSeries } from './analytics/series.js';

@@ -3,6 +3,7 @@ import { toDT } from '../time.js';
 import { AuthError } from '../auth/tokens.js';
 import { requirePatientInClinic, logAccess } from '../auth/access.js';
 import { mean } from '../analytics/rolling.js';
+import { ADHERENCE_QUESTION_KEY } from '../routine/index.js';
 
 function requireDoctor(session) {
   if (!session || session.kind !== 'user')
@@ -35,16 +36,19 @@ export async function patientReport(db, session, patientId, { days = 30, now } =
   const completed = checkins.filter((c) => c.status === 'completed').length;
   const missed = checkins.filter((c) => c.status === 'missed').length;
 
-  const intakes = await db('medication_intakes as i')
-    .join('medications as m', 'm.id', 'i.medication_id')
-    .where('m.patient_id', patientId)
-    .andWhere('i.scheduled_at', '>=', fromJs)
-    .andWhere('i.scheduled_at', '<=', toJs)
-    .select('i.*');
-  const taken = intakes.filter((i) => i.status === 'taken').length;
-  const late = intakes.filter((i) => i.status === 'late').length;
-  const skipped = intakes.filter((i) => i.status === 'skipped').length;
-  const confirmed = taken + late + skipped;
+  // Adesão (D15): pela pergunta do check-in, não mais por confirmação de tomada.
+  const adherenceRows = await db('answers as a')
+    .join('checkins as c', 'c.id', 'a.checkin_id')
+    .join('questions as q', 'q.id', 'a.question_id')
+    .where('c.patient_id', patientId)
+    .andWhere('q.key', ADHERENCE_QUESTION_KEY)
+    .andWhere('a.skipped', false)
+    .andWhere('c.scheduled_for', '>=', fromJs)
+    .andWhere('c.scheduled_for', '<=', toJs)
+    .orderBy('c.scheduled_for')
+    .select('c.scheduled_for', 'a.value_num');
+  const adherenceYes = adherenceRows.filter((r) => Number(r.value_num) === 1).length;
+  const adherenceNo = adherenceRows.filter((r) => Number(r.value_num) === 0).length;
 
   const ep = await db('episodes')
     .where({ patient_id: patientId })
@@ -54,6 +58,7 @@ export async function patientReport(db, session, patientId, { days = 30, now } =
     ? await db('questions')
         .where({ question_set_id: ep.question_set_id, active: true })
         .whereIn('kind', ['scale_0_10', 'number', 'yes_no'])
+        .whereNot('key', ADHERENCE_QUESTION_KEY) // D20: adesão tem bloco próprio, não é sintoma
         .orderBy('sort_order')
     : [];
   const answers = await db('answers as a')
@@ -143,7 +148,6 @@ export async function patientReport(db, session, patientId, { days = 30, now } =
     .whereNotNull('a.value_choice')
     .orderBy('c.scheduled_for')
     .select('c.scheduled_for', 'a.value_choice');
-  const intakeSideEffects = intakes.filter((i) => i.side_effect_flag);
 
   await logAccess(db, { session, patientId, route: 'patients.report', action: 'view' }, now);
   return {
@@ -169,12 +173,14 @@ export async function patientReport(db, session, patientId, { days = 30, now } =
       completion_rate: sent > 0 ? round(completed / sent, 3) : null,
     },
     adherence: {
-      scheduled: intakes.length,
-      taken,
-      late,
-      skipped,
-      unconfirmed: intakes.length - confirmed,
-      rate: confirmed > 0 ? round((taken + late) / confirmed, 3) : null,
+      answered: adherenceRows.length,
+      yes: adherenceYes,
+      no: adherenceNo,
+      rate: adherenceRows.length > 0 ? round(adherenceYes / adherenceRows.length, 3) : null,
+      days: adherenceRows.map((r) => ({
+        date: DateTime.fromJSDate(new Date(r.scheduled_for)).setZone(tz).toISODate(),
+        took: Number(r.value_num) === 1,
+      })),
     },
     symptoms,
     scores,
@@ -185,11 +191,6 @@ export async function patientReport(db, session, patientId, { days = 30, now } =
         date: DateTime.fromJSDate(new Date(s.scheduled_for)).setZone(tz).toISODate(),
         source: 'checkin',
         detail: s.value_choice,
-      })),
-      ...intakeSideEffects.map((i) => ({
-        date: DateTime.fromJSDate(new Date(i.scheduled_at)).setZone(tz).toISODate(),
-        source: 'intake',
-        detail: i.note ?? 'efeito na tomada',
       })),
     ].sort((a, b) => a.date.localeCompare(b.date)),
   };

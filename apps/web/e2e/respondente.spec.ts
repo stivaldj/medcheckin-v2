@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { createDb, planMedicationIntakes } from '@medcheckin/core';
+import { createDb } from '@medcheckin/core';
 
 /**
  * PROVA E5: cuidador aceita → recebe check-in → responde → answers gravadas → próxima pergunta/encerramento.
@@ -29,7 +29,6 @@ test.describe('PWA do respondente', () => {
           sent_at: new Date(),
         })
         .returning('id');
-      await planMedicationIntakes(db, new Date());
       ids = { r2c: r2c.id, p2: p2.id, ep2: ep2.id, checkinId: ck.id };
     } finally {
       await db.destroy();
@@ -41,7 +40,7 @@ test.describe('PWA do respondente', () => {
     await expect(page.getByTestId('no-session')).toBeVisible();
   });
 
-  test('aceite → hoje → responde check-in inteiro → concluído → histórico; alarme "Tomei"; SW registrado', async ({
+  test('aceite → hoje → lembretes SEM botões de confirmação → responde check-in inteiro (com adesão) → concluído → histórico; SW registrado', async ({
     page,
   }) => {
     // 1. convite + consentimento
@@ -57,19 +56,27 @@ test.describe('PWA do respondente', () => {
     await expect(page.getByRole('heading', { name: /Olá, Cuidadora Sintética/ })).toBeVisible();
     await expect(page.getByText('Acompanhando Paciente Sintético Dois')).toBeVisible();
     await expect(page.getByTestId('alarm')).toHaveCount(3);
-    await expect(page.getByTestId('progress')).toHaveText('1 de 6');
+    // E9.1: lembrete puro — horário + texto livre; NENHUM botão de confirmação
+    await expect(page.getByTestId('alarm').first()).toContainText('07:00');
+    await expect(page.getByTestId('alarm').first()).toContainText('0,5 ml óleo + vitamina D');
+    await expect(page.getByTestId('taken')).toHaveCount(0);
+    await expect(page.getByTestId('skipped')).toHaveCount(0);
+    await expect(page.getByTestId('effect')).toHaveCount(0);
+    await expect(page.getByTestId('alarm-status')).toHaveCount(0);
+    await expect(page.getByTestId('progress')).toHaveText('1 de 7');
 
-    // 3. responder: dor 4 → sono 6 → humor 6 → crises 0 → efeito sim → tontura → obs "tudo bem"
+    // 3. responder: adesão não → dor 4 → sono 6 → humor 6 → crises 0 → efeito sim → tontura → obs
+    await page.getByTestId('question-adesao').getByTestId('no').click();
     await page.getByTestId('question-dor').getByTestId('scale-4').click();
     await expect(page.getByTestId('question-sono')).toBeVisible();
-    await expect(page.getByTestId('progress')).toHaveText('2 de 6');
+    await expect(page.getByTestId('progress')).toHaveText('3 de 7');
     await page.getByTestId('question-sono').getByTestId('scale-6').click();
     await page.getByTestId('question-humor').getByTestId('scale-6').click();
     await page.getByTestId('question-crises').getByTestId('input').fill('0');
     await page.getByTestId('question-crises').getByTestId('send').click();
     await page.getByTestId('question-efeito_adverso').getByTestId('yes').click();
     await expect(page.getByTestId('question-efeito_qual')).toBeVisible(); // condicional apareceu
-    await expect(page.getByTestId('progress')).toHaveText('6 de 7'); // total cresceu com a condicional
+    await expect(page.getByTestId('progress')).toHaveText('7 de 8'); // total cresceu com a condicional
     await page.getByTestId('question-efeito_qual').getByTestId('choice-tontura').click();
     await page.getByTestId('question-obs').getByTestId('input').fill('tudo bem');
     await page.getByTestId('question-obs').getByTestId('send').click();
@@ -86,6 +93,7 @@ test.describe('PWA do respondente', () => {
         rows.map((r) => [r.key, r.value_num ?? r.value_choice ?? r.value_text]),
       );
       expect(by).toMatchObject({
+        adesao: 0,
         dor: 4,
         sono: 6,
         humor: 6,
@@ -100,16 +108,13 @@ test.describe('PWA do respondente', () => {
       // efeito adverso → alerta no dia
       const alerts = await db('alerts').where({ patient_id: ids.p2, status: 'open' });
       expect(alerts.map((a) => a.code)).toContain('side_effect');
+      // adesão "não" vira alerta medium (D15)
+      expect(alerts.find((a) => a.code === 'threshold:adesao')?.severity).toBe('medium');
     } finally {
       await db.destroy();
     }
 
-    // 5. alarme: Tomei
-    const first = page.getByTestId('alarm').first();
-    await first.getByTestId('taken').click();
-    await expect(first.getByTestId('alarm-status')).toHaveText(/Tomou/);
-
-    // 6. SW registrado (push real não é possível em headless)
+    // 5. SW registrado (push real não é possível em headless)
     const swScope = await page.evaluate(async () => {
       const reg = await navigator.serviceWorker.getRegistration('/p/');
       return reg?.scope ?? null;
@@ -118,13 +123,13 @@ test.describe('PWA do respondente', () => {
     // headless: permissão de notificação costuma vir "denied"; qualquer estado do toggle é aceitável aqui
     await expect(page.locator('[data-testid^="push-"]').first()).toBeVisible();
 
-    // 7. histórico
+    // 6. histórico
     await page.goto('/p/historico');
     const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Cuiaba' });
     const day = page.getByTestId(`day-${today}`);
     await expect(day).toContainText('dor: 4');
     await expect(day).toContainText('tontura');
-    await expect(day).toContainText('tomou');
+    await expect(day).toContainText('07:00 — 0,5 ml óleo + vitamina D');
     await page.screenshot({ path: 'test-results/respondente-hoje-e2e.png', fullPage: true });
   });
 });
