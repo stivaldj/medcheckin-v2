@@ -486,23 +486,24 @@ $ node scripts/shadow-report.mjs --from 2026-08-15 --to 2026-08-16  (banco de de
 
 **A semana em si** (não pode ser feita por mim): precisa do deploy remoto (E8 checklist do dono), da equipe nos aparelhos e de 7 dias de calendário. Roteiro completo em `docs/SHADOW_RUN.md`; ao fim, `docs/SHADOW_RUN_RESULTADO.md` gerado pelo script + linha 8 e checklist de push preenchidos à mão. Decisão de seguir para E10: ≥ 7/8 ✅ e nenhum aborto.
 
-### E9.1 — Rotina de avisos na página do paciente `[ ]` (feedback do 1º teste real)
+### E9.1 — Rotina de alarmes por período (modelo da médica) `[ ]`
 
-Sem migração. **Prova:** Playwright — card "Rotina de avisos" no topo da página do paciente mostra a linha do tempo do dia (alarmes com dose+instruções e check-in), quem recebe cada aviso e o estado do push por respondente; instruções aparecem no payload do push e no card do PWA.
+Fonte: texto da Dra. (25/08, em ACHADOS.md). Substitui a spec anterior de E9.1/E9.2 (dose assimétrica/semanal viram TEXTO LIVRE).
 
-- Card "Rotina de avisos" como PRIMEIRO card da página do paciente: `08:00 · alarme · Óleo, 4 gotas · [instruções]` … + `09:00 · check-in (diário)`; por aviso: respondentes que recebem (com indicador de push ativo/sem push); atalhos: horários → dialog Ajustar dose; horário do check-in → editar paciente; toggles receives_alarms/can_answer inline.
-- `medications.instructions` (texto curto; SEM migração nova? precisa de coluna → migration 006 pequena e isolada, só `alter table add column`) exibido no push (`payload.body`) e no PWA (AlarmRow).
-- RED: `core/test` (payload do alarme com instruções; rotina montada por serviço `patientRoutine(db, patientId)`), `web/e2e` (card visível e editável).
+**Modelo:** `routine_periods(id, patient_id, starts_on, ends_on null, note, created_by, replicated_from null)` + `routine_alarms(id, period_id, time, description text)` (migration 006). Períodos não se sobrepõem por paciente (constraint). Alarme do dia = alarms do período que cobre o dia local.
 
-### E9.2 — Dose por horário, período com fim, medicações de apoio `[ ]` (schema)
+- **Página do paciente, PRIMEIRO card — "Rotina de alarmes":** período vigente (ex.: "24/08 → 28/08 · 5 alarmes") com a lista `08:00 — ômega 3 1cp / 4 gts óleo IBRACAN 10% / vitamina D`; botões **Novo período**, **Replicar período** (copia horários+descrições do atual para o próximo intervalo, tudo editável antes de salvar), **Encerrar hoje**; períodos futuros listados (editáveis — "edito os alarmes dos próximos ajustes"); quem recebe (respondentes receives_alarms + estado do push).
+- **Scheduler:** intakes/alarme passam a nascer de `routine_alarms` (dia dentro do período); push body = description. Fora de período → nenhum alarme (param sozinhos no fim — requisito do dono).
+- **PWA:** alarme vira LEMBRETE puro — sem botões Tomei/Não tomei/Tive efeito; "Medicação de hoje" mostra horários + descrição.
+- **Adesão via check-in:** pack padrão ganha "Tomou as medicações corretamente hoje?" (sim/não, alerta `== 0` medium); relatório/shadow: adesão = essa pergunta; bloco "Confirmações de dose pendentes" do /hoje sai (entra "Adesão de hoje" pelas respostas); `medication_intakes`/`confirmIntake` saem da UI (tabela fica p/ histórico; marcar deprecated no core).
+- **Dose estruturada do óleo (mantida — alimenta o gráfico sintoma × dose):** "Ajustar dose" continua; ao criar/replicar período, campo opcional "houve ajuste do óleo? registrar" abre o dialog. DECISOES D15.
+- **Prova:** core: período cobre dia → alarme com description; replicar copia e permite editar; fora do período → zero alarmes; adesão via pergunta; E2E: criar período com 2 alarmes → PWA mostra lembretes sem botões → replicar para o próximo intervalo editando texto → check-in responde adesão → /hoje mostra adesão do dia.
 
-**Prova:** ≥ testes core para: dose assimétrica (08:00→4, 13:00→2, 20:00→5) alimentando alarmes/dose vigente/relatório; **período com fim** (`effective_until`): alarmes só dentro do período (ex.: dia 04→18, ciclo de 14 dias), param sozinhos no fim sem virar "não tomou"; medicação de apoio (produto `other`) com dias da semana (ex.: 1×/semana toda terça); migração preserva dados existentes; E2E do fluxo Ajustar dose novo.
+### E9.2 — Questionário configurável na página do paciente `[ ]`
 
-- `dose_events`: `schedule` vira `[{time, amount}]` (jsonb) — `dose_amount` passa a ser derivado/removido; `effective_until date null` (fim opcional; UI "até DD/MM · faltam N dias"); `days_of_week int[] null` (null = todos os dias).
-- `planMedicationIntakes`: gera intakes só se `effective_from ≤ dia ≤ effective_until` e o weekday casa; payload do alarme usa a quantidade DAQUELE horário.
-- UI Ajustar dose: uma linha por tomada (hora + quantidade), campos "válida até" (opcional) e dias da semana; página do paciente e relatório mostram o período.
-- `currentDose`/gráfico/beforeAfter: dose "vigente" considera o período; ajuste expirado aparece no histórico como encerrado.
-- Migração converte `schedule_times+dose_amount` → `schedule`; rollback testado (migrations.test.js).
+- **Horário do disparo por paciente** na página do paciente (presets manhã 09:00 / noite 21:00 + livre; hoje `checkin_time` só no cadastro).
+- **Perguntas extras por paciente** (intenção do v1 `patient_custom_questions`): na página do paciente, adicionar pergunta em texto livre (tipo à escolha, default sim/não ou texto), aplicada JUNTO ao pack do episódio a partir do próximo check-in; editável/desativável ali mesmo; grade/relatório as incluem.
+- **Prova:** core (merge pack+extras na ordem; validade por paciente); E2E: adicionar pergunta na consulta → próximo check-in a inclui → resposta na grade.
 
 ### E10 — Piloto real `[ ]`
 
