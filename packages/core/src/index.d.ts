@@ -1021,3 +1021,79 @@ export function renderShadowReportMarkdown(
   report: Record<string, unknown>,
   criteria?: typeof SHADOW_CRITERIA,
 ): string;
+
+/* ---- E10: piloto real ---------------------------------------------------- */
+export interface PilotCriterion {
+  metric: string;
+  label: string;
+  op: '>=' | '<=' | '==';
+  threshold: number;
+  unit: string;
+}
+export const PILOT_CRITERIA: readonly PilotCriterion[];
+export const PILOT_ABORT_RULES: readonly string[];
+export interface PilotReport {
+  period: { from: string; to: string; days: number; timezone: string; generated_at: string };
+  patients: {
+    enrolled: number;
+    active: number;
+    paused: number;
+    discharged: number;
+    still_engaged: number;
+    still_engaged_rate: number | null;
+  };
+  engagement: {
+    scheduled: number;
+    sent: number;
+    completed: number;
+    missed: number;
+    response_rate: number | null;
+    median_minutes_to_first_answer: number | null;
+    patients_responding_half: number;
+    patients_responding_half_rate: number | null;
+  };
+  adherence: { answered: number; yes: number; no: number; rate: number | null };
+  routine: {
+    patient_days_total: number;
+    patient_days_covered: number;
+    coverage_rate: number | null;
+    patients_without_period: number;
+  };
+  clinical: {
+    alerts_total: number;
+    alerts_clinical: number;
+    alerts_with_conduct: number;
+    conduct_rate: number | null;
+    median_minutes_to_conduct: number | null;
+    dose_adjustments: number;
+    patients_with_series: number;
+    series_rate: number | null;
+    series_min_days: number;
+  };
+  noise: { operational: number; total: number; ratio: number | null };
+  reliability: {
+    push_total: number;
+    push_sent: number;
+    push_failed: number;
+    push_delivery_rate: number | null;
+    cycle_count: number;
+    scheduler_max_gap_min: number;
+  };
+  false_success: number;
+}
+/** Só contagens — nenhum nome, e-mail ou telefone sai daqui (D7/LGPD). */
+export function pilotReport(
+  db: Knex,
+  input: {
+    clinicId: string;
+    from: string;
+    to: string;
+    now?: Instant;
+    seriesMinDays?: number;
+    falseSuccess?: number;
+  },
+): Promise<PilotReport>;
+export function renderPilotReportMarkdown(
+  report: PilotReport,
+  criteria?: readonly PilotCriterion[],
+): string;

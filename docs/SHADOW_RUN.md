@@ -18,7 +18,7 @@ Aparelhos a cobrir (checklist de push abaixo): Android + Chrome, iPhone + Safari
 1. Deploy remoto (`docs/DEPLOY.md`) concluído: `https://DOMAIN/api/health` 200; scheduler ativo; monitor de uptime apontado; backup rodou 1× e `restore-drill.sh` OK.
 2. Médica entra por link mágico; cria os "pacientes" com respondentes; envia os links de convite (WhatsApp manual serve).
 3. Cada participante abre o link, aceita o termo, **ativa notificações** e (iOS) instala o PWA na tela inicial. Marcar no checklist abaixo o resultado por aparelho.
-4. Médica registra a primeira dose de cada "paciente" (abre titulação diária) e confere `/hoje` → "Próximos envios".
+4. Médica monta a rotina de alarmes (período + horário + texto livre) e registra a primeira dose de cada "paciente" (abre titulação diária); confere `/hoje` → "Próximos envios".
 5. Observador zera o relatório: `node scripts/shadow-report.mjs --from <dia1> --to <dia7>` já responde (tudo "sem dado").
 
 ## Critérios de sucesso (escritos antes — `SHADOW_CRITERIA` em `core/report/shadowReport.js`)
@@ -50,7 +50,7 @@ Se iOS falhar sistematicamente: registrar em ACHADOS e priorizar E11 (WhatsApp "
 ## Rotina diária
 
 - **Médica (5 min):** abrir `/hoje`; para cada alerta clínico, registrar conduta; conferir "Não respondeu"; 1 ajuste de dose em algum "paciente" ao longo da semana (dia 3) para ver o gráfico com marcador.
-- **Participantes:** responder o check-in quando o push chegar (ou abrir o app); confirmar tomadas; no dia 4 um deles relata "efeito adverso" de propósito.
+- **Participantes:** responder o check-in quando o push chegar (ou abrir o app) — inclusive a pergunta de adesão; o alarme é lembrete puro, não tem o que confirmar (E9.1/D15); no dia 4 um deles relata "efeito adverso" de propósito.
 - **Observador:** `docker compose … ps` (tudo healthy), olhar logs `notification.failed`, anotar qualquer sucesso falso; dia 7 rodar o relatório.
 
 ## Ao fim (dia 7)
@@ -59,4 +59,4 @@ Se iOS falhar sistematicamente: registrar em ACHADOS e priorizar E11 (WhatsApp "
 cd packages/core && node ../../scripts/shadow-report.mjs --from YYYY-MM-DD --to YYYY-MM-DD > ../../docs/SHADOW_RUN_RESULTADO.md
 ```
 
-Preencher no resultado: linha 8 (sucessos falsos observados) e o checklist de push. Decisão: **≥ 7 de 8 critérios ✅ e nenhum aborto** → segue para E10 (piloto real). Senão: corrigir, repetir 3 dias, reavaliar.
+Preencher no resultado: linha 8 (sucessos falsos observados) e o checklist de push. Decisão: **≥ 7 de 8 critérios ✅ e nenhum aborto** → segue para E10 (piloto real, `docs/PILOTO.md`). Senão: corrigir, repetir 3 dias, reavaliar.

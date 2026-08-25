@@ -564,9 +564,38 @@ $ npm run test:e2e → 11 passed (34.5s)
 
 **Fora do escopo, registrado em ACHADOS.md:** extras sempre no fim, sem condição nem peso de score; convivência do preset de adesão com um pack que ganhe a pergunta depois.
 
-### E10 — Piloto real `[ ]`
+### E10 — Piloto real `[~]` (instrumento pronto; a rodada depende do dono)
 
 Critério de sucesso e de aborto definidos antes. **Prova:** relatório final; decisão de ampliar.
+
+**Instrumento (o que o repositório entrega):** `PILOT_CRITERIA` (13 critérios numéricos) e `PILOT_ABORT_RULES` (6 paradas) congelados em `core/report/pilotReport.js`; `pilotReport` gerado do banco **sem PII** (D7); `renderPilotReportMarkdown` com critério × resultado × veredito, caixas de aborto e bloco de decisão assinado; roteiro completo em `docs/PILOTO.md` (pré-requisitos, quem entra e quem NÃO entra, preparação, rotina, fim).
+
+**RED (2026-08-25):**
+
+```
+$ npm test -w @medcheckin/core -- pilot-report
+Error: Cannot find module '../src/report/pilotReport.js' imported from .../test/pilot-report.test.js
+ Test Files  1 failed (1) · Tests  no tests
+```
+
+**GREEN (2026-08-25):**
+
+```
+$ npm test -w @medcheckin/core -- pilot-report → ✓ test/pilot-report.test.js (4 tests)
+   critérios numéricos, congelados (Object.isFrozen) e com regras de aborto ·
+   engajamento (resposta, mediana 12 min, pacientes que respondem ≥ metade) · adesão 2 sim / 1 não ·
+   cobertura da rotina 6/6 dias-paciente · clínico: 2 alertas, 1 com conduta em 30 min, 1 ajuste,
+   1 paciente com série utilizável · confiabilidade · SEM PII (nome/e-mail/telefone ausentes do JSON)
+$ npm run check → verde (lint · format · tsc · 156 core + 36 web = 192 testes)
+$ npm run test:e2e → 11 passed (37.7s)
+$ cd packages/core && node ../../scripts/pilot-report.mjs --from 2026-08-18 --to 2026-08-25  (banco de dev)
+  | Dias-paciente cobertos por um período de rotina | >= 90% | 0% | ❌ |   ← honesto: dev sem rotina
+  | Entrega de push | >= 95% | 0% | ❌ |                                   ← sem inscrição push no dev
+  | Maior lacuna entre ciclos do scheduler | <= 10 min | 8807.9 min | ❌ |  ← scheduler não roda no dev
+  | Sucessos falsos | == 0 | 0 | ✅ |    … 1 ✅ · 6 ❌ · 6 ⚪
+```
+
+**A rodada em si (não pode ser feita por mim):** exige o shadow run de E9 concluído, o deploy remoto estável há 7 dias, consentimento revisado, 5–10 pacientes reais e 30 dias de calendário. Ao fim, `docs/PILOTO_RESULTADO.md` gerado pelo script + caixas de aborto e decisão preenchidas à mão. **Decisão escrita antes: ≥ 11 de 13 ✅ e nenhum aborto → ampliar.**
 
 ### E11 — WhatsApp "responda no app" (opcional, após E10) `[ ]`
 
@@ -575,6 +604,7 @@ Critério de sucesso e de aborto definidos antes. **Prova:** relatório final; d
 | Data       | Etapa | Evento                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ---------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-08-16 | —     | Auditoria do v1 lida; `PLANO.md`, `ACHADOS.md`, `DECISOES.md` criados. Aguardando "ok" para E0.                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 2026-08-25 | E10   | Instrumento do piloto real: 13 critérios de sucesso numéricos + 6 critérios de aborto congelados em código, `pilotReport` do banco sem PII (engajamento, adesão, cobertura da rotina, conduta clínica, série sintoma × dose, ruído, confiabilidade), markdown com veredito e decisão assinada, `scripts/pilot-report.mjs` e `docs/PILOTO.md`. 192 testes + 11 E2E. A rodada de 30 dias depende do dono (shadow run + deploy + pacientes reais).                                                                                                          |
 | 2026-08-25 | E9.2  | Questionário configurável na página do paciente: migration 007 (`questions.patient_id`, CHECK de dono, unique por paciente), merge pack + extras num único carregador usado por engine/PWA/grade/relatório/gráfico, extras valem do próximo check-in (D22), chave imutável e desativação preserva a série (D23), horário do check-in por paciente com presets e recusa dentro do silêncio (D24), botão para adicionar a pergunta de adesão a conjuntos antigos. 188 testes + 11 E2E. Aguardando "ok, avance" para E10.                                   |
 | 2026-08-25 | E9.1  | Rotina de alarmes por período: migration 006 (`routine_periods` sem sobreposição via EXCLUDE gist + `routine_alarms` horário/texto livre), card "Rotina de alarmes" 1º na página do paciente (novo/replicar/encerrar hoje, períodos futuros editáveis, quem recebe + push), scheduler dispara de `routine_alarms` (fora do período param sozinhos), PWA vira lembrete puro, adesão pela pergunta do check-in (relatório 30 d, shadow report e /hoje), `medication_intakes` deprecated (D17–D20). 179 testes + 10 E2E. Aguardando "ok, avance" para E9.2. |
 | 2026-08-25 | —     | Feedback do 1º teste real (médica): rotina de avisos à primeira vista + dose por horário + instruções + período com fim. Etapas E9.1/E9.2 especificadas.                                                                                                                                                                                                                                                                                                                                                                                                 |

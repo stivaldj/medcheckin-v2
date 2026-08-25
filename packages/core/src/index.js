@@ -102,3 +102,9 @@ export {
   renderShadowReportMarkdown,
   SHADOW_CRITERIA,
 } from './report/shadowReport.js';
+export {
+  pilotReport,
+  renderPilotReportMarkdown,
+  PILOT_CRITERIA,
+  PILOT_ABORT_RULES,
+} from './report/pilotReport.js';
