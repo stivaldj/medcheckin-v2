@@ -4,6 +4,7 @@ import { listOpenAlerts } from '../alerts/actions.js';
 import { getSystemState, STATE_KEYS } from '../scheduler/cycle.js';
 import { ADHERENCE_QUESTION_KEY } from '../routine/index.js';
 import { toHm, parseHm } from '../scheduler/next-run.js';
+import { isoDate as isoDay } from '../routine/index.js';
 
 const STALE_MINUTES = 10;
 
@@ -65,35 +66,41 @@ export async function dashboardToday(db, { clinicId }, now) {
       'c.attempt_count',
     );
   // Alarmes da rotina (E9.1): hoje e amanhã, só dentro do período que cobre cada dia local.
-  const patientsOfClinic = await db('patients')
-    .where({ clinic_id: clinicId, status: 'active' })
-    .select('id', 'name', 'timezone');
+  // Uma consulta só (o EXCLUDE de routine_periods garante no máximo um período por dia/paciente).
+  const routineRows = await db('patients as p')
+    .join('routine_periods as rp', 'rp.patient_id', 'p.id')
+    .join('routine_alarms as ra', 'ra.period_id', 'rp.id')
+    .where('p.clinic_id', clinicId)
+    .andWhere('p.status', 'active')
+    .select(
+      'p.id as patient_id',
+      'p.name as patient_name',
+      'p.timezone',
+      'rp.starts_on',
+      'rp.ends_on',
+      'ra.time',
+      'ra.description',
+    );
   const upcomingAlarms = [];
-  for (const p of patientsOfClinic) {
-    const ptz = p.timezone || tz;
+  for (const r of routineRows) {
+    const ptz = r.timezone || tz;
+    const { hour, minute } = parseHm(toHm(r.time));
     for (const offset of [0, 1]) {
       const local = nowDT.setZone(ptz).startOf('day').plus({ days: offset });
       const date = local.toISODate();
-      const period = await db('routine_periods')
-        .where({ patient_id: p.id })
-        .andWhere('starts_on', '<=', date)
-        .andWhere((q) => q.whereNull('ends_on').orWhere('ends_on', '>=', date))
-        .first();
-      if (!period) continue;
-      const alarms = await db('routine_alarms').where({ period_id: period.id }).orderBy('time');
-      for (const a of alarms) {
-        const { hour, minute } = parseHm(toHm(a.time));
-        const at = local.set({ hour, minute }).toUTC().toJSDate();
-        if (at > nowJs && at <= in24h)
-          upcomingAlarms.push({
-            patient_name: p.name,
-            patient_id: p.id,
-            at,
-            product_name: a.description,
-          });
-      }
+      if (isoDay(r.starts_on) > date) continue;
+      if (r.ends_on && isoDay(r.ends_on) < date) continue;
+      const at = local.set({ hour, minute }).toUTC().toJSDate();
+      if (at > nowJs && at <= in24h)
+        upcomingAlarms.push({
+          patient_name: r.patient_name,
+          patient_id: r.patient_id,
+          at,
+          product_name: r.description,
+        });
     }
   }
+
   const upcoming = [
     ...upcomingCheckins.map((u) => ({
       kind: 'checkin',
