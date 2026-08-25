@@ -26,7 +26,8 @@ import {
 } from '../src/questions/index.js';
 import { recordAnswer } from '../src/checkin/engine.js';
 
-const NOW = new Date('2026-08-16T15:00:00Z');
+// Data dinâmica: o seed cria doses/episódios relativos a hoje — data fixa aqui apodrece (falhou em 25/08).
+const NOW = new Date();
 const AT = (d, hm = '13:00') => new Date(`${d}T${hm}:00Z`);
 
 describe('patients — cadastro, lista, detalhe, respondentes', () => {
