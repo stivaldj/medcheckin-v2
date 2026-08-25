@@ -486,6 +486,24 @@ $ node scripts/shadow-report.mjs --from 2026-08-15 --to 2026-08-16  (banco de de
 
 **A semana em si** (não pode ser feita por mim): precisa do deploy remoto (E8 checklist do dono), da equipe nos aparelhos e de 7 dias de calendário. Roteiro completo em `docs/SHADOW_RUN.md`; ao fim, `docs/SHADOW_RUN_RESULTADO.md` gerado pelo script + linha 8 e checklist de push preenchidos à mão. Decisão de seguir para E10: ≥ 7/8 ✅ e nenhum aborto.
 
+### E9.1 — Rotina de avisos na página do paciente `[ ]` (feedback do 1º teste real)
+
+Sem migração. **Prova:** Playwright — card "Rotina de avisos" no topo da página do paciente mostra a linha do tempo do dia (alarmes com dose+instruções e check-in), quem recebe cada aviso e o estado do push por respondente; instruções aparecem no payload do push e no card do PWA.
+
+- Card "Rotina de avisos" como PRIMEIRO card da página do paciente: `08:00 · alarme · Óleo, 4 gotas · [instruções]` … + `09:00 · check-in (diário)`; por aviso: respondentes que recebem (com indicador de push ativo/sem push); atalhos: horários → dialog Ajustar dose; horário do check-in → editar paciente; toggles receives_alarms/can_answer inline.
+- `medications.instructions` (texto curto; SEM migração nova? precisa de coluna → migration 006 pequena e isolada, só `alter table add column`) exibido no push (`payload.body`) e no PWA (AlarmRow).
+- RED: `core/test` (payload do alarme com instruções; rotina montada por serviço `patientRoutine(db, patientId)`), `web/e2e` (card visível e editável).
+
+### E9.2 — Dose por horário, período com fim, medicações de apoio `[ ]` (schema)
+
+**Prova:** ≥ testes core para: dose assimétrica (08:00→4, 13:00→2, 20:00→5) alimentando alarmes/dose vigente/relatório; **período com fim** (`effective_until`): alarmes só dentro do período (ex.: dia 04→18, ciclo de 14 dias), param sozinhos no fim sem virar "não tomou"; medicação de apoio (produto `other`) com dias da semana (ex.: 1×/semana toda terça); migração preserva dados existentes; E2E do fluxo Ajustar dose novo.
+
+- `dose_events`: `schedule` vira `[{time, amount}]` (jsonb) — `dose_amount` passa a ser derivado/removido; `effective_until date null` (fim opcional; UI "até DD/MM · faltam N dias"); `days_of_week int[] null` (null = todos os dias).
+- `planMedicationIntakes`: gera intakes só se `effective_from ≤ dia ≤ effective_until` e o weekday casa; payload do alarme usa a quantidade DAQUELE horário.
+- UI Ajustar dose: uma linha por tomada (hora + quantidade), campos "válida até" (opcional) e dias da semana; página do paciente e relatório mostram o período.
+- `currentDose`/gráfico/beforeAfter: dose "vigente" considera o período; ajuste expirado aparece no histórico como encerrado.
+- Migração converte `schedule_times+dose_amount` → `schedule`; rollback testado (migrations.test.js).
+
 ### E10 — Piloto real `[ ]`
 
 Critério de sucesso e de aborto definidos antes. **Prova:** relatório final; decisão de ampliar.
@@ -497,6 +515,7 @@ Critério de sucesso e de aborto definidos antes. **Prova:** relatório final; d
 | Data       | Etapa | Evento                                                                                                                                                                                                                                                                                              |
 | ---------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-08-16 | —     | Auditoria do v1 lida; `PLANO.md`, `ACHADOS.md`, `DECISOES.md` criados. Aguardando "ok" para E0.                                                                                                                                                                                                     |
+| 2026-08-25 | —     | Feedback do 1º teste real (médica): rotina de avisos à primeira vista + dose por horário + instruções + período com fim. Etapas E9.1/E9.2 especificadas.                                                                                                                                            |
 | 2026-08-16 | E9    | Preparação do shadow run: critérios (8, numéricos) escritos antes em docs/SHADOW_RUN.md + SHADOW_CRITERIA; gerador de relatório critério × resultado; rate limit por IP; scripts no backup; attempts em notifications; cycle_count/max_gap. 171 testes. A semana depende do dono (deploy + equipe). |
 | 2026-08-16 | E8    | Deploy provado localmente: Dockerfiles, compose prod (segredos :?), Caddy TLS, /health web+scheduler (503 se scheduler parado), backup cifrado + restore drill com hash, uptime-check com alerta por e-mail, docs/DEPLOY.md. 166 testes. Remoto aguarda decisões do dono.                           |
 | 2026-08-16 | E7    | Relatório 30 d imprimível, export.zip LGPD, anonimização (mantém séries), retenção 1×/dia, /configuracoes, docs/LGPD.md e RUNBOOK.md. 164 testes + 9 E2E. Aguardando "ok, avance" para E8.                                                                                                          |
