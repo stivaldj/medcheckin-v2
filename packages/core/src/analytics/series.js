@@ -23,9 +23,9 @@ export async function symptomDoseSeries(
     .toJSDate();
 
   const question = await db('questions as q')
-    .join('question_sets as s', 's.id', 'q.question_set_id')
-    .where('s.clinic_id', patient.clinic_id)
-    .andWhere('q.key', questionKey)
+    .leftJoin('question_sets as s', 's.id', 'q.question_set_id')
+    .where('q.key', questionKey)
+    .andWhere((w) => w.where('s.clinic_id', patient.clinic_id).orWhere('q.patient_id', patientId))
     .select('q.key', 'q.label', 'q.kind', 'q.unit')
     .first();
   if (!question) throw new Error(`Pergunta desconhecida: ${questionKey}`);

@@ -6,6 +6,7 @@ import { recordAnswer, getNextQuestion } from '../checkin/engine.js';
 import { confirmIntake } from '../scheduler/reminders.js';
 import { conditionSatisfied } from '../checkin/engine.js';
 import { routineAlarmsForDay } from '../routine/index.js';
+import { questionsForPatient } from '../questions/patientQuestions.js';
 
 function requireRespondent(session) {
   if (!session || session.kind !== 'respondent')
@@ -37,9 +38,11 @@ async function loadRespondent(db, session) {
 
 async function checkinProgress(db, checkin) {
   const ep = await db('episodes').where({ id: checkin.episode_id }).first();
-  const questions = await db('questions')
-    .where({ question_set_id: ep.question_set_id, active: true })
-    .orderBy('sort_order');
+  const questions = await questionsForPatient(db, {
+    patientId: checkin.patient_id,
+    questionSetId: ep.question_set_id,
+    at: checkin.scheduled_for,
+  });
   const answers = await db('answers as a')
     .join('questions as q', 'q.id', 'a.question_id')
     .where('a.checkin_id', checkin.id)

@@ -69,6 +69,14 @@ export {
   setEpisode,
 } from './medications/index.js';
 export {
+  listPatientQuestions,
+  addPatientQuestion,
+  updatePatientQuestion,
+  addAdherenceQuestion,
+  packHasAdherence,
+  questionsForPatient,
+} from './questions/patientQuestions.js';
+export {
   listQuestionSets,
   createQuestionSet,
   saveQuestions,

@@ -4,6 +4,7 @@ import { evaluateThreshold } from '../alerts/rules.js';
 import { computeDailyScore } from '../scoring/computeDailyScore.js';
 import { evaluatePatientAlerts } from '../alerts/evaluate.js';
 import { logger } from '../logger.js';
+import { questionsForPatient } from '../questions/patientQuestions.js';
 
 const RETRY_MINUTES = 60;
 const FAIL_RETRY_MINUTES = 15;
@@ -174,12 +175,14 @@ export async function dispatchDueCheckins(db, now, { notifier }) {
 /* Perguntas, condições, valores                                             */
 /* ------------------------------------------------------------------------ */
 
+/** Pack do episódio + extras do paciente válidas para ESTE check-in (E9.2). */
 async function loadQuestions(db, checkin) {
   const ep = await db('episodes').where({ id: checkin.episode_id }).first();
-  return db('questions')
-    .where({ question_set_id: ep.question_set_id, active: true })
-    .orderBy('sort_order')
-    .orderBy('key');
+  return questionsForPatient(db, {
+    patientId: checkin.patient_id,
+    questionSetId: ep.question_set_id,
+    at: checkin.scheduled_for,
+  });
 }
 
 async function loadAnswerMap(db, checkinId) {
