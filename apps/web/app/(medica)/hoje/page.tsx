@@ -4,7 +4,7 @@ import { getDb } from '@/lib/db';
 import { requireUserPage } from '@/lib/session';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { fmtDateTime, fmt } from '@/lib/format';
+import { fmtDateTime, fmt, SEVERITY_LABEL } from '@/lib/format';
 import { AlertActions } from '@/components/medica/AlertActions';
 
 export const dynamic = 'force-dynamic';
@@ -120,7 +120,7 @@ export default async function HojePage() {
                       a.severity === 'critical' || a.severity === 'high' ? 'destructive' : 'default'
                     }
                   >
-                    {a.severity}
+                    {SEVERITY_LABEL[a.severity] ?? a.severity}
                   </Badge>
                   <Link href={`/pacientes/${a.patient_id}`} className="font-medium hover:underline">
                     {a.patient_name}

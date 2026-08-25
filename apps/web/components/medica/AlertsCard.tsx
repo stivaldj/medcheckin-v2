@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { fmtDateTime } from '@/lib/format';
+import { fmtDateTime, SEVERITY_LABEL } from '@/lib/format';
 import type { AlertRow } from '@medcheckin/core';
 import { AlertActions } from './AlertActions';
 
@@ -37,7 +37,7 @@ export function AlertsCard({ alerts, conducts }: { alerts: Alert[]; conducts: Co
                 <div className="flex items-center justify-between gap-2">
                   <span>
                     <Badge variant={SEV[a.severity] ?? 'outline'} className="mr-2">
-                      {a.severity}
+                      {SEVERITY_LABEL[a.severity] ?? a.severity}
                     </Badge>
                     {a.title}
                   </span>

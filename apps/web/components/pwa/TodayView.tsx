@@ -95,6 +95,7 @@ function QuestionForm({
             inputMode={q.kind === 'number' ? 'numeric' : 'text'}
             value={String(value ?? '')}
             onChange={(e) => setValue(e.target.value)}
+            aria-label={q.label}
             data-testid="input"
             required={q.required}
           />
@@ -184,7 +185,8 @@ export function TodayView() {
               <p className="text-sm text-muted-foreground">Nenhum check-in hoje.</p>
             ) : ck.completed ? (
               <p className="text-sm" data-testid="checkin-done">
-                Check-in concluído. Obrigado! ({ck.answered} respostas)
+                Check-in concluído. Obrigado! (
+                {ck.answered === 1 ? '1 resposta' : `${ck.answered} respostas`})
               </p>
             ) : ck.next ? (
               <div className="space-y-2">
@@ -194,7 +196,11 @@ export function TodayView() {
                 <QuestionForm checkinId={ck.id} q={ck.next} onAnswered={load} />
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">Check-in {ck.status}.</p>
+              <p className="text-sm text-muted-foreground">
+                {ck.status === 'missed'
+                  ? 'O check-in de hoje expirou sem resposta. O próximo chega no horário de sempre.'
+                  : 'Nada a responder agora.'}
+              </p>
             )}
           </CardContent>
         </Card>

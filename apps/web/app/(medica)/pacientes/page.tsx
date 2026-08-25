@@ -57,7 +57,7 @@ export default async function PacientesPage() {
                 </TableCell>
                 <TableCell>
                   {p.episode
-                    ? `${EPISODE_LABEL[p.episode.kind as string] ?? p.episode.kind} · ${FREQ_LABEL[p.episode.checkin_frequency as string] ?? ''}`
+                    ? `${EPISODE_LABEL[p.episode.kind as string] ?? p.episode.kind} · ${FREQ_LABEL[p.episode.checkin_frequency as string] ?? p.episode.checkin_frequency}`
                     : '—'}
                 </TableCell>
                 <TableCell>

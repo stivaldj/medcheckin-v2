@@ -51,6 +51,12 @@ export function SymptomDoseChart({ patientId, questions }: { patientId: string; 
     })) ?? [];
   const markers = data?.doseMarkers ?? [];
   const n = rows.filter((r) => r.value !== null).length;
+  // Escala honesta por tipo: 0–10 fixo para escala/sim-não; livre para "number" (um peso em kg
+  // não cabe num eixo 0–10). Para "number" o score (0–10) sai do gráfico — escalas diferentes
+  // na mesma linha enganam; ele continua na grade.
+  const kind = data?.question.kind ?? 'scale_0_10';
+  const fixedScale = kind === 'scale_0_10' || kind === 'yes_no';
+  const showScore = fixedScale;
   return (
     <Card data-testid="chart-card">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
@@ -92,28 +98,43 @@ export function SymptomDoseChart({ patientId, questions }: { patientId: string; 
           <div className="h-64" data-testid="chart" data-points={n} data-markers={markers.length}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={rows} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                <YAxis domain={[0, 10]} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v) => (v === null || v === undefined ? '—' : String(v))} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                <YAxis
+                  domain={fixedScale ? [0, 10] : ['auto', 'auto']}
+                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                />
+                <Tooltip
+                  formatter={(v) => (v === null || v === undefined ? '—' : String(v))}
+                  contentStyle={{
+                    background: 'var(--popover)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--popover-foreground)',
+                    fontSize: 12,
+                  }}
+                />
+                {/* Dia sem resposta = lacuna de verdade, não linha interpolada (regra: sem dado → "—"). */}
                 <Line
                   type="monotone"
                   dataKey="value"
-                  name="value"
+                  name={data.question.label}
                   stroke="#0f766e"
-                  connectNulls
+                  connectNulls={false}
                   dot={{ r: 3 }}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="score"
-                  name="score"
-                  stroke="#94a3b8"
-                  strokeDasharray="4 4"
-                  connectNulls
-                  dot={false}
-                />
-                {markers.map((m) => (
+                {showScore && (
+                  <Line
+                    type="monotone"
+                    dataKey="score"
+                    name="Score"
+                    stroke="#94a3b8"
+                    strokeDasharray="4 4"
+                    connectNulls={false}
+                    dot={false}
+                  />
+                )}
+                {/* Rótulos escalonados em duas alturas para não sobrepor com ajustes próximos. */}
+                {markers.map((m, i) => (
                   <ReferenceLine
                     key={m.id}
                     x={m.date.slice(5).split('-').reverse().join('/')}
@@ -121,7 +142,7 @@ export function SymptomDoseChart({ patientId, questions }: { patientId: string; 
                     strokeDasharray="2 2"
                     label={{
                       value: `${fmt(m.dose_amount)} ${m.dose_unit}`,
-                      position: 'top',
+                      position: i % 2 === 0 ? 'top' : 'insideTop',
                       fontSize: 11,
                       fill: '#dc2626',
                     }}
@@ -163,8 +184,9 @@ export function SymptomDoseChart({ patientId, questions }: { patientId: string; 
           </table>
         )}
         <p className="mt-2 text-xs text-muted-foreground">
-          Linha cheia: sintoma (última resposta do dia); tracejada: score; vermelho: ajuste de dose.
-          “—” = sem dado.
+          Linha cheia: {data?.question.label ?? 'sintoma'} (última resposta do dia)
+          {showScore ? '; tracejada: score' : ''}; vermelho: ajuste de dose. Dia sem resposta
+          aparece como lacuna.
         </p>
       </CardContent>
     </Card>

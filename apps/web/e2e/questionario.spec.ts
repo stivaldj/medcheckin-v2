@@ -114,18 +114,18 @@ test.describe('questionário por paciente', () => {
     );
     expect(done.completed).toBe(true); // o pack sozinho não fechava: a extra faltava
 
-    // 5. a resposta aparece na grade da médica
+    // 5. a resposta aparece na grade da médica (a grade mostra o RÓTULO, não a chave)
     await page.reload();
     const grid = page.getByTestId('grid-card');
-    await expect(grid).toContainText('teve_espasmos_hoje');
-    await expect(grid.locator('tr', { hasText: 'teve_espasmos_hoje' })).toContainText('sim');
+    await expect(grid).toContainText('Teve espasmos hoje?');
+    await expect(grid.locator('tr', { hasText: 'Teve espasmos hoje?' })).toContainText('sim');
 
     // 6. desativar tira a pergunta dos próximos check-ins, sem apagar o que já foi respondido
     await card.getByTestId('toggle-teve_espasmos_hoje').click();
     await expect(card.getByTestId('patient-question-teve_espasmos_hoje')).toContainText(
       'desativada',
     );
-    await expect(grid).toContainText('teve_espasmos_hoje'); // a série continua na grade
+    await expect(grid).toContainText('Teve espasmos hoje?'); // a série continua na grade
     await page.screenshot({ path: 'test-results/questionario-paciente.png', fullPage: true });
   });
 });

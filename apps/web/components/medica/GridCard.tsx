@@ -48,8 +48,12 @@ export function GridCard({ grid }: { grid: Grid }) {
             <tbody>
               {grid.questions.map((q) => (
                 <tr key={q.key} className="border-t">
-                  <td className="sticky left-0 bg-card p-1 whitespace-nowrap" title={q.label}>
-                    {q.key}
+                  {/* rótulo da médica, não a chave do banco; a chave fica no title */}
+                  <td
+                    className="sticky left-0 max-w-44 truncate bg-card p-1 whitespace-nowrap"
+                    title={`${q.label} (${q.key})`}
+                  >
+                    {q.label}
                     {q.is_side_effect ? ' ⚠' : ''}
                   </td>
                   {grid.days.map((d) => (
@@ -60,7 +64,7 @@ export function GridCard({ grid }: { grid: Grid }) {
                 </tr>
               ))}
               <tr className="border-t font-medium">
-                <td className="sticky left-0 bg-card p-1">score</td>
+                <td className="sticky left-0 bg-card p-1">Score</td>
                 {grid.days.map((d) => (
                   <td
                     key={d}
@@ -75,8 +79,7 @@ export function GridCard({ grid }: { grid: Grid }) {
           </table>
         )}
         <p className="mt-2 text-xs text-muted-foreground">
-          Célula = última resposta do dia; “—” = sem dado; ● = ajuste de dose. Gráfico sintoma ×
-          dose: E6.
+          Célula = última resposta do dia; “—” = sem dado; ● = ajuste de dose.
         </p>
       </CardContent>
     </Card>

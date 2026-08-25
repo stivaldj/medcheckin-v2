@@ -255,7 +255,17 @@ export async function patientGrid(db, patientId, { days = 14, now } = {}) {
     .andWhere('c.scheduled_for', '>=', from)
     .andWhere('a.skipped', false)
     .orderBy('a.answered_at')
-    .select('c.scheduled_for', 'q.key', 'a.value_num', 'a.value_choice', 'a.value_text');
+    .select(
+      'c.scheduled_for',
+      'q.key',
+      'q.label',
+      'q.kind',
+      'q.unit',
+      'q.is_side_effect',
+      'a.value_num',
+      'a.value_choice',
+      'a.value_text',
+    );
   const cells = {};
   const answered = new Set();
   for (const a of answers) {
@@ -265,15 +275,31 @@ export async function patientGrid(db, patientId, { days = 14, now } = {}) {
     answered.add(a.key);
   }
   // Perguntas desativadas somem dos próximos check-ins, mas a série já respondida continua visível.
-  const questions = allQuestions
-    .filter((q) => q.active || answered.has(q.key))
-    .map((q) => ({
+  // Auditoria/design pass: o mesmo vale para perguntas de conjuntos ANTERIORES — trocar o
+  // questionário do episódio não pode sumir com a série que gerou alerta (ela vem das answers).
+  const known = new Set(allQuestions.map((q) => q.key));
+  const legacy = [];
+  const legacySeen = new Set();
+  for (const a of answers) {
+    if (known.has(a.key) || legacySeen.has(a.key)) continue;
+    legacySeen.add(a.key);
+    legacy.push({
+      key: a.key,
+      label: a.label,
+      kind: a.kind,
+      unit: a.unit,
+      is_side_effect: a.is_side_effect,
+    });
+  }
+  const questions = [...allQuestions.filter((q) => q.active || answered.has(q.key)), ...legacy].map(
+    (q) => ({
       key: q.key,
       label: q.label,
       kind: q.kind,
       unit: q.unit,
       is_side_effect: q.is_side_effect,
-    }));
+    }),
+  );
   const scoreRows = await db('patient_scores_daily')
     .where({ patient_id: patientId })
     .andWhere('date', '>=', dayList[0])
