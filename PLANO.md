@@ -529,11 +529,40 @@ $ npm run test:e2e → 10 passed (31.1s)
 
 **Fora do escopo, registrado em ACHADOS.md:** `medication_intakes`/`confirmIntake` deprecated (código morto a decidir pós-E10); N+1 dos próximos alarmes em `dashboardToday`; conjuntos de perguntas pré-existentes não ganham a pergunta de adesão (vira parte de E9.2); E2E migrado de `next dev` para `next build && next start`.
 
-### E9.2 — Questionário configurável na página do paciente `[ ]`
+### E9.2 — Questionário configurável na página do paciente `[x]`
 
 - **Horário do disparo por paciente** na página do paciente (presets manhã 09:00 / noite 21:00 + livre; hoje `checkin_time` só no cadastro).
 - **Perguntas extras por paciente** (intenção do v1 `patient_custom_questions`): na página do paciente, adicionar pergunta em texto livre (tipo à escolha, default sim/não ou texto), aplicada JUNTO ao pack do episódio a partir do próximo check-in; editável/desativável ali mesmo; grade/relatório as incluem.
-- **Prova:** core (merge pack+extras na ordem; validade por paciente); E2E: adicionar pergunta na consulta → próximo check-in a inclui → resposta na grade.
+- **Prova pedida:** core (merge pack+extras na ordem; validade por paciente); E2E: adicionar pergunta na consulta → próximo check-in a inclui → resposta na grade.
+
+**RED (2026-08-25):**
+
+```
+$ npm test -w @medcheckin/core -- patient-questions
+ FAIL  test/patient-questions.test.js [ test/patient-questions.test.js ]
+Error: Failed to load url ../src/questions/patientQuestions.js. Does the file exist?
+ Test Files  1 failed (1) · Tests  no tests
+```
+
+**GREEN (2026-08-25):**
+
+```
+$ npm run migrate → migrate: batch 5 aplicado → 007_patient_questions.js
+$ npm test -w @medcheckin/core -- patient-questions → ✓ test/patient-questions.test.js (6 tests)
+   chave derivada do label + validação + colisão com o pack e com outra extra + tenancy 404 ·
+   merge pack (ordem) + extras depois, só ativas, isoladas por paciente ·
+   vale só a partir do PRÓXIMO check-in (o já agendado não muda) ·
+   engine: a extra fecha o check-in, aparece na grade e no relatório ·
+   editar mantém a chave · desativar some dos próximos e MANTÉM a série respondida ·
+   horário por paciente: 21:00 (dentro do silêncio) recusado, 20:00 agenda às 20:00
+$ npm run check → verde (lint · format · tsc · 152 core + 36 web = 188 testes)
+$ npm run test:e2e → 11 passed (34.5s)
+   ✓ questionario.spec: 23:00 recusado com motivo ("silêncio") → preset Noite (20:00) →
+     pergunta extra em texto livre → próximo check-in às 20:00 só fecha depois dela →
+     resposta "sim" na grade → desativar mantém a série
+```
+
+**Fora do escopo, registrado em ACHADOS.md:** extras sempre no fim, sem condição nem peso de score; convivência do preset de adesão com um pack que ganhe a pergunta depois.
 
 ### E10 — Piloto real `[ ]`
 
@@ -546,6 +575,7 @@ Critério de sucesso e de aborto definidos antes. **Prova:** relatório final; d
 | Data       | Etapa | Evento                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ---------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-08-16 | —     | Auditoria do v1 lida; `PLANO.md`, `ACHADOS.md`, `DECISOES.md` criados. Aguardando "ok" para E0.                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 2026-08-25 | E9.2  | Questionário configurável na página do paciente: migration 007 (`questions.patient_id`, CHECK de dono, unique por paciente), merge pack + extras num único carregador usado por engine/PWA/grade/relatório/gráfico, extras valem do próximo check-in (D22), chave imutável e desativação preserva a série (D23), horário do check-in por paciente com presets e recusa dentro do silêncio (D24), botão para adicionar a pergunta de adesão a conjuntos antigos. 188 testes + 11 E2E. Aguardando "ok, avance" para E10.                                   |
 | 2026-08-25 | E9.1  | Rotina de alarmes por período: migration 006 (`routine_periods` sem sobreposição via EXCLUDE gist + `routine_alarms` horário/texto livre), card "Rotina de alarmes" 1º na página do paciente (novo/replicar/encerrar hoje, períodos futuros editáveis, quem recebe + push), scheduler dispara de `routine_alarms` (fora do período param sozinhos), PWA vira lembrete puro, adesão pela pergunta do check-in (relatório 30 d, shadow report e /hoje), `medication_intakes` deprecated (D17–D20). 179 testes + 10 E2E. Aguardando "ok, avance" para E9.2. |
 | 2026-08-25 | —     | Feedback do 1º teste real (médica): rotina de avisos à primeira vista + dose por horário + instruções + período com fim. Etapas E9.1/E9.2 especificadas.                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 2026-08-16 | E9    | Preparação do shadow run: critérios (8, numéricos) escritos antes em docs/SHADOW_RUN.md + SHADOW_CRITERIA; gerador de relatório critério × resultado; rate limit por IP; scripts no backup; attempts em notifications; cycle_count/max_gap. 171 testes. A semana depende do dono (deploy + equipe).                                                                                                                                                                                                                                                      |

@@ -3,9 +3,14 @@ import { toDT } from '../time.js';
 import { newToken, AuthError } from '../auth/tokens.js';
 import { requirePatientInClinic, logAccess } from '../auth/access.js';
 import { currentDose } from '../doses/currentDose.js';
-import { toHm } from '../scheduler/next-run.js';
+import { toHm, inQuietHours } from '../scheduler/next-run.js';
 import { ValidationError } from '../errors.js';
 import { listRoutine } from '../routine/index.js';
+import {
+  questionsForPatient,
+  listPatientQuestions,
+  packHasAdherence,
+} from '../questions/patientQuestions.js';
 
 export { ValidationError };
 
@@ -71,11 +76,30 @@ function patientPatch(input, { partial }) {
   return patch;
 }
 
+/**
+ * O horário do check-in não pode cair na janela de silêncio: o disparo seria empurrado para depois
+ * e o paciente nunca receberia no horário escolhido — "sucesso falso" que a regra 2 proíbe.
+ */
+function assertCheckinTimeAwake(patch, current = {}) {
+  const time = toHm(patch.checkin_time ?? current.checkin_time);
+  const start = toHm(patch.quiet_start ?? current.quiet_start) ?? '21:00';
+  const end = toHm(patch.quiet_end ?? current.quiet_end) ?? '08:00';
+  if (!time) return;
+  const dt = DateTime.fromISO(`2000-01-01T${time}`, { zone: 'utc' });
+  if (inQuietHours(dt, start, end)) {
+    throw new ValidationError(
+      `${time} está dentro do silêncio (${start}–${end}): o envio seria adiado. Escolha um horário fora dessa janela ou ajuste o silêncio.`,
+      'checkin_time',
+    );
+  }
+}
+
 /** Cadastro: paciente + respondentes (cada um com invite_token). Audit `create`. */
 export async function createPatient(db, session, input, now) {
   requireDoctor(session);
   const nowJs = toDT(now).toJSDate();
   const patch = patientPatch(input, { partial: false });
+  assertCheckinTimeAwake(patch);
   const respondents = (input?.respondents ?? []).map(normalizeRespondentInput);
   if (!respondents.length) {
     respondents.push({
@@ -117,6 +141,8 @@ export async function updatePatient(db, session, patientId, input, now) {
   await requirePatientInClinic(db, session, patientId);
   const patch = patientPatch(input, { partial: true });
   if (!Object.keys(patch).length) throw new ValidationError('Nada para atualizar.');
+  const current = await db('patients').where({ id: patientId }).first();
+  assertCheckinTimeAwake(patch, current);
   const [row] = await db('patients')
     .where({ id: patientId })
     .update({ ...patch, updated_at: db.fn.now() })
@@ -213,12 +239,11 @@ export async function patientGrid(db, patientId, { days = 14, now } = {}) {
     .where({ patient_id: patientId })
     .orderBy('started_at', 'desc')
     .first();
-  const questions = ep
-    ? await db('questions')
-        .where({ question_set_id: ep.question_set_id, active: true })
-        .orderBy('sort_order')
-        .select('key', 'label', 'kind', 'unit', 'is_side_effect')
-    : [];
+  const allQuestions = await questionsForPatient(db, {
+    patientId,
+    questionSetId: ep?.question_set_id ?? null,
+    includeInactive: true,
+  });
 
   const answers = await db('answers as a')
     .join('checkins as c', 'c.id', 'a.checkin_id')
@@ -229,11 +254,23 @@ export async function patientGrid(db, patientId, { days = 14, now } = {}) {
     .orderBy('a.answered_at')
     .select('c.scheduled_for', 'q.key', 'a.value_num', 'a.value_choice', 'a.value_text');
   const cells = {};
+  const answered = new Set();
   for (const a of answers) {
     const d = DateTime.fromJSDate(new Date(a.scheduled_for)).setZone(tz).toISODate();
     if (!cells[d]) cells[d] = {};
     cells[d][a.key] = a.value_num ?? a.value_choice ?? a.value_text;
+    answered.add(a.key);
   }
+  // Perguntas desativadas somem dos próximos check-ins, mas a série já respondida continua visível.
+  const questions = allQuestions
+    .filter((q) => q.active || answered.has(q.key))
+    .map((q) => ({
+      key: q.key,
+      label: q.label,
+      kind: q.kind,
+      unit: q.unit,
+      is_side_effect: q.is_side_effect,
+    }));
   const scoreRows = await db('patient_scores_daily')
     .where({ patient_id: patientId })
     .andWhere('date', '>=', dayList[0])
@@ -291,10 +328,14 @@ export async function getPatientDetail(db, session, patientId, { baseUrl = '', n
     .orderBy('last_seen_at', 'desc');
   const grid = await patientGrid(db, patientId, { days: 14, now });
   const routine = await listRoutine(db, session, patientId, { now });
+  const patientQuestions = await listPatientQuestions(db, session, patientId);
+  const packAdherence = await packHasAdherence(db, patientId);
   await logAccess(db, { session, patientId, route: 'patients.detail', action: 'view' }, now);
   return {
     patient,
     routine,
+    patient_questions: patientQuestions,
+    pack_has_adherence: packAdherence,
     respondents,
     medications: meds,
     episode: episode ? { ...episode, question_set_name: questionSet?.name ?? null } : null,

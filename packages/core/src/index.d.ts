@@ -605,6 +605,10 @@ export function patientGrid(
 export interface PatientDetail {
   patient: PatientRow;
   routine: RoutineView;
+  /** Perguntas extras do paciente (inclui as desativadas). E9.2. */
+  patient_questions: PatientQuestion[];
+  /** true quando o pack do episódio já pergunta adesão (não faz sentido oferecer a extra). */
+  pack_has_adherence: boolean;
   respondents: Array<RespondentRow & { invite_url: string }>;
   medications: Array<MedicationRow & { dose_history: DoseEvent[] }>;
   episode: (EpisodeRow & { question_set_name: string | null }) | null;
@@ -658,6 +662,57 @@ export function setEpisode(
   input: { kind: string; checkin_frequency: string; question_set_id: string },
   now?: Instant,
 ): Promise<EpisodeRow>;
+/* ---- E9.2: perguntas extras por paciente -------------------------------- */
+export interface PatientQuestion extends Question {
+  patient_id: string;
+  question_set_id: null;
+  created_at: Date | string;
+}
+export interface PatientQuestionInput {
+  label: string;
+  key?: string;
+  kind?: Question['kind'];
+  options?: string[] | string;
+  unit?: string | null;
+  required?: boolean;
+}
+/** Pack do episódio + extras do paciente. `at` = `scheduled_for` do check-in (E9.2). */
+export function questionsForPatient(
+  db: Knex,
+  input: {
+    patientId: string;
+    questionSetId?: string | null;
+    at?: Instant | null;
+    includeInactive?: boolean;
+  },
+): Promise<Question[]>;
+export function listPatientQuestions(
+  db: Knex,
+  session: Session,
+  patientId: string,
+): Promise<PatientQuestion[]>;
+export function addPatientQuestion(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  input: PatientQuestionInput | Record<string, unknown>,
+  now?: Instant,
+): Promise<PatientQuestion>;
+export function updatePatientQuestion(
+  db: Knex,
+  session: Session,
+  questionId: string,
+  input: Partial<PatientQuestionInput> & { active?: boolean },
+  now?: Instant,
+): Promise<PatientQuestion>;
+export function addAdherenceQuestion(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  now?: Instant,
+): Promise<PatientQuestion>;
+export function packHasAdherence(db: Knex, patientId: string): Promise<boolean>;
+
 export function listQuestionSets(
   db: Knex,
   clinicId: string,

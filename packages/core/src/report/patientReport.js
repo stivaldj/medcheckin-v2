@@ -4,6 +4,7 @@ import { AuthError } from '../auth/tokens.js';
 import { requirePatientInClinic, logAccess } from '../auth/access.js';
 import { mean } from '../analytics/rolling.js';
 import { ADHERENCE_QUESTION_KEY } from '../routine/index.js';
+import { questionsForPatient } from '../questions/patientQuestions.js';
 
 function requireDoctor(session) {
   if (!session || session.kind !== 'user')
@@ -54,13 +55,15 @@ export async function patientReport(db, session, patientId, { days = 30, now } =
     .where({ patient_id: patientId })
     .orderBy('started_at', 'desc')
     .first();
-  const questions = ep
-    ? await db('questions')
-        .where({ question_set_id: ep.question_set_id, active: true })
-        .whereIn('kind', ['scale_0_10', 'number', 'yes_no'])
-        .whereNot('key', ADHERENCE_QUESTION_KEY) // D20: adesão tem bloco próprio, não é sintoma
-        .orderBy('sort_order')
-    : [];
+  const questions = (
+    await questionsForPatient(db, {
+      patientId,
+      questionSetId: ep?.question_set_id ?? null,
+      includeInactive: true, // a série de uma pergunta desativada continua no relatório do período
+    })
+  ).filter(
+    (q) => ['scale_0_10', 'number', 'yes_no'].includes(q.kind) && q.key !== ADHERENCE_QUESTION_KEY, // D20: adesão tem bloco próprio, não é sintoma
+  );
   const answers = await db('answers as a')
     .join('checkins as c', 'c.id', 'a.checkin_id')
     .join('questions as q', 'q.id', 'a.question_id')
@@ -71,20 +74,23 @@ export async function patientReport(db, session, patientId, { days = 30, now } =
     .whereNotNull('a.value_num')
     .orderBy('c.scheduled_for')
     .select('q.key', 'a.value_num', 'c.scheduled_for');
-  const symptoms = questions.map((q) => {
-    const vals = answers.filter((a) => a.key === q.key).map((a) => Number(a.value_num));
-    return {
-      key: q.key,
-      label: q.label,
-      kind: q.kind,
-      unit: q.unit,
-      n: vals.length,
-      mean: round(mean(vals)),
-      min: vals.length ? Math.min(...vals) : null,
-      max: vals.length ? Math.max(...vals) : null,
-      last: vals.length ? vals[vals.length - 1] : null,
-    };
-  });
+  const symptoms = questions
+    .map((q) => {
+      const vals = answers.filter((a) => a.key === q.key).map((a) => Number(a.value_num));
+      return {
+        key: q.key,
+        label: q.label,
+        kind: q.kind,
+        unit: q.unit,
+        n: vals.length,
+        mean: round(mean(vals)),
+        min: vals.length ? Math.min(...vals) : null,
+        max: vals.length ? Math.max(...vals) : null,
+        last: vals.length ? vals[vals.length - 1] : null,
+      };
+    })
+    // desativada e sem resposta no período não vira linha vazia no relatório
+    .filter((sy) => questions.find((q) => q.key === sy.key)?.active || sy.n > 0);
 
   const scoreRows = await db('patient_scores_daily')
     .where({ patient_id: patientId })

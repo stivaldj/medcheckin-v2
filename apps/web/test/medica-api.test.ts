@@ -428,3 +428,112 @@ describe('rotina de alarmes (E9.1)', () => {
     expect((await ended.json()).ends_on).toBe(day(0));
   });
 });
+
+describe('questionário por paciente (E9.2)', () => {
+  let extraId: string;
+
+  it('POST /api/patients/[id]/questions cria a extra; label curto → 400; chave repetida → 400', async () => {
+    const { POST, GET } = await import('../app/api/patients/[id]/questions/route');
+    const short = await POST(
+      req(`/api/patients/${fx.p1}/questions`, {
+        method: 'POST',
+        headers: H(),
+        body: JSON.stringify({ label: 'curta' }),
+      }),
+      params({ id: fx.p1 }),
+    );
+    expect(short.status).toBe(400);
+
+    const ok = await POST(
+      req(`/api/patients/${fx.p1}/questions`, {
+        method: 'POST',
+        headers: H(),
+        body: JSON.stringify({ label: 'Teve espasmos hoje?', kind: 'yes_no' }),
+      }),
+      params({ id: fx.p1 }),
+    );
+    expect(ok.status).toBe(201);
+    const created = await ok.json();
+    expect(created).toMatchObject({ key: 'teve_espasmos_hoje', kind: 'yes_no', active: true });
+    extraId = created.id;
+
+    const dup = await POST(
+      req(`/api/patients/${fx.p1}/questions`, {
+        method: 'POST',
+        headers: H(),
+        body: JSON.stringify({ label: 'Teve espasmos hoje?' }),
+      }),
+      params({ id: fx.p1 }),
+    );
+    expect(dup.status).toBe(400);
+    expect((await dup.json()).error).toBe('validation');
+
+    const list = await GET(
+      req(`/api/patients/${fx.p1}/questions`, { headers: { cookie: fx.cookie } }),
+      params({ id: fx.p1 }),
+    );
+    expect((await list.json()).map((q: { key: string }) => q.key)).toEqual(['teve_espasmos_hoje']);
+  });
+
+  it('PATCH /api/questions/[id] renomeia mantendo a chave e desativa; pergunta do pack → 404', async () => {
+    const { PATCH } = await import('../app/api/questions/[id]/route');
+    const renamed = await PATCH(
+      req(`/api/questions/${extraId}`, {
+        method: 'PATCH',
+        headers: H(),
+        body: JSON.stringify({ label: 'Teve espasmos ou tremores hoje?' }),
+      }),
+      params({ id: extraId }),
+    );
+    expect(renamed.status).toBe(200);
+    expect(await renamed.json()).toMatchObject({
+      key: 'teve_espasmos_hoje',
+      label: 'Teve espasmos ou tremores hoje?',
+    });
+
+    const off = await PATCH(
+      req(`/api/questions/${extraId}`, {
+        method: 'PATCH',
+        headers: H(),
+        body: JSON.stringify({ active: false }),
+      }),
+      params({ id: extraId }),
+    );
+    expect((await off.json()).active).toBe(false);
+
+    const packQuestion = await db('questions').where({ question_set_id: fx.setId }).first();
+    const nope = await PATCH(
+      req(`/api/questions/${packQuestion.id}`, {
+        method: 'PATCH',
+        headers: H(),
+        body: JSON.stringify({ active: false }),
+      }),
+      params({ id: packQuestion.id }),
+    );
+    expect(nope.status).toBe(404);
+  });
+
+  it('PATCH /api/patients/[id] recusa horário de check-in dentro do silêncio', async () => {
+    const { PATCH } = await import('../app/api/patients/[id]/route');
+    const bad = await PATCH(
+      req(`/api/patients/${fx.p1}`, {
+        method: 'PATCH',
+        headers: H(),
+        body: JSON.stringify({ checkin_time: '23:00' }),
+      }),
+      params({ id: fx.p1 }),
+    );
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).field).toBe('checkin_time');
+    const ok = await PATCH(
+      req(`/api/patients/${fx.p1}`, {
+        method: 'PATCH',
+        headers: H(),
+        body: JSON.stringify({ checkin_time: '20:00' }),
+      }),
+      params({ id: fx.p1 }),
+    );
+    expect(ok.status).toBe(200);
+    expect(String((await ok.json()).checkin_time).slice(0, 5)).toBe('20:00');
+  });
+});

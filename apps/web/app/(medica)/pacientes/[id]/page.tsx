@@ -10,6 +10,7 @@ import { RespondentsCard } from '@/components/medica/RespondentsCard';
 import { MedicationsCard } from '@/components/medica/MedicationsCard';
 import { RoutineCard } from '@/components/medica/RoutineCard';
 import { EpisodeCard } from '@/components/medica/EpisodeCard';
+import { QuestionnaireCard } from '@/components/medica/QuestionnaireCard';
 import { GridCard } from '@/components/medica/GridCard';
 import { AlertsCard } from '@/components/medica/AlertsCard';
 import { SymptomDoseChart } from '@/components/medica/SymptomDoseChart';
@@ -97,6 +98,12 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
           questionSets={questionSets}
         />
         <EpisodeCard patientId={p.id} episode={detail.episode} questionSets={questionSets} />
+        <QuestionnaireCard
+          patientId={p.id}
+          checkinTime={String(p.checkin_time ?? '')}
+          questions={detail.patient_questions}
+          packHasAdherence={detail.pack_has_adherence}
+        />
         <RespondentsCard patientId={p.id} respondents={detail.respondents} />
         <AlertsCard alerts={detail.alerts} conducts={conducts} />
       </div>
