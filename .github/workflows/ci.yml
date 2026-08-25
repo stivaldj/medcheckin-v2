@@ -21,9 +21,16 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
+      mailpit:
+        image: axllent/mailpit:latest
+        ports: ['1025:1025', '8025:8025']
     env:
       DATABASE_URL: postgres://medcheckin:ci_only_not_a_secret@localhost:5432/medcheckin
       DATABASE_URL_TEST: postgres://medcheckin:ci_only_not_a_secret@localhost:5432/medcheckin_test
+      # o link mágico é credencial: o envio por SMTP é testado de verdade (core/test/mailer.test.js)
+      SMTP_HOST: 127.0.0.1
+      SMTP_PORT: '1025'
+      EMAIL_FROM: MedCheck-in <nao-responda@medcheckin.test>
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,6 +40,8 @@ jobs:
       - run: npm ci
       - run: PGPASSWORD=ci_only_not_a_secret psql -h localhost -U medcheckin -d medcheckin -c 'create database medcheckin_test'
       - run: npm run check
+      - name: npm audit (high+) com exceções datadas
+        run: node scripts/audit-check.mjs
       - run: npx playwright install --with-deps chromium
         working-directory: apps/web
       - run: npm run test:e2e

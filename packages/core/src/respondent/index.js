@@ -3,7 +3,6 @@ import { toDT } from '../time.js';
 import { AuthError } from '../auth/tokens.js';
 import { logAccess } from '../auth/access.js';
 import { recordAnswer, getNextQuestion } from '../checkin/engine.js';
-import { confirmIntake } from '../scheduler/reminders.js';
 import { conditionSatisfied } from '../checkin/engine.js';
 import { routineAlarmsForDay } from '../routine/index.js';
 import { questionsForPatient } from '../questions/patientQuestions.js';
@@ -171,34 +170,6 @@ export async function answerFromRespondent(db, session, { checkinId, questionKey
   const ck = await db('checkins').where({ id: checkinId }).first();
   const progress = await checkinProgress(db, ck);
   return { ...out, progress };
-}
-
-/** @deprecated D17 — fora da UI desde E9.1; mantido só para histórico de `medication_intakes`. */
-export async function confirmFromRespondent(
-  db,
-  session,
-  { intakeId, status, sideEffect = false, note = null },
-  now,
-) {
-  requireRespondent(session);
-  const i = await db('medication_intakes as i')
-    .join('medications as m', 'm.id', 'i.medication_id')
-    .where('i.id', intakeId)
-    .andWhere('m.patient_id', session.patientId)
-    .select('i.id')
-    .first();
-  if (!i) throw new AuthError('not_found', 'Intake não encontrado.');
-  const row = await confirmIntake(
-    db,
-    { intakeId, respondentId: session.respondentId, status, sideEffect, note },
-    now,
-  );
-  await logAccess(
-    db,
-    { session, patientId: session.patientId, route: 'p.confirm', action: 'create' },
-    now,
-  );
-  return row;
 }
 
 /** Histórico por dia (fuso do paciente): respostas e alarmes da rotina. Dias sem nada não aparecem. */

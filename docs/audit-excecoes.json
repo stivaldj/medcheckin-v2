@@ -1,0 +1,20 @@
+{
+  "_leia": "Vulnerabilidades high/critical aceitas TEMPORARIAMENTE. Cada entrada precisa de motivo e data de reavaliação. Passou da data, ou apareceu algo fora desta lista, o CI fica vermelho. Não remova a data para 'consertar' o CI.",
+  "excecoes": [
+    {
+      "pacote": "postcss",
+      "motivo": "GHSA-r28c-9q8g-f849 e correlatas: path traversal ao carregar sourceMappingURL. Só roda em BUILD, sobre CSS do próprio repo — nenhuma entrada de usuário. Corrigir exige Next 15 → 16 (major).",
+      "reavaliar_em": "2026-11-30"
+    },
+    {
+      "pacote": "sharp",
+      "motivo": "GHSA-f88m-g3jw-g9cj (libvips). O app não usa next/image em lugar nenhum (conferido por grep), então sharp nunca é chamado em runtime. Corrigir exige Next 15 → 16 (major).",
+      "reavaliar_em": "2026-11-30"
+    },
+    {
+      "pacote": "next",
+      "motivo": "Herda postcss e sharp acima; não há advisory própria do Next nesta versão.",
+      "reavaliar_em": "2026-11-30"
+    }
+  ]
+}
