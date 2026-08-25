@@ -1,9 +1,11 @@
 # MedCheck-in v2
 
 Monitorização de pacientes em tratamento com cannabis medicinal — piloto com 1 médica.
-Uma frase: a médica cria perguntas e plano; paciente **ou cuidador** recebe alarmes de dose e check-ins (PWA + push); responde de forma estruturada; a médica vê sintoma × ajuste de dose e recebe alerta acionável.
+Uma frase: a médica monta a rotina de alarmes e o questionário; paciente **ou cuidador** recebe os lembretes e o check-in (PWA + push); responde de forma estruturada — inclusive a adesão; a médica vê sintoma × ajuste de dose e recebe alerta acionável.
 
 Documentos de trabalho: [`PLANO.md`](PLANO.md) (etapas e provas) · [`DECISOES.md`](DECISOES.md) (decisões e lições do v1) · [`ACHADOS.md`](ACHADOS.md).
+
+Operação: [`docs/DEPLOY.md`](docs/DEPLOY.md) · [`docs/RUNBOOK.md`](docs/RUNBOOK.md) · [`docs/LGPD.md`](docs/LGPD.md) · [`docs/SHADOW_RUN.md`](docs/SHADOW_RUN.md) (E9) · [`docs/PILOTO.md`](docs/PILOTO.md) (E10).
 
 ## Estrutura
 
@@ -27,13 +29,16 @@ Os scripts da raiz carregam o `.env` da raiz automaticamente (`node --env-file`)
 
 Login de dev: `medica@medcheckin.test` (seed). Convite de respondente (PWA): abra `http://localhost:3000/p/convite/seed-c2`.
 Scheduler: `npm run dev:scheduler` (ciclo a cada 60 s; `node apps/scheduler/src/index.js --once` roda um ciclo). Web Push exige `VAPID_*` no `.env`.
-E2E: `npm run test:e2e` (Playwright; usa `DATABASE_URL_TEST`).
+E2E: `npm run test:e2e` (Playwright; usa `DATABASE_URL_TEST`). Roda contra **build de produção** (`next build && next start`), não `next dev` — em dev a primeira compilação de cada rota faz um full reload que aborta o `fetch` em voo. Primeira execução leva ~30 s a mais por causa do build.
 
-`npm run check` é obrigatório verde em todo push. Quem garante isso é o hook de pre-push
-(`.githooks/pre-push`), instalado automaticamente pelo `npm ci`/`npm install` — o CI do GitHub não
-roda neste repositório. O hook exige o Postgres no ar (`docker compose up -d db mailpit`) e cancela
-o push se o check falhar. Numa emergência, `git push --no-verify` pula a verificação; rode
-`npm run check` logo em seguida.
+`npm run check` é obrigatório verde em todo push e todo PR, em duas camadas: o hook de pre-push
+(`.githooks/pre-push`, instalado automaticamente pelo `npm ci`/`npm install`) roda antes de o código
+sair da máquina, e o CI do GitHub roda de novo com Postgres e Mailpit como services (o envio do link
+mágico é testado por SMTP de verdade), mais E2E e build das imagens. O hook exige o Postgres no ar
+(`docker compose up -d db mailpit`) e cancela o push se o check falhar. Numa emergência,
+`git push --no-verify` pula a verificação local; o CI continua valendo.
+
+`node scripts/audit-check.mjs` é a porta de dependências: `npm audit` high/critical com exceções **datadas** em [`docs/audit-excecoes.json`](docs/audit-excecoes.json). Vulnerabilidade nova fora da lista, ou exceção vencida, reprova o CI.
 
 ## Regras
 

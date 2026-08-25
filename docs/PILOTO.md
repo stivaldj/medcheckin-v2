@@ -8,6 +8,7 @@ Diferença para o shadow run (E9): lá se provou **entrega** (push chega, ciclo 
 
 - [ ] Shadow run concluído e `docs/SHADOW_RUN_RESULTADO.md` arquivado com a decisão de seguir.
 - [ ] Deploy remoto estável há ≥ 7 dias (`docs/DEPLOY.md`): `/api/health` 200, scheduler ativo, uptime-check apontado, backup diário rodando e **restore drill** feito com hash conferido.
+- [ ] Alerta de uptime **provado**: `node scripts/uptime-check.mjs --selftest` saiu 0 e o e-mail chegou. "Scheduler parado > 60 min sem alerta" é critério de aborto — não dá para descobrir que o alarme estava cego durante o piloto.
 - [ ] Termo de consentimento revisado com a médica e versionado (`patients.consent_version`); o texto do aceite no PWA bate com o termo assinado.
 - [ ] `docs/LGPD.md` relido: base legal, retenção, direito de saída. Quem responde pedido de exclusão: **a médica**, pela própria tela (Exportar dados / Anonimizar).
 - [ ] Combinado por escrito com a médica: **o sistema não substitui contato clínico**. Alerta é aviso, não conduta automática. Emergência continua sendo telefone.
