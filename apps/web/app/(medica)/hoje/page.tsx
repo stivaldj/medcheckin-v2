@@ -42,12 +42,13 @@ export default async function HojePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            {d.awaiting.length === 0 && d.missed_today.length === 0 && (
-              <p className="text-muted-foreground">
-                Ninguém pendente. Concluídos hoje: {d.completed_today}
-                {d.not_sent_yet ? ` · ainda não enviados: ${d.not_sent_yet}` : ''}.
-              </p>
-            )}
+            {d.awaiting.length === 0 &&
+              d.missed_today.length === 0 &&
+              d.pending_today.length === 0 && (
+                <p className="text-muted-foreground">
+                  Ninguém pendente. Concluídos hoje: {d.completed_today}.
+                </p>
+              )}
             {d.awaiting.map((a) => (
               <div
                 key={a.checkin_id}
@@ -71,6 +72,27 @@ export default async function HojePage() {
                   {m.patient_name}
                 </Link>
                 <Badge variant="destructive">perdido</Badge>
+              </div>
+            ))}
+            {/* Auditoria P1-1: pendente com falha de entrega aparece nomeado, não só como número. */}
+            {d.pending_today.map((p) => (
+              <div
+                key={p.checkin_id}
+                className={`flex items-center justify-between rounded-md border p-2 ${p.delivery_failed ? 'border-destructive/40' : ''}`}
+                data-testid={p.delivery_failed ? 'pending-failed' : 'pending-waiting'}
+              >
+                <Link href={`/pacientes/${p.patient_id}`} className="font-medium hover:underline">
+                  {p.patient_name}
+                </Link>
+                {p.delivery_failed ? (
+                  <span className="text-destructive">
+                    falha na entrega — verifique as notificações do paciente
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">
+                    aguarda envio {hm(p.next_attempt_at)}
+                  </span>
+                )}
               </div>
             ))}
             {(d.awaiting.length > 0 || d.missed_today.length > 0) && (

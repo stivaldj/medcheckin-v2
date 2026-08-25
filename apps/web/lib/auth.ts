@@ -87,8 +87,13 @@ export function errorResponse(err: unknown): NextResponse {
     const field = (err as { field?: string | null }).field ?? null;
     return NextResponse.json({ error: 'validation', message, field }, { status: 400 });
   }
-  if (code) return NextResponse.json({ error: code, message }, { status: 400 });
-  console.error('[api] erro inesperado', { name: (err as Error)?.name, message });
+  // Auditoria P1-4: qualquer outro code é infraestrutura (ex.: '23505' do driver do Postgres)
+  // ou código desconhecido — loga no servidor e NÃO vaza a mensagem interna para o cliente.
+  console.error('[api] erro inesperado', {
+    name: (err as Error)?.name,
+    code: code ?? null,
+    message,
+  });
   return NextResponse.json({ error: 'internal' }, { status: 500 });
 }
 

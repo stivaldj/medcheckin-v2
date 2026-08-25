@@ -36,6 +36,19 @@ export async function enqueueAndSend(db, notifier, row) {
     .returning('*');
   if (!n) return { status: 'duplicate' };
 
+  // Auditoria P1-2: claim exclusivo antes do envio. A unique de dedup_key impede LINHA duplicada,
+  // mas não dois processos enviando a mesma linha ao mesmo tempo (o send acontecia fora de lock).
+  // Claim vencido (> 2 min) pode ser tomado: processo morto no meio não trava o reenvio.
+  const claimed = await db('notifications')
+    .where({ id: n.id })
+    .whereNull('sent_at')
+    .andWhere((q) =>
+      q.whereNull('claimed_at').orWhere('claimed_at', '<', db.raw("now() - interval '2 minutes'")),
+    )
+    .update({ claimed_at: db.fn.now() })
+    .returning('id');
+  if (!claimed.length) return { status: 'duplicate' };
+
   let result;
   try {
     result = await notifier.send(n);
@@ -47,7 +60,9 @@ export async function enqueueAndSend(db, notifier, row) {
     return { status: 'sent', notification: n };
   }
   const error = String(result?.error || 'unknown').slice(0, 500);
-  await db('notifications').where({ id: n.id }).update({ failed_at: db.fn.now(), error });
+  await db('notifications')
+    .where({ id: n.id })
+    .update({ failed_at: db.fn.now(), error, claimed_at: null });
   logger.warn('notification.failed', { notification_id: n.id, kind: n.kind, error });
   return { status: 'failed', notification: n, error };
 }
@@ -363,14 +378,19 @@ export async function completeCheckin(db, checkinId, now) {
   const checkin = await db('checkins').where({ id: checkinId }).first();
   if (!checkin) throw new EngineError('not_found', 'Check-in não encontrado.');
   if (checkin.status === 'completed') return { already: true };
-  await db('checkins').where({ id: checkinId }).update({
-    status: 'completed',
-    completed_at: nowJs,
-    next_attempt_at: null,
-    updated_at: db.fn.now(),
+  // Auditoria P1-3: status, score e alertas fecham JUNTOS. Sem transação, um crash no meio
+  // deixava o check-in completed com score/alerta órfãos — e nada reprocessa um completed.
+  const { score, alerts } = await db.transaction(async (trx) => {
+    await trx('checkins').where({ id: checkinId }).update({
+      status: 'completed',
+      completed_at: nowJs,
+      next_attempt_at: null,
+      updated_at: trx.fn.now(),
+    });
+    const score = await computeDailyScore(trx, checkinId);
+    const alerts = await evaluatePatientAlerts(trx, checkin.patient_id, now);
+    return { score, alerts };
   });
-  const score = await computeDailyScore(db, checkinId);
-  const alerts = await evaluatePatientAlerts(db, checkin.patient_id, now);
   logger.info('checkin.completed', {
     checkin_id: checkinId,
     patient_id: checkin.patient_id,

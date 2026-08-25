@@ -100,6 +100,16 @@ describe('Hoje + alertas + séries', () => {
     ).json();
     expect(acts.map((x: { action: string }) => x.action)).toEqual(['acknowledge', 'resolve']);
     expect(acts[1].user_name).toBe('Dra. Sintética');
+    // Auditoria P1-4: duplo-clique em Resolver é erro do cliente (400), não 500
+    const again = await RESOLVE(
+      req(`/api/alerts/${fx.alertId}/resolve`, {
+        method: 'POST',
+        headers: H(),
+        body: JSON.stringify({ note: 'de novo' }),
+      }),
+      params({ id: fx.alertId }),
+    );
+    expect(again.status).toBe(400);
     const other = await ACK(
       req(`/api/alerts/${fx.otherAlertId}/ack`, { method: 'POST', headers: H() }),
       params({ id: fx.otherAlertId }),

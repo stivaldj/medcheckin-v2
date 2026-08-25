@@ -1,10 +1,13 @@
 import { toDT } from '../time.js';
+import { AuthError } from '../auth/tokens.js';
+import { ValidationError } from '../errors.js';
 
 const SEVERITY_ORDER = `case severity when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end`;
 
+// Auditoria P1-4: erros tipados (code) — `Error` puro caía no catch-all da API como 500.
 async function getAlert(db, alertId) {
   const a = await db('alerts').where({ id: alertId }).first();
-  if (!a) throw new Error('Alerta não encontrado.');
+  if (!a) throw new AuthError('not_found', 'Alerta não encontrado.');
   return a;
 }
 
@@ -12,7 +15,7 @@ export async function acknowledgeAlert(db, { alertId, userId }, now) {
   const nowJs = toDT(now).toJSDate();
   return db.transaction(async (trx) => {
     const a = await getAlert(trx, alertId);
-    if (a.status === 'resolved') throw new Error('Alerta já resolvido.');
+    if (a.status === 'resolved') throw new ValidationError('Alerta já resolvido.');
     await trx('alerts')
       .where({ id: alertId })
       .update({ status: 'acknowledged', last_seen_at: nowJs });
@@ -29,11 +32,12 @@ export async function acknowledgeAlert(db, { alertId, userId }, now) {
 /** L15: resolver exige conduta (note); alerts + alert_actions na mesma transação. */
 export async function resolveAlert(db, { alertId, userId, note }, now) {
   const text = String(note ?? '').trim();
-  if (!text) throw new Error('Conduta obrigatória: informe a nota ao resolver o alerta.');
+  if (!text)
+    throw new ValidationError('Conduta obrigatória: informe a nota ao resolver o alerta.', 'note');
   const nowJs = toDT(now).toJSDate();
   return db.transaction(async (trx) => {
     const a = await getAlert(trx, alertId);
-    if (a.status === 'resolved') throw new Error('Alerta já resolvido.');
+    if (a.status === 'resolved') throw new ValidationError('Alerta já resolvido.');
     await trx('alerts').where({ id: alertId }).update({
       status: 'resolved',
       resolved_reason: 'doctor',
@@ -53,7 +57,7 @@ export async function resolveAlert(db, { alertId, userId, note }, now) {
 
 export async function addAlertNote(db, { alertId, userId, note }, now) {
   const text = String(note ?? '').trim();
-  if (!text) throw new Error('Nota vazia.');
+  if (!text) throw new ValidationError('Nota vazia.', 'note');
   await getAlert(db, alertId);
   const [row] = await db('alert_actions')
     .insert({
@@ -71,7 +75,7 @@ export async function silenceAlerts(
   db,
   { patientId, code = null, untilAt, reason = null, userId },
 ) {
-  if (!untilAt) throw new Error('untilAt obrigatório.');
+  if (!untilAt) throw new ValidationError('untilAt obrigatório.', 'untilAt');
   const [row] = await db('alert_silences')
     .insert({
       patient_id: patientId,

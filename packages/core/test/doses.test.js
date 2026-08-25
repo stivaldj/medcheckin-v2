@@ -55,6 +55,24 @@ describe('dose vigente (dose_events)', () => {
     expect(d).toBeNull();
   });
 
+  // Auditoria 2026-08-25, P0-1: o corte do dia é o DIA LOCAL do paciente, não o dia UTC.
+  it('P0-1: com o fuso do paciente, a dose de amanhã NÃO vale às 21:00 locais', async () => {
+    // 2026-09-01T01:00Z = 31/08 21:00 em Cuiabá (UTC-4): o dia local ainda é 31/08
+    const d = await currentDose(
+      db,
+      medicationId,
+      new Date('2026-09-01T01:00:00Z'),
+      'America/Cuiaba',
+    );
+    expect(d.dose_amount).toBe(4);
+  });
+
+  it('P0-1: fuso à frente do UTC — a dose de hoje local já vale de manhã cedo', async () => {
+    // 2026-08-31T20:00Z = 01/09 05:00 em Tóquio (UTC+9): o dia local já é 01/09
+    const d = await currentDose(db, medicationId, new Date('2026-08-31T20:00:00Z'), 'Asia/Tokyo');
+    expect(d.dose_amount).toBe(6);
+  });
+
   it('não permite dois ajustes na mesma data para a mesma medicação', async () => {
     await expect(
       db('dose_events').insert({

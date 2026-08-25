@@ -50,6 +50,25 @@ export async function dashboardToday(db, { clinicId }, now) {
   const completed_today = todayCheckins.filter((c) => c.status === 'completed').length;
   const not_sent_yet = todayCheckins.filter((c) => c.status === 'pending').length;
 
+  // Auditoria P1-1: check-in pendente com falha de entrega precisa aparecer NOMEADO — antes
+  // era só um número, indistinguível de "ainda não chegou a hora".
+  const failedPatients = await db('notifications as n')
+    .join('patients as p', 'p.id', 'n.patient_id')
+    .where('p.clinic_id', clinicId)
+    .whereNotNull('n.failed_at')
+    .andWhere('n.failed_at', '>=', nowDT.minus({ hours: 24 }).toJSDate())
+    .distinct('n.patient_id');
+  const failedSet = new Set(failedPatients.map((r) => r.patient_id));
+  const pending_today = todayCheckins
+    .filter((c) => c.status === 'pending')
+    .map((c) => ({
+      checkin_id: c.checkin_id,
+      patient_id: c.patient_id,
+      patient_name: c.patient_name,
+      next_attempt_at: c.next_attempt_at,
+      delivery_failed: failedSet.has(c.patient_id),
+    }));
+
   const open_alerts = await listOpenAlerts(db, { clinicId });
 
   const upcomingCheckins = await db('checkins as c')
@@ -154,6 +173,7 @@ export async function dashboardToday(db, { clinicId }, now) {
     missed_today,
     completed_today,
     not_sent_yet,
+    pending_today,
     open_alerts,
     upcoming,
     adherence,
