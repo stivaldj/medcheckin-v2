@@ -53,6 +53,13 @@ export const ALERT_STATUS_LABEL: Record<string, string> = {
   acknowledged: 'reconhecido',
   resolved: 'resolvido',
 };
+/** Severidade → variante do Badge. Fonte única: crítico e alto são cores diferentes. */
+export const SEVERITY_VARIANT: Record<string, 'critical' | 'high' | 'medium' | 'low'> = {
+  critical: 'critical',
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+};
 export const SEVERITY_LABEL: Record<string, string> = {
   critical: 'crítico',
   high: 'alto',

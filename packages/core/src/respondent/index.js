@@ -185,7 +185,8 @@ export async function respondentHistory(db, session, { days = 30, now } = {}) {
   const byDay = new Map();
   const day = (d) => {
     const key = DateTime.fromJSDate(new Date(d)).setZone(tz).toISODate();
-    if (!byDay.has(key)) byDay.set(key, { date: key, answers: null, alarms: [] });
+    if (!byDay.has(key))
+      byDay.set(key, { date: key, answers: null, answerLabels: null, alarms: [] });
     return byDay.get(key);
   };
   const answers = await db('answers as a')
@@ -198,8 +199,14 @@ export async function respondentHistory(db, session, { days = 30, now } = {}) {
     .select('c.scheduled_for', 'q.key', 'q.label', 'a.value_num', 'a.value_choice', 'a.value_text');
   for (const a of answers) {
     const d = day(a.scheduled_for);
-    if (!d.answers) d.answers = {};
+    if (!d.answers) {
+      d.answers = {};
+      d.answerLabels = {};
+    }
     d.answers[a.key] = a.value_num ?? a.value_choice ?? a.value_text;
+    // `answers` continua sendo o dado (chave → valor). O rótulo é apresentação e anda ao lado:
+    // o paciente não pode ler `efeito_qual` na tela dele.
+    d.answerLabels[a.key] = a.label;
   }
   // Rotina que valia em cada dia (o que o respondente viu no alarme).
   for (let i = 0; i < days; i += 1) {
@@ -207,7 +214,7 @@ export async function respondentHistory(db, session, { days = 30, now } = {}) {
     if (date > nowDT.setZone(tz).toISODate()) break;
     const alarms = await routineAlarmsForDay(db, r.patient_id, date);
     if (!alarms.length) continue;
-    const entry = byDay.get(date) ?? { date, answers: null, alarms: [] };
+    const entry = byDay.get(date) ?? { date, answers: null, answerLabels: null, alarms: [] };
     entry.alarms = alarms.map((a) => ({ time: a.time, description: a.description }));
     byDay.set(date, entry);
   }

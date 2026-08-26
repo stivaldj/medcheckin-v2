@@ -812,7 +812,10 @@ export function answerFromRespondent(
 }>;
 export interface HistoryDay {
   date: string;
+  /** Dado: chave da pergunta → resposta. É o contrato estável. */
   answers: Record<string, number | string> | null;
+  /** Apresentação: chave da pergunta → enunciado, para a tela não mostrar a chave crua. */
+  answerLabels: Record<string, string> | null;
   alarms: TodayAlarm[];
 }
 export function respondentHistory(

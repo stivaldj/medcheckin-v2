@@ -16,6 +16,12 @@ const badgeVariants = cva(
         outline: 'border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground',
         ghost: 'hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50',
         link: 'text-primary underline-offset-4 hover:underline',
+        // Severidade de alerta: quatro níveis distintos. Antes crítico e alto dividiam
+        // `destructive`, o que apagava a diferença justamente onde ela decide a ação.
+        critical: 'bg-sev-critical-soft text-sev-critical',
+        high: 'bg-sev-high-soft text-sev-high',
+        medium: 'bg-sev-medium-soft text-sev-medium',
+        low: 'bg-sev-low-soft text-sev-low',
       },
     },
     defaultVariants: {

@@ -48,6 +48,7 @@ export function AlertActions({ alertId, status }: { alertId: string; status: str
         )}
         <Button
           size="sm"
+          variant="secondary"
           disabled={busy}
           onClick={() => setOpen((v) => !v)}
           data-testid="resolve-open"

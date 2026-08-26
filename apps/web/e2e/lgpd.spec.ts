@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import JSZip from 'jszip';
 import { createDb, createPatient, addMedication, adjustDose, type Session } from '@medcheckin/core';
-import { loginAsDoctor } from './helpers';
+import { abrirConfiguracao, loginAsDoctor } from './helpers';
 
 test.describe('E7 — relatório, export e anonimização', () => {
   test('relatório imprimível → export.zip com contagens → anonimizar mantém séries', async ({
@@ -81,6 +81,7 @@ test.describe('E7 — relatório, export e anonimização', () => {
 
     // export (download)
     await page.goto(`/pacientes/${p1.id}`);
+    await abrirConfiguracao(page);
     const [download] = await Promise.all([
       page.waitForEvent('download'),
       page.getByTestId('export').click(),

@@ -8,7 +8,7 @@ import {
 } from '@medcheckin/core';
 import type { Session } from '@medcheckin/core';
 import type { Knex } from 'knex';
-import { loginAsDoctor } from './helpers';
+import { abrirCaso, abrirConfiguracao, escolher, loginAsDoctor } from './helpers';
 
 /**
  * PROVA E9.2 — questionário configurável na página do paciente:
@@ -48,6 +48,7 @@ test.describe('questionário por paciente', () => {
   }) => {
     await loginAsDoctor(context, baseURL!);
     await page.goto(`/pacientes/${ids.p1}`);
+    await abrirConfiguracao(page);
     const card = page.getByTestId('questionnaire-card');
 
     // 1. horário do disparo: dentro do silêncio (21:00–08:00) é recusado com motivo
@@ -63,7 +64,7 @@ test.describe('questionário por paciente', () => {
     // 3. pergunta extra em texto livre
     await expect(card).toContainText('Nenhuma. O paciente responde só o pack do episódio.');
     await card.getByTestId('patient-question-label').fill('Teve espasmos hoje?');
-    await card.getByTestId('patient-question-kind').selectOption('yes_no');
+    await escolher(page, 'patient-question-kind', 'sim / não');
     await card.getByTestId('add-patient-question').click();
     await expect(card.getByTestId('patient-question-teve_espasmos_hoje')).toContainText(
       'Teve espasmos hoje?',
@@ -121,10 +122,13 @@ test.describe('questionário por paciente', () => {
     await expect(grid.locator('tr', { hasText: 'Teve espasmos hoje?' })).toContainText('sim');
 
     // 6. desativar tira a pergunta dos próximos check-ins, sem apagar o que já foi respondido
+    //    (o reload acima voltou para a aba padrão "O caso")
+    await abrirConfiguracao(page);
     await card.getByTestId('toggle-teve_espasmos_hoje').click();
     await expect(card.getByTestId('patient-question-teve_espasmos_hoje')).toContainText(
       'desativada',
     );
+    await abrirCaso(page);
     await expect(grid).toContainText('Teve espasmos hoje?'); // a série continua na grade
     await page.screenshot({ path: 'test-results/questionario-paciente.png', fullPage: true });
   });

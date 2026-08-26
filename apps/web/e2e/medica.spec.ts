@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginAsDoctor } from './helpers';
+import { abrirCaso, abrirConfiguracao, loginAsDoctor } from './helpers';
 
 test.describe('PROVA E4 — médica: cadastrar paciente → convidar cuidador → criar dose → ver dose vigente', () => {
   test.beforeEach(async ({ context, baseURL }) => {
@@ -26,6 +26,7 @@ test.describe('PROVA E4 — médica: cadastrar paciente → convidar cuidador �
 
     // 3. detalhe: respondentes com link de convite
     await expect(page.getByTestId('patient-name')).toHaveText('Paciente E2E');
+    await abrirConfiguracao(page);
     const caregiverCard = page.getByTestId('respondent-caregiver');
     await expect(caregiverCard).toContainText('Cuidadora E2E');
     await expect(caregiverCard.getByTestId('invite-url')).toContainText('/p/convite/');
@@ -57,6 +58,7 @@ test.describe('PROVA E4 — médica: cadastrar paciente → convidar cuidador �
     // 6. episódio de titulação aberto pelo ajuste; grade com marcador de dose
     await expect(page.getByTestId('episode-card')).toContainText('Titulação');
     await expect(page.getByTestId('episode-card')).toContainText('check-in diário');
+    await abrirCaso(page);
     await expect(page.getByTestId('grid-card')).toContainText('dor');
 
     await page.screenshot({ path: 'test-results/paciente-e2e.png', fullPage: true });

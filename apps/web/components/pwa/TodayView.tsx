@@ -1,11 +1,28 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
+import { CheckIcon } from 'lucide-react';
 import type { RespondentTodayView, TodayQuestion } from '@medcheckin/core';
+
 import { api, ApiError } from '@/lib/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { NoSession } from './NoSession';
 import { PushToggle } from './PushToggle';
+
+/** Extremos da escala em palavras: "7" sozinho não quer dizer nada às 6 da manhã. */
+const EXTREMOS: Record<string, [string, string]> = {
+  dor: ['nenhuma dor', 'a pior possível'],
+  sono: ['péssimo', 'ótimo'],
+  humor: ['péssimo', 'ótimo'],
+};
+
+/** Verde → âmbar → vermelho. A cor acompanha a altura; as duas dizem a mesma coisa. */
+function tomDaEscala(n: number) {
+  if (n <= 3) return 'var(--sev-low)';
+  if (n <= 6) return 'var(--sev-medium)';
+  if (n <= 8) return 'var(--sev-high)';
+  return 'var(--sev-critical)';
+}
 
 function QuestionForm({
   checkinId,
@@ -38,40 +55,76 @@ function QuestionForm({
       setBusy(false);
     }
   }
+  const extremos = EXTREMOS[q.key];
   return (
-    <div className="space-y-3" data-testid={`question-${q.key}`}>
-      <p className="text-base font-medium">{q.label}</p>
+    <div className="space-y-5" data-testid={`question-${q.key}`}>
+      <p className="text-xl leading-snug font-semibold tracking-tight text-balance">{q.label}</p>
+
       {q.kind === 'scale_0_10' && (
-        <div className="grid grid-cols-6 gap-2 sm:grid-cols-11">
-          {Array.from({ length: 11 }, (_, n) => (
-            <Button
-              key={n}
-              variant="outline"
-              disabled={busy}
-              onClick={() => send(n)}
-              data-testid={`scale-${n}`}
-            >
-              {n}
-            </Button>
-          ))}
+        <div>
+          {/* Altura e cor sobem juntas: dá para responder de relance, sem ler o número. */}
+          <div className="flex items-end gap-1" style={{ height: 132 }}>
+            {Array.from({ length: 11 }, (_, n) => (
+              <button
+                key={n}
+                type="button"
+                disabled={busy}
+                onClick={() => send(n)}
+                data-testid={`scale-${n}`}
+                aria-label={`${n}${extremos ? (n === 0 ? ` — ${extremos[0]}` : n === 10 ? ` — ${extremos[1]}` : '') : ''}`}
+                className="flex-1 rounded-t-md rounded-b-sm border border-transparent transition-transform active:translate-y-0.5 disabled:opacity-50"
+                style={{
+                  height: `${38 + n * 9}px`,
+                  background: `color-mix(in oklab, ${tomDaEscala(n)} 26%, var(--muted))`,
+                }}
+              />
+            ))}
+          </div>
+          <div className="mt-1.5 flex gap-1">
+            {Array.from({ length: 11 }, (_, n) => (
+              <span key={n} className="flex-1 text-center font-mono text-xs text-muted-foreground">
+                {n}
+              </span>
+            ))}
+          </div>
+          {extremos && (
+            <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+              <span>{extremos[0]}</span>
+              <span>{extremos[1]}</span>
+            </div>
+          )}
         </div>
       )}
+
       {q.kind === 'yes_no' && (
-        <div className="flex gap-2">
-          <Button disabled={busy} onClick={() => send(1)} data-testid="yes">
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            className="h-14 text-base"
+            disabled={busy}
+            onClick={() => send(1)}
+            data-testid="yes"
+          >
             Sim
           </Button>
-          <Button variant="outline" disabled={busy} onClick={() => send(0)} data-testid="no">
+          <Button
+            className="h-14 text-base"
+            variant="outline"
+            disabled={busy}
+            onClick={() => send(0)}
+            data-testid="no"
+          >
             Não
           </Button>
         </div>
       )}
+
       {q.kind === 'choice' && (
-        <div className="flex flex-wrap gap-2">
+        <div className="grid gap-2.5">
           {q.options.map((o) => (
             <Button
               key={o}
               variant="outline"
+              className="h-14 justify-start px-4 text-base"
               disabled={busy}
               onClick={() => send(o)}
               data-testid={`choice-${o}`}
@@ -81,6 +134,7 @@ function QuestionForm({
           ))}
         </div>
       )}
+
       {(q.kind === 'number' || q.kind === 'text') && (
         <form
           onSubmit={(e) => {
@@ -89,8 +143,8 @@ function QuestionForm({
           }}
           className="flex gap-2"
         >
-          <input
-            className="flex-1 rounded-md border px-2 py-1"
+          <Input
+            className="h-14 flex-1 text-base"
             type={q.kind === 'number' ? 'number' : 'text'}
             inputMode={q.kind === 'number' ? 'numeric' : 'text'}
             value={String(value ?? '')}
@@ -99,23 +153,24 @@ function QuestionForm({
             data-testid="input"
             required={q.required}
           />
-          <Button type="submit" disabled={busy} data-testid="send">
+          <Button type="submit" className="h-14 px-6 text-base" disabled={busy} data-testid="send">
             Enviar
           </Button>
         </form>
       )}
+
       {!q.required && (
         <Button
           variant="ghost"
-          size="sm"
+          className="h-11 w-full text-muted-foreground"
           disabled={busy}
           onClick={() => send(null)}
           data-testid="skip"
         >
-          Pular
+          Pular esta pergunta
         </Button>
       )}
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }
@@ -135,17 +190,25 @@ export function TodayView() {
     load();
   }, [load]);
 
-  if (status === 'loading') return <p className="text-sm text-muted-foreground">Carregando…</p>;
+  if (status === 'loading')
+    return (
+      <div className="space-y-3" aria-busy="true">
+        <div className="h-6 w-40 animate-pulse rounded-md bg-muted" />
+        <div className="h-28 animate-pulse rounded-xl bg-muted" />
+      </div>
+    );
   if (status === 'nosession') return <NoSession />;
   if (status === 'error' || !data)
     return <p className="text-sm text-destructive">Não foi possível carregar. Tente novamente.</p>;
 
   const ck = data.checkin;
+  const progresso = ck && !ck.completed && ck.next ? (ck.answered + 1) / ck.total : 0;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Olá, {data.respondent.name}</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-xl font-semibold tracking-tight">Olá, {data.respondent.name}</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">
           {data.respondent.kind === 'caregiver'
             ? `Acompanhando ${data.patient.name}`
             : data.patient.clinic_name}
@@ -154,56 +217,76 @@ export function TodayView() {
       <PushToggle subscriptions={data.push.subscriptions} />
 
       {data.respondent.receives_alarms && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Medicação de hoje</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {data.alarms.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum horário de medicação hoje.</p>
-            ) : (
-              data.alarms.map((a) => (
-                <div key={a.time} className="rounded-md border p-3" data-testid="alarm">
-                  <div className="font-medium tabular-nums">{a.time}</div>
-                  <div className="text-sm text-muted-foreground" data-testid="alarm-description">
+        <section className="space-y-2.5">
+          <h2 className="text-[13px] font-semibold tracking-tight">Medicação de hoje</h2>
+          {data.alarms.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum horário de medicação hoje.</p>
+          ) : (
+            <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+              {data.alarms.map((a, i) => (
+                <div
+                  key={a.time}
+                  className={`flex gap-4 px-4 py-3.5 ${i > 0 ? 'border-t' : ''}`}
+                  data-testid="alarm"
+                >
+                  <div className="min-w-[3.5rem] font-mono text-lg leading-tight font-semibold">
+                    {a.time}
+                  </div>
+                  <div className="text-[15px] leading-snug" data-testid="alarm-description">
                     {a.description}
                   </div>
                 </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
       {data.respondent.can_answer && (
-        <Card data-testid="checkin-card">
-          <CardHeader>
-            <CardTitle>Check-in de hoje</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {!ck ? (
-              <p className="text-sm text-muted-foreground">Nenhum check-in hoje.</p>
-            ) : ck.completed ? (
-              <p className="text-sm" data-testid="checkin-done">
-                Check-in concluído. Obrigado! (
-                {ck.answered === 1 ? '1 resposta' : `${ck.answered} respostas`})
+        <section data-testid="checkin-card">
+          {!ck ? (
+            <p className="text-sm text-muted-foreground">Nenhum check-in hoje.</p>
+          ) : ck.completed ? (
+            <div
+              className="flex flex-col items-center gap-2 py-10 text-center"
+              data-testid="checkin-done"
+            >
+              {/* Único efeito do app inteiro: acontece uma vez, quando o dia é vencido. */}
+              <div className="relative mb-1 flex size-20 items-center justify-center">
+                <span className="absolute inset-0 rounded-full bg-primary/15 motion-safe:animate-ping" />
+                <span className="relative flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                  <CheckIcon className="size-7" />
+                </span>
+              </div>
+              <p className="text-lg font-semibold tracking-tight">Check-in concluído</p>
+              <p className="text-sm text-muted-foreground">
+                Obrigado. <span className="font-mono">{ck.answered}</span>{' '}
+                {ck.answered === 1 ? 'resposta enviada' : 'respostas enviadas'}.
               </p>
-            ) : ck.next ? (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground" data-testid="progress">
+            </div>
+          ) : ck.next ? (
+            <div className="space-y-5">
+              <div className="space-y-1.5">
+                <div className="h-1 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-[width] duration-300"
+                    style={{ width: `${Math.round(progresso * 100)}%` }}
+                  />
+                </div>
+                <p className="font-mono text-xs text-muted-foreground" data-testid="progress">
                   {ck.answered + 1} de {ck.total}
                 </p>
-                <QuestionForm checkinId={ck.id} q={ck.next} onAnswered={load} />
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {ck.status === 'missed'
-                  ? 'O check-in de hoje expirou sem resposta. O próximo chega no horário de sempre.'
-                  : 'Nada a responder agora.'}
-              </p>
-            )}
-          </CardContent>
-        </Card>
+              <QuestionForm checkinId={ck.id} q={ck.next} onAnswered={load} />
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {ck.status === 'missed'
+                ? 'O check-in de hoje expirou sem resposta. O próximo chega no horário de sempre.'
+                : 'Nada a responder agora.'}
+            </p>
+          )}
+        </section>
       )}
     </div>
   );

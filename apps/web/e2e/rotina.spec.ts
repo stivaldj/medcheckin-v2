@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { createDb, dispatchDueRoutineAlarms } from '@medcheckin/core';
 import type { Knex } from 'knex';
-import { loginAsDoctor } from './helpers';
+import { abrirConfiguracao, loginAsDoctor } from './helpers';
 
 /**
  * PROVA E9.1 — rotina de alarmes por período na página do paciente:
@@ -53,6 +53,7 @@ test.describe('rotina de alarmes por período', () => {
   }) => {
     await loginAsDoctor(context, baseURL!);
     await page.goto(`/pacientes/${patientId}`);
+    await abrirConfiguracao(page);
     const card = page.getByTestId('routine-card');
     await expect(card).toContainText('Nenhum período vigente');
 
