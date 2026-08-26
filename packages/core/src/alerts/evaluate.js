@@ -97,8 +97,12 @@ async function deliveryFailedTrigger(db, patientId, nowDT) {
     .where({ patient_id: patientId })
     .whereNotNull('failed_at')
     .andWhere('failed_at', '>=', since)
-    .select('failed_at');
-  if (rows.length < DELIVERY_FAILED_MIN) return null;
+    .select('failed_at', 'attempts');
+  // Auditoria P1-1: o reenvio reutiliza a MESMA linha (dedup_key), então contar linhas deixava
+  // um check-in preso eternamente abaixo do limiar. Conta tentativas falhadas acumuladas;
+  // linha que acabou enviada (sent_at) sai daqui porque failed_at é limpo no reenvio (C1).
+  const failures = rows.reduce((s, r) => s + Math.max(1, Number(r.attempts ?? 1)), 0);
+  if (failures < DELIVERY_FAILED_MIN) return null;
   const latest = rows.reduce(
     (m, r) => (new Date(r.failed_at) > m ? new Date(r.failed_at) : m),
     new Date(0),
@@ -106,8 +110,8 @@ async function deliveryFailedTrigger(db, patientId, nowDT) {
   return {
     code: 'delivery_failed',
     severity: 'medium',
-    title: `Falhas de entrega: ${rows.length} em 24 h`,
-    context: { failures24h: rows.length },
+    title: `Falhas de entrega: ${failures} em 24 h`,
+    context: { failures24h: failures, notifications: rows.length },
     evidenceAt: latest,
   };
 }

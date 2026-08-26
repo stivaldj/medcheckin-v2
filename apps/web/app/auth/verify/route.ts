@@ -14,7 +14,15 @@ export async function GET(req: Request) {
     const res = NextResponse.redirect(new URL('/hoje', url.origin), 302);
     res.headers.set('set-cookie', sessionCookie('user', sessionToken));
     return res;
-  } catch {
+  } catch (err) {
+    // Auditoria P1-4: link inválido/expirado é esperado (sem log); qualquer OUTRO erro
+    // (ex.: banco fora) precisa deixar rastro — antes virava "link inválido" mudo.
+    if ((err as { code?: string })?.code !== 'invalid_token') {
+      console.error('[auth/verify] erro inesperado', {
+        name: (err as Error)?.name,
+        message: (err as Error)?.message,
+      });
+    }
     return NextResponse.redirect(new URL('/auth/invalido', url.origin), 302);
   }
 }

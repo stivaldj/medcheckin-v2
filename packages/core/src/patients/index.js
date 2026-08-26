@@ -153,6 +153,9 @@ export async function updatePatient(db, session, patientId, input, now) {
 
 async function medicationsWithDose(db, patientIds, now) {
   if (!patientIds.length) return new Map();
+  // P0-1: a dose vigente é cortada no dia LOCAL de cada paciente, não no dia UTC.
+  const tzRows = await db('patients').whereIn('id', patientIds).select('id', 'timezone');
+  const tzById = Object.fromEntries(tzRows.map((p) => [p.id, p.timezone]));
   const meds = await db('medications as m')
     .join('products as pr', 'pr.id', 'm.product_id')
     .whereIn('m.patient_id', patientIds)
@@ -168,7 +171,7 @@ async function medicationsWithDose(db, patientIds, now) {
     );
   const byPatient = new Map();
   for (const m of meds) {
-    const dose = await currentDose(db, m.id, toDT(now).toJSDate());
+    const dose = await currentDose(db, m.id, toDT(now).toJSDate(), tzById[m.patient_id] ?? null);
     const item = { ...m, current_dose: dose };
     if (!byPatient.has(m.patient_id)) byPatient.set(m.patient_id, []);
     byPatient.get(m.patient_id).push(item);

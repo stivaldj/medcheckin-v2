@@ -28,7 +28,12 @@ export interface DoseEvent {
   created_at: Date;
 }
 /** Dose vigente em `at` (default: agora). null quando não há ajuste vigente. */
-export function currentDose(db: Knex, medicationId: string, at?: Date): Promise<DoseEvent | null>;
+export function currentDose(
+  db: Knex,
+  medicationId: string,
+  at?: Date,
+  timezone?: string | null,
+): Promise<DoseEvent | null>;
 
 export interface SeedCounts {
   clinics: number;
@@ -131,7 +136,11 @@ export function completeCheckin(
   db: Knex,
   checkinId: string,
   now?: Instant,
-): Promise<{ already: boolean }>;
+): Promise<{
+  already: boolean;
+  score?: Awaited<ReturnType<typeof computeDailyScore>>;
+  alerts?: Awaited<ReturnType<typeof evaluatePatientAlerts>>;
+}>;
 export function enqueueAndSend(
   db: Knex,
   notifier: Notifier,
@@ -840,6 +849,14 @@ export interface DashboardToday {
   missed_today: TodayCheckinRow[];
   completed_today: number;
   not_sent_yet: number;
+  /** Check-ins de hoje ainda `pending`, com nome e flag de falha de entrega (auditoria P1-1). */
+  pending_today: Array<{
+    checkin_id: string;
+    patient_id: string;
+    patient_name: string;
+    next_attempt_at: Date | string | null;
+    delivery_failed: boolean;
+  }>;
   open_alerts: Array<AlertRow & { patient_name: string }>;
   upcoming: Array<{
     kind: 'checkin' | 'alarm';
