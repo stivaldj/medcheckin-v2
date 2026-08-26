@@ -75,9 +75,14 @@ export function LgpdActions({
               <DialogTitle>Anonimizar paciente (irreversível)</DialogTitle>
             </DialogHeader>
             <p className="text-sm text-muted-foreground">
-              Remove nome, nascimento, contatos dos respondentes e textos livres; revoga acessos.
-              Mantém as séries clínicas (sem identificação) por obrigação de guarda. Ver
-              docs/LGPD.md.
+              Remove nome, nascimento, contatos dos respondentes e textos livres das respostas;
+              revoga acessos. Mantém as séries clínicas sem identificação, por obrigação de guarda.
+              Ver docs/LGPD.md.
+            </p>
+            <p className="rounded-lg border border-sev-high/40 bg-sev-high-soft p-3 text-sm text-sev-high">
+              <strong className="font-semibold">As condutas que você registrou ficam.</strong> Elas
+              são prontuário e não são apagadas. Se alguma delas tiver o nome de outra pessoa
+              escrito no texto, edite antes de anonimizar — depois não dá para voltar.
             </p>
             <form onSubmit={anonymize} className="space-y-3">
               <div>

@@ -40,19 +40,40 @@ export async function dispatchDueRoutineAlarms(db, now, { notifier, maxLateMin }
       .first();
     if (!period) continue;
     const alarms = await db('routine_alarms').where({ period_id: period.id }).orderBy('time');
+    // D27 — o teto pode ser afinado por período (titulação com horário rígido × manutenção
+    // frouxa). Nulo no período = padrão do sistema; o parâmetro da chamada existe para teste.
+    const tetoDoPeriodo = Number.isInteger(period.max_late_min) ? period.max_late_min : teto;
+
     const due = [];
-    for (const a of alarms) {
+    for (const [idx, a] of alarms.entries()) {
       const { hour, minute } = parseHm(toHm(a.time));
       const at = local.startOf('day').set({ hour, minute });
       if (at > local) continue; // ainda não deu a hora
       const atrasoMin = local.diff(at, 'minutes').minutes;
-      if (atrasoMin > teto) {
+
+      /**
+       * A parte que nenhuma configuração pode afrouxar: um lembrete atrasado NUNCA atravessa a
+       * próxima dose. Se já deu a hora da seguinte, o de trás perdeu o sentido e vira risco de
+       * dose dobrada — não importa que teto a médica tenha escolhido.
+       */
+      const proximo = alarms[idx + 1];
+      let limite = tetoDoPeriodo;
+      if (proximo) {
+        const pr = parseHm(toHm(proximo.time));
+        const emMin = local
+          .startOf('day')
+          .set({ hour: pr.hour, minute: pr.minute })
+          .diff(at, 'minutes').minutes;
+        limite = Math.min(limite, emMin);
+      }
+      if (atrasoMin > limite) {
         out.stale += 1;
         logger.warn('alarm.stale', {
           patient_id: p.id,
           routine_alarm_id: a.id,
           time: toHm(a.time),
           late_min: Math.round(atrasoMin),
+          limit_min: limite,
         });
         continue;
       }

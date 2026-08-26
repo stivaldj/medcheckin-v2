@@ -370,4 +370,75 @@ describe('E9.1 — rotina de alarmes por período', () => {
     expect(enviados).toHaveLength(1);
     expect(enviados[0].payload.body).toBe('dose da noite'); // só o que ainda faz sentido
   });
+
+  it('D27: teto por período — titulação rígida corta antes; manutenção frouxa deixa passar', async () => {
+    const notifier = fakeNotifier();
+    // período rígido: 15 min de tolerância
+    await createRoutinePeriod(
+      db,
+      session,
+      fx.p1.id,
+      {
+        starts_on: D(3),
+        ends_on: D(3),
+        max_late_min: 15,
+        alarms: [{ time: '08:00', description: 'dose rígida' }],
+      },
+      AT('07:00', 3),
+    );
+    expect(await dispatchDueRoutineAlarms(db, AT('08:30', 3), { notifier })).toMatchObject({
+      stale: 1,
+      sent: 0,
+    });
+
+    // outro paciente, período frouxo: 6 h de tolerância
+    await createRoutinePeriod(
+      db,
+      session,
+      fx.p2.id,
+      {
+        starts_on: D(3),
+        ends_on: D(3),
+        max_late_min: 360,
+        alarms: [{ time: '08:00', description: 'dose frouxa' }],
+      },
+      AT('07:00', 3),
+    );
+    const out = await dispatchDueRoutineAlarms(db, AT('12:00', 3), { notifier });
+    expect(out).toMatchObject({ sent: 1 });
+    const n = await db('notifications')
+      .where({ kind: 'alarm', patient_id: fx.p2.id })
+      .orderBy('created_at', 'desc')
+      .first();
+    expect(n.payload.body).toBe('dose frouxa');
+  });
+
+  it('D27: nenhuma configuração deixa um lembrete atravessar a próxima dose', async () => {
+    const notifier = fakeNotifier();
+    // a médica pede 12 h de tolerância, mas as doses são de 4 em 4 horas
+    await createRoutinePeriod(
+      db,
+      session,
+      fx.p1.id,
+      {
+        starts_on: D(4),
+        ends_on: D(4),
+        max_late_min: 720,
+        alarms: [
+          { time: '08:00', description: 'manhã' },
+          { time: '12:00', description: 'meio-dia' },
+        ],
+      },
+      AT('07:00', 4),
+    );
+    // 12:30: o das 08:00 está 4h30 atrasado — dentro das 12 h pedidas, mas a dose seguinte já
+    // venceu, então ele é cortado mesmo assim. Só o das 12:00 sai.
+    const out = await dispatchDueRoutineAlarms(db, AT('12:30', 4), { notifier });
+    expect(out).toMatchObject({ stale: 1, sent: 1 });
+    const enviados = await db('notifications')
+      .where({ kind: 'alarm', patient_id: fx.p1.id })
+      .orderBy('created_at', 'desc')
+      .limit(1);
+    expect(enviados[0].payload.body).toBe('meio-dia');
+  });
 });

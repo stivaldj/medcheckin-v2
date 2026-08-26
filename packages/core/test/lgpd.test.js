@@ -350,4 +350,27 @@ describe('LGPD — export, anonimização, retenção', () => {
     expect(depois.id).toBe(q.id); // a linha é a mesma → answers.question_id segue válido
     expect(depois.alert_threshold_json ?? null).toEqual(q.alert_threshold_json ?? null);
   });
+
+  it('DECISÃO: anonimizar preserva a conduta clínica (prontuário) enquanto apaga a identidade', async () => {
+    const antes = await db('alert_actions as x')
+      .join('alerts as a', 'a.id', 'x.alert_id')
+      .where('a.patient_id', fx.p1.id)
+      .whereNotNull('x.note')
+      .select('x.id', 'x.note');
+    expect(antes.length).toBeGreaterThan(0);
+
+    await anonymizePatient(db, doctor, fx.p1.id, { reason: 'titular pediu saída' }, AT('15:00'));
+
+    const depois = await db('alert_actions').whereIn(
+      'id',
+      antes.map((a) => a.id),
+    );
+    // a conduta é prontuário: sai o QUEM, fica o QUE FOI FEITO
+    expect(depois.map((d) => d.note).sort()).toEqual(antes.map((a) => a.note).sort());
+    expect(depois.some((d) => d.note.includes('Orientei tomar após refeição.'))).toBe(true);
+    // e a identidade foi de fato embora
+    const p = await db('patients').where({ id: fx.p1.id }).first();
+    expect(p.name).not.toContain('Sintético');
+    expect(p.birth_date).toBeNull();
+  });
 });
