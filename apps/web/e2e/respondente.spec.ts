@@ -127,7 +127,9 @@ test.describe('PWA do respondente', () => {
     await page.goto('/p/historico');
     const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Cuiaba' });
     const day = page.getByTestId(`day-${today}`);
-    await expect(day).toContainText('dor: 4');
+    // O histórico é a tela do PACIENTE: enunciado da pergunta, nunca a chave do banco.
+    await expect(day).toContainText('Como está sua dor hoje? (0 = nenhuma, 10 = pior possível): 4');
+    await expect(day).not.toContainText('efeito_qual');
     await expect(day).toContainText('tontura');
     await expect(day).toContainText('07:00 — 0,5 ml óleo + vitamina D');
     await page.screenshot({ path: 'test-results/respondente-hoje-e2e.png', fullPage: true });

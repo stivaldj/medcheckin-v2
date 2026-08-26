@@ -119,6 +119,13 @@ function PeriodDialog({
       { time: '08:00', description: '' },
     ],
   );
+  // D27: nulo = padrão do sistema (60 min). O campo é opcional de propósito — a médica só mexe
+  // quando o regime pede horário rígido.
+  const [maxLate, setMaxLate] = useState<string>(
+    base?.max_late_min === null || base?.max_late_min === undefined
+      ? ''
+      : String(base.max_late_min),
+  );
   const [withDose, setWithDose] = useState(false);
   const [doseOpen, setDoseOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -129,7 +136,12 @@ function PeriodDialog({
     setBusy(true);
     setError(null);
     try {
-      const payload = { starts_on: starts, ends_on: ends || null, alarms };
+      const payload = {
+        starts_on: starts,
+        ends_on: ends || null,
+        alarms,
+        max_late_min: maxLate === '' ? null : Number(maxLate),
+      };
       if (mode === 'edit') {
         await api(`/api/routine-periods/${period!.id}`, { method: 'PATCH', json: payload });
       } else {
@@ -201,6 +213,29 @@ function PeriodDialog({
               </div>
             </div>
             <AlarmFields alarms={alarms} setAlarms={setAlarms} />
+            <div>
+              <Label htmlFor={`${testId}-maxlate`}>Atraso máximo do lembrete (opcional)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id={`${testId}-maxlate`}
+                  type="number"
+                  min={0}
+                  max={1440}
+                  step={5}
+                  className="w-28"
+                  placeholder="60"
+                  value={maxLate}
+                  onChange={(e) => setMaxLate(e.target.value)}
+                  data-testid={`${testId}-maxlate`}
+                />
+                <span className="text-sm text-muted-foreground">minutos</span>
+              </div>
+              <p className="mt-1 max-w-[62ch] text-xs text-muted-foreground">
+                Se o sistema ficar fora do ar, um lembrete atrasado além disso não é enviado — em
+                branco usa 60 min. Independente do valor, um lembrete nunca é enviado depois que a
+                dose seguinte já venceu.
+              </p>
+            </div>
             {mode !== 'edit' && medications.length > 0 && (
               <label className="flex items-center gap-2 text-sm">
                 <Checkbox

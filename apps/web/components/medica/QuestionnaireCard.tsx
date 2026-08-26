@@ -5,6 +5,7 @@ import { api, ApiError } from '@/lib/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SimpleSelect } from '@/components/ui/simple-select';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { PatientQuestion } from '@medcheckin/core';
@@ -193,19 +194,13 @@ export function QuestionnaireCard({
           </div>
           <div>
             <Label htmlFor="pq-kind">Tipo</Label>
-            <select
+            <SimpleSelect
               id="pq-kind"
-              className="h-9 w-full rounded-md border bg-background px-2 text-sm"
               value={kind}
-              onChange={(e) => setKind(e.target.value)}
+              onValueChange={setKind}
+              options={KINDS.map((k) => ({ value: k.value, label: k.label }))}
               data-testid="patient-question-kind"
-            >
-              {KINDS.map((k) => (
-                <option key={k.value} value={k.value}>
-                  {k.label}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <Button
             type="submit"

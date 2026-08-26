@@ -9,12 +9,26 @@ import { logger } from '../logger.js';
  * O alarme é LEMBRETE PURO: o corpo do push é a descrição em texto livre, sem nada a confirmar.
  * Idempotência: `dedup_key = routine:<alarm_id>:<dia local>:<respondent_id>` (L8).
  */
-export async function dispatchDueRoutineAlarms(db, now, { notifier } = {}) {
+/**
+ * P2-3 — teto de atraso do lembrete, em minutos.
+ *
+ * Sem ele, um scheduler que ficasse horas fora do ar voltava à noite e mandava de uma vez os
+ * lembretes de manhã, meio-dia e noite. Num lembrete de medicação isso é pior que ruído: às
+ * 23:30 a pessoa recebe "Hora da medicação · 08:00" e pode tomar a dose da manhã em cima da
+ * dose da noite. Passou do teto, o lembrete perdeu o sentido — some, mas some CONTADO
+ * (`stale` no resumo do ciclo), porque lembrete engolido em silêncio é sucesso falso.
+ */
+export const ALARM_MAX_LATE_MIN = 60;
+
+export async function dispatchDueRoutineAlarms(db, now, { notifier, maxLateMin } = {}) {
+  // `Number.isFinite` recusaria Infinity, que é justamente como um teste desliga o teto.
+  const teto =
+    typeof maxLateMin === 'number' && !Number.isNaN(maxLateMin) ? maxLateMin : ALARM_MAX_LATE_MIN;
   if (!notifier) throw new Error('dispatchDueRoutineAlarms: notifier obrigatório');
   const nowDT = toDT(now);
   const patients = await db('patients').where({ status: 'active' }).select('id', 'timezone');
 
-  const out = { due: 0, sent: 0, failed: 0, duplicate: 0, no_respondent: 0 };
+  const out = { due: 0, sent: 0, failed: 0, duplicate: 0, no_respondent: 0, stale: 0 };
   for (const p of patients) {
     const tz = p.timezone || 'UTC';
     const local = nowDT.setZone(tz);
@@ -26,10 +40,45 @@ export async function dispatchDueRoutineAlarms(db, now, { notifier } = {}) {
       .first();
     if (!period) continue;
     const alarms = await db('routine_alarms').where({ period_id: period.id }).orderBy('time');
-    const due = alarms.filter((a) => {
+    // D27 — o teto pode ser afinado por período (titulação com horário rígido × manutenção
+    // frouxa). Nulo no período = padrão do sistema; o parâmetro da chamada existe para teste.
+    const tetoDoPeriodo = Number.isInteger(period.max_late_min) ? period.max_late_min : teto;
+
+    const due = [];
+    for (const [idx, a] of alarms.entries()) {
       const { hour, minute } = parseHm(toHm(a.time));
-      return local.startOf('day').set({ hour, minute }) <= local;
-    });
+      const at = local.startOf('day').set({ hour, minute });
+      if (at > local) continue; // ainda não deu a hora
+      const atrasoMin = local.diff(at, 'minutes').minutes;
+
+      /**
+       * A parte que nenhuma configuração pode afrouxar: um lembrete atrasado NUNCA atravessa a
+       * próxima dose. Se já deu a hora da seguinte, o de trás perdeu o sentido e vira risco de
+       * dose dobrada — não importa que teto a médica tenha escolhido.
+       */
+      const proximo = alarms[idx + 1];
+      let limite = tetoDoPeriodo;
+      if (proximo) {
+        const pr = parseHm(toHm(proximo.time));
+        const emMin = local
+          .startOf('day')
+          .set({ hour: pr.hour, minute: pr.minute })
+          .diff(at, 'minutes').minutes;
+        limite = Math.min(limite, emMin);
+      }
+      if (atrasoMin > limite) {
+        out.stale += 1;
+        logger.warn('alarm.stale', {
+          patient_id: p.id,
+          routine_alarm_id: a.id,
+          time: toHm(a.time),
+          late_min: Math.round(atrasoMin),
+          limit_min: limite,
+        });
+        continue;
+      }
+      due.push(a);
+    }
     if (!due.length) continue;
 
     const respondents = await db('respondents')

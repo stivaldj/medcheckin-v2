@@ -9,7 +9,10 @@ import {
   listOpenAlerts,
 } from '../src/alerts/actions.js';
 
-const NOW = new Date('2026-08-16T15:00:00Z');
+// P2-6 — data dinâmica: o seed cria respostas e doses relativas a HOJE. Com data fixa, a
+// distância entre as duas cresce a cada dia e regras que olham "os últimos N dias" passam a
+// varrer o vazio — o teste segue verde sem exercitar nada. Já mordeu este repo em 25/08.
+const NOW = new Date();
 const ago = (h) => DateTime.fromJSDate(NOW).minus({ hours: h }).toJSDate();
 
 describe('alertas — avaliação por paciente', () => {

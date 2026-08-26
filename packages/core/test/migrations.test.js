@@ -25,6 +25,31 @@ describe('migrations — latest → seed → rollback total → latest', () => {
       respondent_id: r.id,
       skipped: true,
     });
+
+    /**
+     * P2-8 — o `down` da 007 apaga `answers` de perguntas POR PACIENTE, e esse caminho nunca
+     * rodava: o seed não cria nenhuma extra, então a linha 27-29 da migration atravessava o
+     * teste sem tocar em nada. Um rollback em produção seria a primeira vez de verdade.
+     */
+    const [extra] = await db('questions')
+      .insert({
+        patient_id: p.id,
+        question_set_id: null,
+        key: 'extra_rollback',
+        label: 'Pergunta extra para exercitar o rollback',
+        kind: 'yes_no',
+        sort_order: 99,
+      })
+      .returning('id');
+    await db('answers').insert({
+      checkin_id: ck.id,
+      question_id: extra.id,
+      respondent_id: r.id,
+      value_num: 1,
+    });
+    const antes = await db('answers').where({ checkin_id: ck.id }).count().first();
+    expect(Number(antes.count)).toBe(2);
+
     await db.migrate.rollback(migrationConfig, true);
     expect(await db.schema.hasTable('patients')).toBe(false);
     const [, files] = await db.migrate.latest(migrationConfig);

@@ -6,6 +6,7 @@ loadEnvConfig(path.resolve(__dirname, '../..'));
 
 process.env.LOG_LEVEL = process.env.LOG_LEVEL || 'warn'; // o próprio teste chama o core
 const PORT = 3210;
+const MAILPIT_SMTP = Number(process.env.MAILPIT_SMTP_PORT || 1025);
 const dbUrl = process.env.DATABASE_URL_TEST || process.env.DATABASE_URL;
 if (!dbUrl) throw new Error('DATABASE_URL_TEST (ou DATABASE_URL) obrigatória para o E2E.');
 
@@ -31,7 +32,13 @@ export default defineConfig({
     env: {
       DATABASE_URL: dbUrl,
       APP_BASE_URL: `http://localhost:${PORT}`,
-      MAIL_TRANSPORT: 'fake',
+      // P2-7: o login da médica passa por e-mail de verdade, contra o Mailpit do compose — com
+      // `MAIL_TRANSPORT: 'fake'` o elo e-mail → /auth/verify → cookie nunca era exercitado.
+      // Host e porta são FIXADOS aqui de propósito: herdar SMTP_* do .env de quem roda o teste
+      // é como um dia mandar e-mail de verdade para um endereço de verdade a partir do CI.
+      SMTP_HOST: '127.0.0.1',
+      SMTP_PORT: String(MAILPIT_SMTP),
+      EMAIL_FROM: 'e2e@medcheckin.test',
       LOG_LEVEL: 'warn',
     },
   },

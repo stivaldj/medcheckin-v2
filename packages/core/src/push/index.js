@@ -86,6 +86,15 @@ export async function savePushSubscription(db, session, { endpoint, keys, ua = n
     throw new AuthError('validation', 'endpoint inválido');
   if (!keys || !keys.p256dh || !keys.auth)
     throw new AuthError('validation', 'keys (p256dh, auth) obrigatórias');
+  /**
+   * P2-4 — o upsert por `endpoint` reatribuía o dono sem olhar quem era antes: quem conhecesse o
+   * endpoint e as chaves de outra pessoa assumia a inscrição, e passaria a receber os pushes
+   * dela. É a categoria "dado de saúde no aparelho errado".
+   *
+   * O `WHERE` do DO UPDATE resolve de forma atômica: só sobrescreve se a inscrição já for minha
+   * ou se estiver revogada (aparelho que trocou de mãos e foi desligado antes). Caso contrário
+   * nenhuma linha volta e a chamada é recusada.
+   */
   const [row] = await db('push_subscriptions')
     .insert({
       respondent_id: session.respondentId,
@@ -100,7 +109,16 @@ export async function savePushSubscription(db, session, { endpoint, keys, ua = n
       ua: ua ? String(ua).slice(0, 300) : null,
       revoked_at: null,
     })
+    .where(function () {
+      this.where('push_subscriptions.respondent_id', session.respondentId).orWhereNotNull(
+        'push_subscriptions.revoked_at',
+      );
+    })
     .returning('*');
+  if (!row) {
+    logger.warn('push.subscribe_refused', { respondent_id: session.respondentId });
+    throw new AuthError('forbidden', 'esta inscrição pertence a outro respondente');
+  }
   logger.info('push.subscribed', { respondent_id: session.respondentId, subscription_id: row.id });
   return row;
 }

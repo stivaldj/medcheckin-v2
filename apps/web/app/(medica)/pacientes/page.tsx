@@ -1,9 +1,18 @@
 import Link from 'next/link';
+import { UsersIcon } from 'lucide-react';
 import { listPatients } from '@medcheckin/core';
+
 import { getDb } from '@/lib/db';
 import { requireUserPage } from '@/lib/session';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 import {
   Table,
   TableBody,
@@ -17,69 +26,114 @@ import { fmt, fmtDateTime, EPISODE_LABEL, FREQ_LABEL, STATUS_LABEL } from '@/lib
 export default async function PacientesPage() {
   const session = await requireUserPage();
   const rows = await listPatients(getDb(), { clinicId: session.clinicId }, new Date());
+  const ativos = rows.filter((p) => p.status === 'active').length;
+  const comAlerta = rows.filter((p) => p.open_alerts > 0).length;
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Pacientes</h1>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Pacientes</h1>
+          {rows.length > 0 && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              <span className="font-mono">{rows.length}</span> no total ·{' '}
+              <span className="font-mono">{ativos}</span> em acompanhamento
+              {comAlerta > 0 && (
+                <>
+                  {' '}
+                  · <span className="font-mono text-sev-critical">{comAlerta}</span> com alerta
+                  aberto
+                </>
+              )}
+            </p>
+          )}
+        </div>
         <Button nativeButton={false} render={<Link href="/pacientes/novo" />}>
           Novo paciente
         </Button>
       </div>
       {rows.length === 0 ? (
-        <p className="text-muted-foreground">Nenhum paciente cadastrado.</p>
+        <Empty className="rounded-xl border bg-card py-12">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <UsersIcon />
+            </EmptyMedia>
+            <EmptyTitle>Nenhum paciente cadastrado</EmptyTitle>
+            <EmptyDescription>
+              O acompanhamento começa aqui: cadastre o paciente, convide quem responde e defina a
+              rotina de alarmes.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Episódio</TableHead>
-              <TableHead>Dose vigente</TableHead>
-              <TableHead>Último check-in</TableHead>
-              <TableHead>Alertas abertos</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell>
-                  <Link
-                    href={`/pacientes/${p.id}`}
-                    className="font-medium underline-offset-2 hover:underline"
-                  >
-                    {p.name}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={p.status === 'active' ? 'default' : 'secondary'}>
-                    {STATUS_LABEL[p.status] ?? p.status}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {p.episode
-                    ? `${EPISODE_LABEL[p.episode.kind as string] ?? p.episode.kind} · ${FREQ_LABEL[p.episode.checkin_frequency as string] ?? ''}`
-                    : '—'}
-                </TableCell>
-                <TableCell>
-                  {p.medications.length === 0
-                    ? '—'
-                    : p.medications.map((m) => (
-                        <div key={m.id}>
-                          {m.product_name}:{' '}
-                          {m.current_dose
-                            ? `${fmt(m.current_dose.dose_amount)} ${m.current_dose.dose_unit} · ${m.current_dose.times_per_day}×/dia`
-                            : 'sem dose vigente'}
-                        </div>
-                      ))}
-                </TableCell>
-                <TableCell>{fmtDateTime(p.last_checkin_at)}</TableCell>
-                <TableCell>
-                  {p.open_alerts > 0 ? <Badge variant="destructive">{p.open_alerts}</Badge> : '0'}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Episódio</TableHead>
+                  <TableHead>Dose vigente</TableHead>
+                  <TableHead>Último check-in</TableHead>
+                  <TableHead className="text-right">Alertas</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell>
+                      <Link
+                        href={`/pacientes/${p.id}`}
+                        className="font-medium underline-offset-2 hover:underline"
+                      >
+                        {p.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={p.status === 'active' ? 'default' : 'secondary'}>
+                        {STATUS_LABEL[p.status] ?? p.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {p.episode
+                        ? `${EPISODE_LABEL[p.episode.kind as string] ?? p.episode.kind} · ${FREQ_LABEL[p.episode.checkin_frequency as string] ?? p.episode.checkin_frequency}`
+                        : '—'}
+                    </TableCell>
+                    <TableCell>
+                      {p.medications.length === 0 ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        p.medications.map((m) => (
+                          <div key={m.id} className="text-[13px]">
+                            <span className="text-muted-foreground">{m.product_name}: </span>
+                            {m.current_dose ? (
+                              <span className="font-mono">
+                                {fmt(m.current_dose.dose_amount)} {m.current_dose.dose_unit} ·{' '}
+                                {m.current_dose.times_per_day}×/dia
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground italic">sem dose vigente</span>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </TableCell>
+                    <TableCell className="font-mono text-[13px] whitespace-nowrap text-muted-foreground">
+                      {fmtDateTime(p.last_checkin_at)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {p.open_alerts > 0 ? (
+                        <Badge variant="critical">{p.open_alerts}</Badge>
+                      ) : (
+                        <span className="font-mono text-muted-foreground">0</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       )}
     </div>
   );

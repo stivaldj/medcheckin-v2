@@ -213,6 +213,37 @@ describe('patients — cadastro, lista, detalhe, respondentes', () => {
     expect(g.cells[day].humor ?? null).toBeNull();
     expect(g.scores[day] ?? null).toBeNull(); // check-in não concluído → sem score
   });
+
+  it('patientGrid (auditoria): trocar o conjunto do episódio NÃO some com a série já respondida', async () => {
+    // depende do teste anterior: dor/sono respondidas ontem no pack original
+    const [setB] = await db('question_sets')
+      .insert({ clinic_id: fx.clinic.id, name: 'Pack novo' })
+      .returning('id');
+    await db('questions').insert({
+      question_set_id: setB.id,
+      key: 'nova_pergunta',
+      label: 'Nova pergunta',
+      kind: 'scale_0_10',
+      sort_order: 1,
+      options: JSON.stringify([]),
+    });
+    await db('episodes')
+      .where({ patient_id: fx.p1.id })
+      .whereNull('ended_at')
+      .update({ ended_at: NOW });
+    await db('episodes').insert({
+      patient_id: fx.p1.id,
+      kind: 'maintenance',
+      started_at: NOW,
+      checkin_frequency: 'daily',
+      question_set_id: setB.id,
+    });
+    const g = await patientGrid(db, fx.p1.id, { days: 14, now: NOW });
+    const keys = g.questions.map((q) => q.key);
+    expect(keys).toContain('nova_pergunta'); // conjunto atual
+    expect(keys).toContain('dor'); // respondida ontem — a série que gera alerta não pode sumir
+    expect(g.questions.find((q) => q.key === 'dor').label).toBeTruthy(); // rótulo para a UI
+  });
 });
 
 describe('medications — produtos, medicação, ajuste de dose, episódios', () => {

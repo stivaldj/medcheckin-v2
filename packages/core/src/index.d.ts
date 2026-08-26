@@ -164,6 +164,8 @@ export interface RoutinePeriod {
   starts_on: string; // YYYY-MM-DD
   ends_on: string | null; // null = sem fim previsto
   note: string | null;
+  /** D27 — teto de atraso do lembrete, em minutos. `null` = padrão do sistema. */
+  max_late_min: number | null;
   replicated_from: string | null;
   created_at: Date | string;
   alarms: RoutineAlarm[];
@@ -187,6 +189,8 @@ export interface RoutinePeriodInput {
   starts_on: string;
   ends_on?: string | null;
   note?: string | null;
+  /** Minutos (0–1440). `null` ou ausente = padrão do sistema (`ALARM_MAX_LATE_MIN`). */
+  max_late_min?: number | null;
   replicated_from?: string | null;
   alarms: Array<{ time: string; description: string }>;
 }
@@ -812,7 +816,10 @@ export function answerFromRespondent(
 }>;
 export interface HistoryDay {
   date: string;
+  /** Dado: chave da pergunta → resposta. É o contrato estável. */
   answers: Record<string, number | string> | null;
+  /** Apresentação: chave da pergunta → enunciado, para a tela não mostrar a chave crua. */
+  answerLabels: Record<string, string> | null;
   alarms: TodayAlarm[];
 }
 export function respondentHistory(

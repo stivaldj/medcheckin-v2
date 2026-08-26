@@ -55,6 +55,19 @@ function periodPatch(input, { partial }) {
   if (!partial || has('ends_on'))
     patch.ends_on = input?.ends_on ? parseDate(input.ends_on, 'ends_on') : null;
   if (has('note')) patch.note = input.note ? String(input.note).trim().slice(0, 1000) : null;
+  if (has('max_late_min')) {
+    const v = input.max_late_min;
+    if (v === null || v === '' || v === undefined) patch.max_late_min = null;
+    else {
+      const n = Number(v);
+      if (!Number.isInteger(n) || n < 0 || n > 1440)
+        throw new ValidationError(
+          'O atraso máximo do lembrete deve ser um número de minutos entre 0 e 1440.',
+          'max_late_min',
+        );
+      patch.max_late_min = n;
+    }
+  }
   return patch;
 }
 

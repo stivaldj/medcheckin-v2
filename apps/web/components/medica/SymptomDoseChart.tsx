@@ -1,24 +1,28 @@
 'use client';
 import { useEffect, useState } from 'react';
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { Area, AreaChart, CartesianGrid, Line, ReferenceLine, XAxis, YAxis } from 'recharts';
 import type { SymptomDoseSeries } from '@medcheckin/core';
 import { api, ApiError } from '@/lib/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
+import { SimpleSelect } from '@/components/ui/simple-select';
 import { fmt } from '@/lib/format';
 
 type Q = { key: string; label: string; kind: string };
 
 /** Espelha `ADHERENCE_QUESTION_KEY` do core (literal: o core é server-only, não entra no bundle). */
 const ADHERENCE_KEY = 'adesao';
+
+const TICK = {
+  fontSize: 11,
+  fontFamily: 'var(--font-mono)',
+  fill: 'var(--muted-foreground)',
+} as const;
 
 export function SymptomDoseChart({ patientId, questions }: { patientId: string; questions: Q[] }) {
   // D20: adesão não é sintoma — tem card próprio e não entra no gráfico sintoma × dose.
@@ -51,34 +55,36 @@ export function SymptomDoseChart({ patientId, questions }: { patientId: string; 
     })) ?? [];
   const markers = data?.doseMarkers ?? [];
   const n = rows.filter((r) => r.value !== null).length;
+  // Escala honesta por tipo: 0–10 fixo para escala/sim-não; livre para "number" (um peso em kg
+  // não cabe num eixo 0–10). Para "number" o score (0–10) sai do gráfico — escalas diferentes
+  // na mesma linha enganam; ele continua na grade.
+  const kind = data?.question.kind ?? 'scale_0_10';
+  const fixedScale = kind === 'scale_0_10' || kind === 'yes_no';
+  const showScore = fixedScale;
+  const chartConfig = {
+    value: { label: data?.question.label ?? 'Sintoma', color: 'var(--chart-symptom)' },
+    score: { label: 'Score', color: 'var(--chart-score)' },
+  } satisfies ChartConfig;
   return (
     <Card data-testid="chart-card">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle>Sintoma × dose</CardTitle>
         <div className="flex gap-2 text-sm">
-          <select
-            className="h-8 rounded-md border bg-background px-2"
+          <SimpleSelect
+            className="w-auto max-w-72"
             value={key}
-            onChange={(e) => setKey(e.target.value)}
+            onValueChange={setKey}
+            options={numeric.map((q) => ({ value: q.key, label: q.label }))}
             data-testid="chart-question"
-          >
-            {numeric.map((q) => (
-              <option key={q.key} value={q.key}>
-                {q.label}
-              </option>
-            ))}
-          </select>
-          <select
-            className="h-8 rounded-md border bg-background px-2"
-            value={days}
-            onChange={(e) => setDays(Number(e.target.value))}
-          >
-            {[14, 30, 60, 90].map((d) => (
-              <option key={d} value={d}>
-                {d} dias
-              </option>
-            ))}
-          </select>
+            aria-label="Pergunta"
+          />
+          <SimpleSelect
+            className="w-auto"
+            value={String(days)}
+            onValueChange={(v) => setDays(Number(v))}
+            options={[14, 30, 60, 90].map((d) => ({ value: String(d), label: `${d} dias` }))}
+            aria-label="Período"
+          />
         </div>
       </CardHeader>
       <CardContent>
@@ -89,72 +95,98 @@ export function SymptomDoseChart({ patientId, questions }: { patientId: string; 
           </p>
         )}
         {data && n > 0 && (
-          <div className="h-64" data-testid="chart" data-points={n} data-markers={markers.length}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={rows} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                <YAxis domain={[0, 10]} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v) => (v === null || v === undefined ? '—' : String(v))} />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  name="value"
-                  stroke="#0f766e"
-                  connectNulls
-                  dot={{ r: 3 }}
+          <div data-testid="chart" data-points={n} data-markers={markers.length}>
+            <ChartContainer config={chartConfig} className="h-64 w-full">
+              <AreaChart data={rows} margin={{ top: 14, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid vertical={false} stroke="var(--border)" />
+                <XAxis dataKey="date" tickLine={false} axisLine={false} tick={TICK} />
+                <YAxis
+                  domain={fixedScale ? [0, 10] : ['auto', 'auto']}
+                  tickLine={false}
+                  axisLine={false}
+                  width={30}
+                  tick={TICK}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="score"
-                  name="score"
-                  stroke="#94a3b8"
-                  strokeDasharray="4 4"
-                  connectNulls
-                  dot={false}
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      indicator="line"
+                      formatter={(v, name) => [
+                        v === null || v === undefined ? '—' : String(v),
+                        ` ${chartConfig[name as keyof typeof chartConfig]?.label ?? name}`,
+                      ]}
+                    />
+                  }
                 />
-                {markers.map((m) => (
+                {/* Rótulos escalonados em duas alturas para não sobrepor com ajustes próximos. */}
+                {markers.map((m, i) => (
                   <ReferenceLine
                     key={m.id}
                     x={m.date.slice(5).split('-').reverse().join('/')}
-                    stroke="#dc2626"
-                    strokeDasharray="2 2"
+                    stroke="var(--chart-dose)"
+                    strokeDasharray="3 3"
                     label={{
                       value: `${fmt(m.dose_amount)} ${m.dose_unit}`,
-                      position: 'top',
-                      fontSize: 11,
-                      fill: '#dc2626',
+                      position: i % 2 === 0 ? 'top' : 'insideTop',
+                      fontSize: 10,
+                      fontFamily: 'var(--font-mono)',
+                      fill: 'var(--chart-dose)',
                     }}
                   />
                 ))}
-              </LineChart>
-            </ResponsiveContainer>
+                {/* Dia sem resposta = lacuna de verdade, não linha interpolada (regra: sem dado → "—"). */}
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  name="value"
+                  stroke="var(--color-value)"
+                  fill="var(--color-value)"
+                  fillOpacity={0.16}
+                  strokeWidth={2}
+                  connectNulls={false}
+                  dot={{ r: 2.5, strokeWidth: 0, fill: 'var(--color-value)' }}
+                  activeDot={{ r: 4 }}
+                />
+                {showScore && (
+                  <Line
+                    type="monotone"
+                    dataKey="score"
+                    name="score"
+                    stroke="var(--color-score)"
+                    strokeDasharray="4 4"
+                    strokeWidth={1.5}
+                    connectNulls={false}
+                    dot={false}
+                  />
+                )}
+              </AreaChart>
+            </ChartContainer>
           </div>
         )}
         {data && data.beforeAfter.length > 0 && (
-          <table className="mt-3 w-full text-xs" data-testid="before-after">
+          <table className="mt-4 w-full text-xs" data-testid="before-after">
             <thead>
               <tr className="text-left text-muted-foreground">
-                <th className="p-1">Ajuste</th>
-                <th className="p-1">Antes (7 d)</th>
-                <th className="p-1">Depois (7 d)</th>
-                <th className="p-1">Δ</th>
+                <th className="p-1 font-medium">Ajuste</th>
+                <th className="p-1 font-medium">Antes (7 d)</th>
+                <th className="p-1 font-medium">Depois (7 d)</th>
+                <th className="p-1 font-medium">Δ</th>
               </tr>
             </thead>
             <tbody>
               {data.beforeAfter.map((b) => (
                 <tr key={String(b.dose_event_id)} className="border-t">
-                  <td className="p-1">
+                  <td className="p-1 font-mono">
                     {b.anchor_date?.split('-').reverse().join('/')} · {fmt(b.dose_amount)}{' '}
                     {String(b.dose_unit ?? '')}
                   </td>
-                  <td className="p-1">
+                  <td className="p-1 font-mono">
                     {fmt(b.before_avg)} {b.n_before ? `(n=${b.n_before})` : ''}
                   </td>
-                  <td className="p-1">
+                  <td className="p-1 font-mono">
                     {fmt(b.after_avg)} {b.n_after ? `(n=${b.n_after})` : ''}
                   </td>
-                  <td className="p-1">
+                  <td className="p-1 font-mono">
                     {b.delta === null ? '—' : (b.delta > 0 ? '+' : '') + b.delta.toFixed(1)}
                   </td>
                 </tr>
@@ -162,9 +194,10 @@ export function SymptomDoseChart({ patientId, questions }: { patientId: string; 
             </tbody>
           </table>
         )}
-        <p className="mt-2 text-xs text-muted-foreground">
-          Linha cheia: sintoma (última resposta do dia); tracejada: score; vermelho: ajuste de dose.
-          “—” = sem dado.
+        <p className="mt-3 max-w-[80ch] text-xs text-muted-foreground">
+          Área: {data?.question.label ?? 'sintoma'} (última resposta do dia)
+          {showScore ? '; tracejada: score' : ''}; tracejada em cobre: ajuste de dose. Dia sem
+          resposta aparece como lacuna.
         </p>
       </CardContent>
     </Card>

@@ -48,6 +48,24 @@ export const STATUS_LABEL: Record<string, string> = {
   paused: 'Pausado',
   discharged: 'Alta',
 };
+export const ALERT_STATUS_LABEL: Record<string, string> = {
+  open: 'aberto',
+  acknowledged: 'reconhecido',
+  resolved: 'resolvido',
+};
+/** Severidade → variante do Badge. Fonte única: crítico e alto são cores diferentes. */
+export const SEVERITY_VARIANT: Record<string, 'critical' | 'high' | 'medium' | 'low'> = {
+  critical: 'critical',
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+};
+export const SEVERITY_LABEL: Record<string, string> = {
+  critical: 'crítico',
+  high: 'alto',
+  medium: 'médio',
+  low: 'baixo',
+};
 export const KIND_LABEL: Record<string, string> = {
   scale_0_10: 'Escala 0–10',
   yes_no: 'Sim/Não',

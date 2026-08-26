@@ -1,8 +1,15 @@
 import { notFound } from 'next/navigation';
-import { getPatientDetail, listProducts, listQuestionSets, AuthError } from '@medcheckin/core';
+import {
+  getPatientDetail,
+  listProducts,
+  listQuestionSets,
+  questionsForPatient,
+  AuthError,
+} from '@medcheckin/core';
 import { getDb } from '@/lib/db';
 import { requireUserPage } from '@/lib/session';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fmtDate, STATUS_LABEL } from '@/lib/format';
 import { PatientHeaderActions } from '@/components/medica/PatientHeaderActions';
 import { LgpdActions } from '@/components/medica/LgpdActions';
@@ -45,10 +52,13 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
       'u.name as user_name',
       'a.title as alert_title',
     );
-  const [products, questionSets] = await Promise.all([
+  const [products, questionSets, perguntas] = await Promise.all([
     listProducts(db, session.clinicId),
     listQuestionSets(db, session.clinicId),
+    // Direção do score por pergunta: a grade só pinta o que sabe interpretar (pack + extras).
+    questionsForPatient(db, { patientId: id, includeInactive: true }),
   ]);
+  const direcoes = Object.fromEntries(perguntas.map((q) => [q.key, q.score_direction]));
   const p = detail.patient;
   const tags = (p.condition_tags as string[]) ?? [];
   return (
@@ -58,14 +68,17 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
           <h1 className="text-2xl font-semibold" data-testid="patient-name">
             {p.name}
           </h1>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <Badge variant={p.status === 'active' ? 'default' : 'secondary'}>
               {STATUS_LABEL[p.status] ?? p.status}
             </Badge>
-            <span>
+            <span className="font-mono text-xs">
               nasc. {fmtDate(p.birth_date, { day: '2-digit', month: '2-digit', year: 'numeric' })}
             </span>
-            <span>· check-in às {String(p.checkin_time ?? '').slice(0, 5) || '—'}</span>
+            <span aria-hidden>·</span>
+            <span className="font-mono text-xs">
+              check-in às {String(p.checkin_time ?? '').slice(0, 5) || '—'}
+            </span>
             {tags.map((t) => (
               <Badge key={t} variant="outline">
                 {t}
@@ -73,43 +86,60 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
             ))}
           </div>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <PatientHeaderActions patientId={p.id} status={p.status} />
+        <PatientHeaderActions patientId={p.id} status={p.status} />
+      </div>
+
+      <Tabs defaultValue="caso">
+        <TabsList>
+          <TabsTrigger value="caso" data-testid="tab-caso">
+            O caso
+          </TabsTrigger>
+          <TabsTrigger value="configuracao" data-testid="tab-configuracao">
+            A configuração
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Ler o caso e configurar o plano são trabalhos diferentes; antes disputavam o mesmo scroll. */}
+        <TabsContent value="caso" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <SymptomDoseChart patientId={p.id} questions={detail.grid.questions} />
+            </div>
+            <AlertsCard alerts={detail.alerts} conducts={conducts} />
+          </div>
+          <GridCard grid={detail.grid} direcoes={direcoes} />
+        </TabsContent>
+
+        <TabsContent value="configuracao" className="space-y-6">
+          <RoutineCard
+            patientId={p.id}
+            routine={detail.routine}
+            medications={detail.medications}
+            questionSets={questionSets}
+          />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <MedicationsCard
+              patientId={p.id}
+              medications={detail.medications}
+              products={products}
+              questionSets={questionSets}
+            />
+            <EpisodeCard patientId={p.id} episode={detail.episode} questionSets={questionSets} />
+            <QuestionnaireCard
+              patientId={p.id}
+              checkinTime={String(p.checkin_time ?? '')}
+              questions={detail.patient_questions}
+              packHasAdherence={detail.pack_has_adherence}
+            />
+            <RespondentsCard patientId={p.id} respondents={detail.respondents} />
+          </div>
           <LgpdActions
             patientId={p.id}
             patientName={p.name}
             discharged={p.status === 'discharged'}
           />
-        </div>
-      </div>
-
-      <RoutineCard
-        patientId={p.id}
-        routine={detail.routine}
-        medications={detail.medications}
-        questionSets={questionSets}
-      />
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <MedicationsCard
-          patientId={p.id}
-          medications={detail.medications}
-          products={products}
-          questionSets={questionSets}
-        />
-        <EpisodeCard patientId={p.id} episode={detail.episode} questionSets={questionSets} />
-        <QuestionnaireCard
-          patientId={p.id}
-          checkinTime={String(p.checkin_time ?? '')}
-          questions={detail.patient_questions}
-          packHasAdherence={detail.pack_has_adherence}
-        />
-        <RespondentsCard patientId={p.id} respondents={detail.respondents} />
-        <AlertsCard alerts={detail.alerts} conducts={conducts} />
-      </div>
-
-      <SymptomDoseChart patientId={p.id} questions={detail.grid.questions} />
-      <GridCard grid={detail.grid} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { api, ApiError } from '@/lib/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SimpleSelect } from '@/components/ui/simple-select';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -123,18 +124,12 @@ export function DoseDialog({
             </div>
             <div>
               <Label htmlFor="d-unit">Unidade</Label>
-              <select
+              <SimpleSelect
                 id="d-unit"
-                className="h-9 w-full rounded-md border bg-background px-2 text-sm"
                 value={form.dose_unit}
-                onChange={(e) => setForm({ ...form, dose_unit: e.target.value })}
-              >
-                {UNITS.map((u) => (
-                  <option key={u} value={u}>
-                    {u}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => setForm({ ...form, dose_unit: v })}
+                options={UNITS.map((u) => ({ value: u, label: u }))}
+              />
             </div>
             <div>
               <Label htmlFor="d-tpd">Vezes por dia</Label>
@@ -199,18 +194,12 @@ export function DoseDialog({
           {form.open_titration && questionSets.length > 1 && (
             <div>
               <Label htmlFor="d-qs">Conjunto de perguntas</Label>
-              <select
+              <SimpleSelect
                 id="d-qs"
-                className="h-9 w-full rounded-md border bg-background px-2 text-sm"
                 value={form.question_set_id}
-                onChange={(e) => setForm({ ...form, question_set_id: e.target.value })}
-              >
-                {questionSets.map((q) => (
-                  <option key={q.id} value={q.id}>
-                    {q.name}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => setForm({ ...form, question_set_id: v })}
+                options={questionSets.map((q) => ({ value: q.id, label: q.name }))}
+              />
             </div>
           )}
           {error && <p className="text-sm text-destructive">{error}</p>}

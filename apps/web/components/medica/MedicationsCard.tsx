@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/client';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { SimpleSelect } from '@/components/ui/simple-select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { fmt, fmtDate, isoDay } from '@/lib/format';
 import { DoseDialog, type Med } from './DoseDialog';
@@ -84,19 +85,13 @@ export function MedicationsCard({
         <form onSubmit={addMed} className="flex items-end gap-2">
           <div className="flex-1">
             <Label htmlFor="product">Adicionar medicação</Label>
-            <select
+            <SimpleSelect
               id="product"
-              className="h-9 w-full rounded-md border bg-background px-2 text-sm"
               value={productId}
-              onChange={(e) => setProductId(e.target.value)}
+              onValueChange={setProductId}
+              options={products.map((p) => ({ value: p.id, label: p.name }))}
               data-testid="product-select"
-            >
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <Button
             type="submit"

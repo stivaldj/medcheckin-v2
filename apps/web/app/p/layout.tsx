@@ -10,17 +10,29 @@ export const viewport = { themeColor: '#0f766e', width: 'device-width', initialS
 
 export default function PwaLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto min-h-screen max-w-md">
-      <header className="flex items-center justify-between border-b px-4 py-3">
-        <Link href="/p/hoje" className="font-semibold text-primary">
+    <div className="mx-auto flex min-h-screen max-w-md flex-col">
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-card/90 px-4 py-3 backdrop-blur-sm">
+        <Link href="/p/hoje" className="flex items-center gap-2 font-semibold tracking-tight">
+          <span aria-hidden className="size-2.5 rounded-full bg-primary ring-3 ring-primary/15" />
           MedCheck-in
         </Link>
-        <nav className="flex gap-4 text-sm">
-          <Link href="/p/hoje">Hoje</Link>
-          <Link href="/p/historico">Histórico</Link>
+        {/* Alvos de 44 px: quem usa isso pode estar com dor, sono ou tremor. */}
+        <nav className="flex gap-1 text-sm">
+          <Link
+            href="/p/hoje"
+            className="rounded-md px-3 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            Hoje
+          </Link>
+          <Link
+            href="/p/historico"
+            className="rounded-md px-3 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            Histórico
+          </Link>
         </nav>
       </header>
-      <main className="px-4 py-4">{children}</main>
+      <main className="flex-1 px-4 pt-5 pb-12">{children}</main>
     </div>
   );
 }

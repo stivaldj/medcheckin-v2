@@ -8,7 +8,7 @@ import {
   type Session,
 } from '@medcheckin/core';
 import type { Knex } from 'knex';
-import { loginAsDoctor } from './helpers';
+import { abrirConfiguracao, loginAsDoctor } from './helpers';
 
 /**
  * PROVA E6 — loop fechado com CLOCK FALSO (48 h): o teste chama o core com `now` explícito
@@ -107,6 +107,7 @@ test.describe('loop fechado (48 h simuladas)', () => {
     await loginAsDoctor(context, baseURL!);
     await page.goto(`/pacientes/${ids.p1}`);
     await expect(page.getByTestId('alerts-card')).toContainText('dor');
+    await abrirConfiguracao(page);
     const med = page.getByTestId('medication').first();
     await med.getByRole('button', { name: 'Ajustar dose' }).click();
     await page.getByLabel('Vigente a partir de').fill(TODAY.toISODate()!);

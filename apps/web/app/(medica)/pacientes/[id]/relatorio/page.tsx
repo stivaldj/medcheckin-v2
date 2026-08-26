@@ -2,7 +2,14 @@ import { notFound } from 'next/navigation';
 import { patientReport, AuthError } from '@medcheckin/core';
 import { getDb } from '@/lib/db';
 import { requireUserPage } from '@/lib/session';
-import { fmt, fmtDate, fmtDateTime, isoDay } from '@/lib/format';
+import {
+  fmt,
+  fmtDate,
+  fmtDateTime,
+  isoDay,
+  SEVERITY_LABEL,
+  ALERT_STATUS_LABEL,
+} from '@/lib/format';
 import { PrintButton } from '@/components/medica/PrintButton';
 
 export const dynamic = 'force-dynamic';
@@ -132,13 +139,14 @@ export default async function RelatorioPage({
           <ul className="space-y-1 text-sm">
             {r.alerts.map((a) => (
               <li key={a.id} className="border-t pt-1">
-                <span className="font-medium">{fmtDate(a.created_at)}</span> · {a.severity} ·{' '}
-                {a.title} · <em>{a.status}</em>
+                <span className="font-medium">{fmtDate(a.created_at)}</span> ·{' '}
+                {SEVERITY_LABEL[a.severity] ?? a.severity} · {a.title} ·{' '}
+                <em>{ALERT_STATUS_LABEL[a.status] ?? a.status}</em>
                 {a.actions
                   .filter((x) => x.note)
                   .map((x) => (
                     <div key={x.id} className="ml-4 text-muted-foreground">
-                      ↳ {fmtDateTime(x.at)} {x.user_name ?? ''}: {x.note}
+                      ↳ {fmtDateTime(x.at)} {x.user_name ?? '—'}: {x.note}
                     </div>
                   ))}
               </li>

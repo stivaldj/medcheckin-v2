@@ -1,9 +1,14 @@
+import { LinkIcon } from 'lucide-react';
+
 export function NoSession() {
   return (
-    <div className="space-y-2" data-testid="no-session">
-      <h1 className="text-xl font-semibold">Sessão não encontrada</h1>
-      <p className="text-sm text-muted-foreground">
-        Abra o link de convite que a clínica enviou para você. Ele conecta este dispositivo ao
+    <div className="flex flex-col items-center gap-3 py-14 text-center" data-testid="no-session">
+      <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <LinkIcon className="size-5" />
+      </div>
+      <h1 className="text-lg font-semibold tracking-tight">Sessão não encontrada</h1>
+      <p className="max-w-[32ch] text-sm text-muted-foreground">
+        Abra o link de convite que a clínica enviou para você. Ele conecta este aparelho ao
         acompanhamento.
       </p>
     </div>

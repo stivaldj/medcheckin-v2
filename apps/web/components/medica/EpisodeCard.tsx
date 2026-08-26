@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/client';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { SimpleSelect } from '@/components/ui/simple-select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { fmtDate, EPISODE_LABEL, FREQ_LABEL } from '@/lib/format';
 
@@ -46,7 +47,6 @@ export function EpisodeCard({
       setBusy(false);
     }
   }
-  const sel = 'h-9 w-full rounded-md border bg-background px-2 text-sm';
   return (
     <Card data-testid="episode-card">
       <CardHeader>
@@ -67,40 +67,37 @@ export function EpisodeCard({
         <form onSubmit={submit} className="grid grid-cols-3 items-end gap-2">
           <div>
             <Label>Tipo</Label>
-            <select
-              className={sel}
+            <SimpleSelect
+              aria-label="Tipo"
               value={form.kind}
-              onChange={(e) => setForm({ ...form, kind: e.target.value })}
-            >
-              <option value="titration">Titulação</option>
-              <option value="maintenance">Manutenção</option>
-            </select>
+              onValueChange={(v) => setForm({ ...form, kind: v })}
+              options={[
+                { value: 'titration', label: 'Titulação' },
+                { value: 'maintenance', label: 'Manutenção' },
+              ]}
+            />
           </div>
           <div>
             <Label>Frequência</Label>
-            <select
-              className={sel}
+            <SimpleSelect
+              aria-label="Frequência"
               value={form.checkin_frequency}
-              onChange={(e) => setForm({ ...form, checkin_frequency: e.target.value })}
-            >
-              <option value="daily">diário</option>
-              <option value="weekly">semanal</option>
-              <option value="biweekly">quinzenal</option>
-            </select>
+              onValueChange={(v) => setForm({ ...form, checkin_frequency: v })}
+              options={[
+                { value: 'daily', label: 'diário' },
+                { value: 'weekly', label: 'semanal' },
+                { value: 'biweekly', label: 'quinzenal' },
+              ]}
+            />
           </div>
           <div>
             <Label>Perguntas</Label>
-            <select
-              className={sel}
+            <SimpleSelect
+              aria-label="Perguntas"
               value={form.question_set_id}
-              onChange={(e) => setForm({ ...form, question_set_id: e.target.value })}
-            >
-              {questionSets.map((q) => (
-                <option key={q.id} value={q.id}>
-                  {q.name}
-                </option>
-              ))}
-            </select>
+              onValueChange={(v) => setForm({ ...form, question_set_id: v })}
+              options={questionSets.map((q) => ({ value: q.id, label: q.name }))}
+            />
           </div>
           <Button
             type="submit"

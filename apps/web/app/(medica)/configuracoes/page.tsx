@@ -4,6 +4,22 @@ import { getDb } from '@/lib/db';
 import { requireUserPage } from '@/lib/session';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { UserPlusIcon } from 'lucide-react';
 import { fmtDateTime } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -42,7 +58,7 @@ export default async function ConfiguracoesPage() {
     Date.now() - new Date(String(state[STATE_KEYS.lastCycle])).getTime() > 10 * 60000;
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Configurações</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Configurações</h1>
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -64,16 +80,26 @@ export default async function ConfiguracoesPage() {
           <CardHeader>
             <CardTitle>Sistema</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            <p>
-              Scheduler:{' '}
-              <Badge variant={stale ? 'destructive' : 'default'}>
-                {stale ? 'parado' : 'ativo'}
-              </Badge>{' '}
-              último ciclo {fmtDateTime(state[STATE_KEYS.lastCycle])}
-            </p>
-            <p>Alertas avaliados: {fmtDateTime(state[STATE_KEYS.lastAlerts])}</p>
-            <p>Retenção aplicada: {fmtDateTime(state[STATE_KEYS.lastRetention])}</p>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="relative flex size-2 shrink-0">
+                <span
+                  className={`size-2 rounded-full ${stale ? 'bg-sev-critical' : 'bg-sev-low'}`}
+                />
+                {!stale && (
+                  <span className="absolute inset-0 animate-ping rounded-full bg-sev-low opacity-60" />
+                )}
+              </span>
+              <span className="font-medium">Scheduler {stale ? 'parado' : 'ativo'}</span>
+            </div>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
+              <dt className="text-muted-foreground">Último ciclo</dt>
+              <dd className="font-mono">{fmtDateTime(state[STATE_KEYS.lastCycle])}</dd>
+              <dt className="text-muted-foreground">Alertas avaliados</dt>
+              <dd className="font-mono">{fmtDateTime(state[STATE_KEYS.lastAlerts])}</dd>
+              <dt className="text-muted-foreground">Retenção aplicada</dt>
+              <dd className="font-mono">{fmtDateTime(state[STATE_KEYS.lastRetention])}</dd>
+            </dl>
             <p>
               Push:{' '}
               {process.env.VAPID_PUBLIC_KEY ? (
@@ -100,44 +126,67 @@ export default async function ConfiguracoesPage() {
         <CardHeader>
           <CardTitle>Respondentes convidados</CardTitle>
         </CardHeader>
-        <CardContent>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-muted-foreground">
-                <th className="p-1">Paciente</th>
-                <th className="p-1">Respondente</th>
-                <th className="p-1">Convite</th>
-                <th className="p-1">Consentimento</th>
-                <th className="p-1">Push</th>
-              </tr>
-            </thead>
-            <tbody>
-              {respondents.map((r) => (
-                <tr key={r.id} className="border-t">
-                  <td className="p-1">
-                    <Link href={`/pacientes/${r.patient_id}`} className="hover:underline">
-                      {r.patient_name}
-                    </Link>
-                  </td>
-                  <td className="p-1">
-                    {r.name}{' '}
-                    <span className="text-muted-foreground">
-                      ({r.kind === 'patient' ? 'paciente' : r.relationship || 'cuidador'})
-                    </span>
-                  </td>
-                  <td className="p-1">
-                    {r.accepted_at ? (
-                      <Badge>aceito {fmtDateTime(r.accepted_at)}</Badge>
-                    ) : (
-                      <Badge variant="secondary">pendente</Badge>
-                    )}
-                  </td>
-                  <td className="p-1">{r.consent_version ?? '—'}</td>
-                  <td className="p-1">{subBy[r.id] ? `${subBy[r.id]} dispositivo(s)` : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <CardContent className="px-0">
+          {respondents.length === 0 ? (
+            <Empty className="py-8">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <UserPlusIcon />
+                </EmptyMedia>
+                <EmptyTitle>Ninguém convidado ainda</EmptyTitle>
+                <EmptyDescription>
+                  Sem respondente aceito, nenhum check-in chega a lugar nenhum.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Paciente</TableHead>
+                    <TableHead>Respondente</TableHead>
+                    <TableHead>Convite</TableHead>
+                    <TableHead>Consentimento</TableHead>
+                    <TableHead>Push</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {respondents.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell>
+                        <Link
+                          href={`/pacientes/${r.patient_id}`}
+                          className="font-medium underline-offset-2 hover:underline"
+                        >
+                          {r.patient_name}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        {r.name}{' '}
+                        <span className="text-muted-foreground">
+                          ({r.kind === 'patient' ? 'paciente' : r.relationship || 'cuidador'})
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {r.accepted_at ? (
+                          <Badge variant="low">aceito {fmtDateTime(r.accepted_at)}</Badge>
+                        ) : (
+                          <Badge variant="secondary">pendente</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-[13px]">
+                        {r.consent_version ?? '—'}
+                      </TableCell>
+                      <TableCell className="text-[13px] text-muted-foreground">
+                        {subBy[r.id] ? `${subBy[r.id]} dispositivo(s)` : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
