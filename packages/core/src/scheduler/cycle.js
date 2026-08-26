@@ -37,7 +37,7 @@ export async function getSystemState(db) {
  * Um ciclo do scheduler, com o MESMO `now` em todas as fases. Idempotente.
  * Alertas no máx. 1×/h (relógio em `system_state`, sobrevive a reinícios); `force: true` força.
  */
-export async function runCycle(db, now, { notifier, force = false } = {}) {
+export async function runCycle(db, now, { notifier, force = false, maxLateMin } = {}) {
   if (!notifier) throw new Error('runCycle: notifier obrigatório (fail-closed).');
   const nowDT = toDT(now);
   const started = Date.now();
@@ -47,7 +47,7 @@ export async function runCycle(db, now, { notifier, force = false } = {}) {
   const dispatch = await dispatchDueCheckins(db, nowDT, { notifier });
   // E9.1/D15: os alarmes nascem da rotina por período (routine_alarms). `medication_intakes`
   // está deprecado (D17) — a tabela fica para histórico, mas nada novo é criado.
-  const alarms = await dispatchDueRoutineAlarms(db, nowDT, { notifier });
+  const alarms = await dispatchDueRoutineAlarms(db, nowDT, { notifier, maxLateMin });
 
   let alerts = null;
   const lastRaw =

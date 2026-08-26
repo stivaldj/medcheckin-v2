@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { abrirCaso, abrirConfiguracao, loginAsDoctor } from './helpers';
+import {
+  abrirCaso,
+  abrirConfiguracao,
+  limparCaixaDeEntrada,
+  linkDeAcessoNoEmail,
+  loginAsDoctor,
+} from './helpers';
 
 test.describe('PROVA E4 — médica: cadastrar paciente → convidar cuidador → criar dose → ver dose vigente', () => {
   test.beforeEach(async ({ context, baseURL }) => {
@@ -90,6 +96,49 @@ test.describe('PROVA E4 — médica: cadastrar paciente → convidar cuidador �
     const page = await ctx.newPage();
     await page.goto('/pacientes');
     await expect(page).toHaveURL(/\/login$/);
+    await ctx.close();
+  });
+
+  /**
+   * P2-7 — o caminho por onde a médica entra todo dia não tinha trava nenhuma: os outros specs
+   * injetam a sessão pelo core, e o teste de SMTP virava no-op verde sem Mailpit. Aqui o e-mail
+   * sai de verdade, é lido de verdade, e o link é clicado de verdade.
+   */
+  test('login real: /login → e-mail no Mailpit → /auth/verify → sessão; link é de uso único', async ({
+    browser,
+  }) => {
+    await limparCaixaDeEntrada();
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+
+    await page.goto('/login');
+    await page.getByLabel('E-mail').fill('medica@medcheckin.test');
+    await page.getByRole('button', { name: 'Receber link por e-mail' }).click();
+    // a tela nunca confirma se a conta existe — a mensagem é a mesma nos dois casos
+    await expect(page.getByText(/Se este e-mail estiver cadastrado/)).toBeVisible();
+
+    const { link, assunto } = await linkDeAcessoNoEmail('medica@medcheckin.test');
+    expect(assunto).toContain('MedCheck-in');
+
+    await page.goto(link);
+    await expect(page).toHaveURL(/\/hoje$/);
+    await expect(page.getByRole('heading', { name: /Hoje/ })).toBeVisible();
+
+    // uso único: o mesmo link numa sessão limpa não entra
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await page2.goto(link);
+    await expect(page2).not.toHaveURL(/\/hoje$/);
+    await ctx2.close();
+
+    // e-mail não cadastrado: mesma resposta, e NENHUM e-mail enviado
+    await limparCaixaDeEntrada();
+    await page.goto('/login');
+    await page.getByLabel('E-mail').fill('ninguem@medcheckin.test');
+    await page.getByRole('button', { name: 'Receber link por e-mail' }).click();
+    await expect(page.getByText(/Se este e-mail estiver cadastrado/)).toBeVisible();
+    await expect(linkDeAcessoNoEmail('ninguem@medcheckin.test', 2500)).rejects.toThrow();
+
     await ctx.close();
   });
 });

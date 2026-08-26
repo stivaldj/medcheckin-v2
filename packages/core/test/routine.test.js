@@ -344,4 +344,30 @@ describe('E9.1 — rotina de alarmes por período', () => {
     expect(home.adherence.no_patients.map((p) => p.patient_id)).toEqual([fx.p1.id]);
     expect(home).not.toHaveProperty('intakes');
   });
+
+  it('P2-3: scheduler que volta de madrugada não dispara os lembretes do dia inteiro de uma vez', async () => {
+    await createRoutinePeriod(
+      db,
+      session,
+      fx.p2.id,
+      {
+        starts_on: D(0),
+        ends_on: D(0),
+        alarms: [
+          { time: '08:00', description: 'dose da manhã' },
+          { time: '13:00', description: 'dose da tarde' },
+          { time: '23:00', description: 'dose da noite' },
+        ],
+      },
+      AT('07:00'),
+    );
+    // ficou fora do ar o dia todo e voltou 23:30: manhã e tarde perderam o sentido
+    const notifier = fakeNotifier();
+    const out = await dispatchDueRoutineAlarms(db, AT('23:30'), { notifier });
+    expect(out).toMatchObject({ stale: 2, due: 1, sent: 1 });
+
+    const enviados = await db('notifications').where({ kind: 'alarm', patient_id: fx.p2.id });
+    expect(enviados).toHaveLength(1);
+    expect(enviados[0].payload.body).toBe('dose da noite'); // só o que ainda faz sentido
+  });
 });
