@@ -98,6 +98,15 @@ export async function exportPatientData(db, session, patientId, now) {
     ...a,
     actions: actions.filter((x) => x.alert_id === a.id),
   }));
+  /**
+   * P2-1 — direito de acesso (art. 18): a definição de uma pergunta criada PARA este paciente é
+   * dado dele, não configuração da clínica. Sem isto, uma pergunta extra criada e nunca
+   * respondida — com limiar de alerta configurado — sumia do export inteiro.
+   */
+  const patientQuestions = await db('questions')
+    .where({ patient_id: patientId })
+    .orderBy('sort_order')
+    .orderBy('created_at');
   const scores = await db('patient_scores_daily').where({ patient_id: patientId }).orderBy('date');
   const notifications = await db('notifications')
     .where({ patient_id: patientId })
@@ -128,6 +137,7 @@ export async function exportPatientData(db, session, patientId, now) {
       alarms: routineAlarms.filter((a) => a.period_id === p.id),
     })),
     'episodes.json': episodes,
+    'questions.json': patientQuestions,
     'checkins.json': checkins,
     'alerts.json': alerts,
     'scores.json': scores,
@@ -147,6 +157,7 @@ export async function exportPatientData(db, session, patientId, now) {
       routine_periods: routinePeriods.length,
       routine_alarms: routineAlarms.length,
       episodes: episodes.length,
+      questions: patientQuestions.length,
       checkins: checkins.length,
       answers: answers.length,
       alerts: alerts.length,
@@ -155,7 +166,10 @@ export async function exportPatientData(db, session, patientId, now) {
       notifications: notifications.length,
       access_audit: audit.length,
     },
-    note: 'notifications.json contém só metadados de entrega (sem conteúdo).',
+    note:
+      'notifications.json contém só metadados de entrega (sem conteúdo). ' +
+      'questions.json traz as perguntas criadas para este paciente; as perguntas do conjunto do ' +
+      'episódio são configuração da clínica e aparecem junto de cada resposta em checkins.json.',
   };
   await logAccess(db, { session, patientId, route: 'patients.export', action: 'export' }, now);
   return { manifest, files };

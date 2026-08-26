@@ -143,6 +143,46 @@ describe('push — notifier Web Push contra push service local (PROVA E5-a)', ()
     const removed = await removePushSubscription(db, s1, { endpoint: `${svc.base}/ok/3` });
     expect(removed).toBe(1);
   });
+
+  it('P2-4: inscrição de outro respondente não é sequestrada pelo endpoint', async () => {
+    const client = await clientKeys();
+    const endpoint = `${svc.base}/ok/sequestro`;
+    const dono = await savePushSubscription(db, s1, {
+      endpoint,
+      keys: client,
+      ua: 'aparelho-dono',
+    });
+    expect(dono.respondent_id).toBe(fx.r1.id);
+
+    // outro respondente, de OUTRO paciente, conhecendo endpoint + keys (segredos do navegador
+    // da vítima) tentava assumir a inscrição e passar a receber os pushes dela
+    const invasor = {
+      kind: 'respondent',
+      respondentId: fx.r2c.id,
+      patientId: fx.p2.id,
+      clinicId: fx.clinic.id,
+    };
+    await expect(
+      savePushSubscription(db, invasor, { endpoint, keys: client, ua: 'aparelho-invasor' }),
+    ).rejects.toMatchObject({ code: 'forbidden' });
+
+    const row = await db('push_subscriptions').where({ endpoint }).first();
+    expect(row.respondent_id).toBe(fx.r1.id); // continua com o dono
+    expect(row.ua).toBe('aparelho-dono');
+
+    // o próprio dono continua podendo reinscrever no mesmo endpoint
+    const denovo = await savePushSubscription(db, s1, { endpoint, keys: client, ua: 'dono-v2' });
+    expect(denovo.id).toBe(dono.id);
+
+    // aparelho que trocou de mãos: revogado → o novo respondente pode assumir
+    await db('push_subscriptions').where({ endpoint }).update({ revoked_at: new Date() });
+    const herdeiro = await savePushSubscription(db, invasor, {
+      endpoint,
+      keys: client,
+      ua: 'aparelho-novo-dono',
+    });
+    expect(herdeiro.respondent_id).toBe(fx.r2c.id);
+  });
 });
 
 /** Gera par ECDH P-256 + auth secret como o navegador (só para o teste). */

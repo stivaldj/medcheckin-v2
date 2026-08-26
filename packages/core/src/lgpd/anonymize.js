@@ -52,6 +52,24 @@ export async function anonymizePatient(db, session, patientId, { reason }, now) 
       .whereIn('checkin_id', trx('checkins').select('id').where({ patient_id: patientId }))
       .whereNotNull('value_text')
       .update({ value_text: '[removido]' });
+    /**
+     * P2-2 — pergunta criada para este paciente é texto livre da médica: tanto o enunciado
+     * ("Como está a dona Maria?") quanto a chave derivada dele podem carregar o nome. Vira
+     * `Pergunta extra N` / `extra_N`, numerada de forma estável.
+     *
+     * A série NÃO se perde: `answers.question_id` continua apontando para a mesma linha, então
+     * valores, datas e limiar de alerta seguem intactos — só o texto que identificava sai.
+     */
+    const extras = await trx('questions')
+      .where({ patient_id: patientId })
+      .orderBy('sort_order')
+      .orderBy('created_at')
+      .select('id');
+    for (const [i, q] of extras.entries()) {
+      await trx('questions')
+        .where({ id: q.id })
+        .update({ label: `Pergunta extra ${i + 1}`, key: `extra_${i + 1}` });
+    }
     await trx('notifications')
       .where({ patient_id: patientId })
       .update({ payload: JSON.stringify({}) });

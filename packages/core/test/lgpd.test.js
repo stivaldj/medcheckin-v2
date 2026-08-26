@@ -6,6 +6,7 @@ import { runCycle, resetCycleState, getSystemState } from '../src/scheduler/cycl
 import { answerFromRespondent } from '../src/respondent/index.js';
 import { adjustDose } from '../src/medications/index.js';
 import { resolveAlert } from '../src/alerts/actions.js';
+import { addPatientQuestion } from '../src/questions/patientQuestions.js';
 import { acceptInvite } from '../src/auth/invite.js';
 import { savePushSubscription } from '../src/push/index.js';
 import { symptomDoseSeries } from '../src/analytics/series.js';
@@ -158,6 +159,7 @@ describe('LGPD — export, anonimização, retenção', () => {
       'medications.json',
       'notifications.json',
       'patient.json',
+      'questions.json',
       'respondents.json',
       'routine_periods.json',
       'scores.json',
@@ -313,5 +315,39 @@ describe('LGPD — export, anonimização, retenção', () => {
     expect(c2.retention).toBeNull();
     const st = await getSystemState(db);
     expect(st['retention.last_run_at']).toBeTruthy();
+  });
+
+  it('P2-1: pergunta criada para o paciente e NUNCA respondida sai no export (art. 18)', async () => {
+    await addPatientQuestion(
+      db,
+      doctor,
+      fx.p1.id,
+      { label: 'Dormiu bem na casa da tia Rosa?', kind: 'yes_no' },
+      AT('09:00'),
+    );
+    const data = await exportPatientData(db, doctor, fx.p1.id, AT('12:00'));
+    const qs = data.files['questions.json'];
+    expect(qs.map((q) => q.label)).toContain('Dormiu bem na casa da tia Rosa?');
+    expect(data.manifest.counts.questions).toBe(qs.length);
+    // e chega no zip, não só no objeto em memória
+    const zip = await JSZip.loadAsync(await buildExportZip(data));
+    expect(Object.keys(zip.files)).toContain('questions.json');
+  });
+
+  it('P2-2: anonimizar tira o nome do enunciado E da chave da pergunta extra, sem perder a série', async () => {
+    const q = await addPatientQuestion(
+      db,
+      doctor,
+      fx.p2.id,
+      { label: 'A dona Marlene teve tontura?', kind: 'yes_no' },
+      AT('09:00'),
+    );
+    expect(q.key).toContain('marlene'); // a chave é derivada do enunciado: carrega o nome junto
+    await anonymizePatient(db, doctor, fx.p2.id, { reason: 'pedido do titular' }, AT('13:00'));
+    const depois = await db('questions').where({ id: q.id }).first();
+    expect(depois.label).toBe('Pergunta extra 1');
+    expect(depois.key).toBe('extra_1');
+    expect(depois.id).toBe(q.id); // a linha é a mesma → answers.question_id segue válido
+    expect(depois.alert_threshold_json ?? null).toEqual(q.alert_threshold_json ?? null);
   });
 });
