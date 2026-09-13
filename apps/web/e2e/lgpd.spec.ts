@@ -103,6 +103,9 @@ test.describe('E7 — relatório, export e anonimização', () => {
     await page.getByTestId('anonymize-name').fill('Paciente LGPD E2E');
     await page.getByTestId('anonymize-submit').click();
     await expect(page.getByTestId('patient-name')).toContainText('Paciente anonimizado');
+    // D28: o botão dá lugar à data, e não depende do status (alta grava o mesmo status)
+    await expect(page.getByTestId('anonymized-at')).toBeVisible();
+    await expect(page.getByTestId('anonymize-open')).toHaveCount(0);
     const scoresAfter = await db('patient_scores_daily')
       .where({ patient_id: p1.id })
       .orderBy('date');

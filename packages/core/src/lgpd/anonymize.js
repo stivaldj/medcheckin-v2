@@ -26,7 +26,15 @@ export async function anonymizePatient(db, session, patientId, { reason }, now) 
   return db.transaction(async (trx) => {
     const [patient] = await trx('patients')
       .where({ id: patientId })
-      .update({ name: anonName, birth_date: null, status: 'discharged', updated_at: trx.fn.now() })
+      .update({
+        name: anonName,
+        birth_date: null,
+        status: 'discharged',
+        // D28: é este campo, e não o status, que diz "anonimizado" — alta grava o mesmo status.
+        // coalesce mantém a data da primeira anonimização quando a operação é repetida.
+        anonymized_at: trx.raw('coalesce(anonymized_at, ?)', [nowJs]),
+        updated_at: trx.fn.now(),
+      })
       .returning('*');
     const respondents = await trx('respondents')
       .where({ patient_id: patientId })

@@ -55,4 +55,31 @@ describe('migrations — latest → seed → rollback total → latest', () => {
     const [, files] = await db.migrate.latest(migrationConfig);
     expect(files.length).toBeGreaterThanOrEqual(3);
   });
+
+  /**
+   * D28 — o backfill da 010 reconhece quem já foi anonimizado ANTES da coluna existir (pelo nome
+   * que a anonimização grava) e não confunde isso com alta.
+   */
+  it('010: backfill marca os já anonimizados e deixa a alta em paz', async () => {
+    await db.raw('drop schema public cascade; create schema public');
+    await db.migrate.latest(migrationConfig);
+    await runSeed(db, { reset: true });
+    await db.migrate.down(migrationConfig); // volta para antes da 010
+    expect(await db.schema.hasColumn('patients', 'anonymized_at')).toBe(false);
+
+    const [anon, alta] = await db('patients').orderBy('created_at').limit(2);
+    await db('patients')
+      .where({ id: anon.id })
+      .update({ name: 'Paciente anonimizado 1a2b3c4d', status: 'discharged' });
+    await db('patients').where({ id: alta.id }).update({ status: 'discharged' });
+
+    await db.migrate.latest(migrationConfig);
+    const depoisAnon = await db('patients').where({ id: anon.id }).first();
+    const depoisAlta = await db('patients').where({ id: alta.id }).first();
+    expect(depoisAnon.anonymized_at).not.toBeNull();
+    expect(new Date(depoisAnon.anonymized_at).getTime()).toBe(
+      new Date(depoisAnon.updated_at).getTime(),
+    );
+    expect(depoisAlta.anonymized_at).toBeNull();
+  });
 });

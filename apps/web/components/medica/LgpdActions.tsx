@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { fmtDate } from '@/lib/format';
 import {
   Dialog,
   DialogContent,
@@ -17,11 +18,15 @@ import {
 export function LgpdActions({
   patientId,
   patientName,
-  discharged,
+  anonymizedAt,
 }: {
   patientId: string;
   patientName: string;
-  discharged: boolean;
+  /**
+   * D28 — quando foi anonimizado, ou `null`. NÃO derive isto do status: "Dar alta" também grava
+   * `discharged`, e paciente com alta precisa continuar podendo pedir a exclusão.
+   */
+  anonymizedAt: Date | string | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -65,7 +70,14 @@ export function LgpdActions({
       >
         Exportar dados (LGPD)
       </Button>
-      {!discharged && (
+      {anonymizedAt ? (
+        <span className="text-sm text-muted-foreground" data-testid="anonymized-at">
+          Anonimizado em{' '}
+          <span className="font-mono tabular-nums">
+            {fmtDate(anonymizedAt, { day: '2-digit', month: '2-digit', year: 'numeric' })}
+          </span>
+        </span>
+      ) : (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger render={<Button variant="ghost" size="sm" data-testid="anonymize-open" />}>
             Anonimizar
