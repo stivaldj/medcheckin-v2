@@ -73,8 +73,9 @@ Ficam no floor card ou mostram o estado real de erro; não é defeito do preview
 
 ## Inconsistências do app observadas durante o sync (não corrigidas aqui)
 
-- `InviteAccept` usa `<input type="checkbox">` cru em vez do `Checkbox` do DS. (O
-  `RespondentsCard` tinha o mesmo problema e foi corrigido no #25.)
+- `RespondentsCard` usava `<input type="checkbox">` cru em vez do `Checkbox` do DS; corrigido no
+  #25. (O primeiro sync também listou o `InviteAccept` aqui por engano: ele sempre usou o
+  `Checkbox` — o desmarcado é que parece uma caixa cinza neutra no screenshot.)
 - `LgpdActions` mostra "Anonimizar" apenas quando `discharged` é **falso**. Vale confirmar se é
   intencional; a leitura natural de um fluxo LGPD seria o contrário.
 
