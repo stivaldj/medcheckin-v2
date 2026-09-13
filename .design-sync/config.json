@@ -1,0 +1,221 @@
+{
+  "projectId": "87915bb0-a660-48e0-934a-cae0827e711d",
+  "pkg": "@medcheckin/web",
+  "globalName": "MedCheckin",
+  "shape": "package",
+  "srcDir": "components",
+  "tsconfig": "../../../.design-sync/tsconfig.build.json",
+  "cssEntry": ".ds-css/styles.compiled.css",
+  "buildCmd": "node .design-sync/tw-build.mjs",
+  "docsMap": {
+    "Button": "../../../.design-sync/docs/button.md",
+    "Badge": "../../../.design-sync/docs/badge.md",
+    "Alert": "../../../.design-sync/docs/alert.md",
+    "AlertTitle": "../../../.design-sync/docs/alert.md",
+    "AlertDescription": "../../../.design-sync/docs/alert.md",
+    "AlertAction": "../../../.design-sync/docs/alert.md",
+    "Card": "../../../.design-sync/docs/card.md",
+    "CardHeader": "../../../.design-sync/docs/card.md",
+    "CardTitle": "../../../.design-sync/docs/card.md",
+    "CardDescription": "../../../.design-sync/docs/card.md",
+    "CardAction": "../../../.design-sync/docs/card.md",
+    "CardContent": "../../../.design-sync/docs/card.md",
+    "CardFooter": "../../../.design-sync/docs/card.md",
+    "Item": "../../../.design-sync/docs/item.md",
+    "ItemGroup": "../../../.design-sync/docs/item.md",
+    "ItemSeparator": "../../../.design-sync/docs/item.md",
+    "ItemMedia": "../../../.design-sync/docs/item.md",
+    "ItemContent": "../../../.design-sync/docs/item.md",
+    "ItemTitle": "../../../.design-sync/docs/item.md",
+    "ItemDescription": "../../../.design-sync/docs/item.md",
+    "ItemActions": "../../../.design-sync/docs/item.md",
+    "ItemHeader": "../../../.design-sync/docs/item.md",
+    "ItemFooter": "../../../.design-sync/docs/item.md",
+    "Empty": "../../../.design-sync/docs/empty.md",
+    "EmptyHeader": "../../../.design-sync/docs/empty.md",
+    "EmptyMedia": "../../../.design-sync/docs/empty.md",
+    "EmptyTitle": "../../../.design-sync/docs/empty.md",
+    "EmptyDescription": "../../../.design-sync/docs/empty.md",
+    "EmptyContent": "../../../.design-sync/docs/empty.md",
+    "Separator": "../../../.design-sync/docs/separator.md",
+    "Collapsible": "../../../.design-sync/docs/collapsible.md",
+    "CollapsibleTrigger": "../../../.design-sync/docs/collapsible.md",
+    "CollapsibleContent": "../../../.design-sync/docs/collapsible.md",
+    "Tabs": "../../../.design-sync/docs/tabs.md",
+    "TabsList": "../../../.design-sync/docs/tabs.md",
+    "TabsTrigger": "../../../.design-sync/docs/tabs.md",
+    "TabsContent": "../../../.design-sync/docs/tabs.md",
+    "Input": "../../../.design-sync/docs/input.md",
+    "Textarea": "../../../.design-sync/docs/textarea.md",
+    "Label": "../../../.design-sync/docs/label.md",
+    "Checkbox": "../../../.design-sync/docs/checkbox.md",
+    "Field": "../../../.design-sync/docs/field.md",
+    "FieldSet": "../../../.design-sync/docs/field.md",
+    "FieldLegend": "../../../.design-sync/docs/field.md",
+    "FieldGroup": "../../../.design-sync/docs/field.md",
+    "FieldContent": "../../../.design-sync/docs/field.md",
+    "FieldLabel": "../../../.design-sync/docs/field.md",
+    "FieldTitle": "../../../.design-sync/docs/field.md",
+    "FieldDescription": "../../../.design-sync/docs/field.md",
+    "FieldSeparator": "../../../.design-sync/docs/field.md",
+    "FieldError": "../../../.design-sync/docs/field.md",
+    "Select": "../../../.design-sync/docs/select.md",
+    "SelectTrigger": "../../../.design-sync/docs/select.md",
+    "SelectValue": "../../../.design-sync/docs/select.md",
+    "SelectContent": "../../../.design-sync/docs/select.md",
+    "SelectItem": "../../../.design-sync/docs/select.md",
+    "SelectGroup": "../../../.design-sync/docs/select.md",
+    "SelectLabel": "../../../.design-sync/docs/select.md",
+    "SelectSeparator": "../../../.design-sync/docs/select.md",
+    "SelectScrollUpButton": "../../../.design-sync/docs/select.md",
+    "SelectScrollDownButton": "../../../.design-sync/docs/select.md",
+    "SimpleSelect": "../../../.design-sync/docs/simple-select.md",
+    "Questionnaire": "../../../.design-sync/docs/questionnaire.md",
+    "QuestionnaireProgress": "../../../.design-sync/docs/questionnaire.md",
+    "QuestionnaireItem": "../../../.design-sync/docs/questionnaire.md",
+    "QuestionnaireTitle": "../../../.design-sync/docs/questionnaire.md",
+    "QuestionnaireDescription": "../../../.design-sync/docs/questionnaire.md",
+    "QuestionnaireChoices": "../../../.design-sync/docs/questionnaire.md",
+    "QuestionnaireChoice": "../../../.design-sync/docs/questionnaire.md",
+    "QuestionnaireChoiceDescription": "../../../.design-sync/docs/questionnaire.md",
+    "QuestionnaireInput": "../../../.design-sync/docs/questionnaire.md",
+    "QuestionnaireError": "../../../.design-sync/docs/questionnaire.md",
+    "QuestionnaireActions": "../../../.design-sync/docs/questionnaire.md",
+    "QuestionnairePrevious": "../../../.design-sync/docs/questionnaire.md",
+    "QuestionnaireNext": "../../../.design-sync/docs/questionnaire.md",
+    "QuestionnaireSkip": "../../../.design-sync/docs/questionnaire.md",
+    "QuestionnaireSubmit": "../../../.design-sync/docs/questionnaire.md",
+    "Table": "../../../.design-sync/docs/table.md",
+    "TableHeader": "../../../.design-sync/docs/table.md",
+    "TableBody": "../../../.design-sync/docs/table.md",
+    "TableFooter": "../../../.design-sync/docs/table.md",
+    "TableHead": "../../../.design-sync/docs/table.md",
+    "TableRow": "../../../.design-sync/docs/table.md",
+    "TableCell": "../../../.design-sync/docs/table.md",
+    "TableCaption": "../../../.design-sync/docs/table.md",
+    "ChartContainer": "../../../.design-sync/docs/chart.md",
+    "ChartStyle": "../../../.design-sync/docs/chart.md",
+    "ChartTooltip": "../../../.design-sync/docs/chart.md",
+    "ChartTooltipContent": "../../../.design-sync/docs/chart.md",
+    "ChartLegend": "../../../.design-sync/docs/chart.md",
+    "ChartLegendContent": "../../../.design-sync/docs/chart.md",
+    "Dialog": "../../../.design-sync/docs/dialog.md",
+    "DialogTrigger": "../../../.design-sync/docs/dialog.md",
+    "DialogPortal": "../../../.design-sync/docs/dialog.md",
+    "DialogClose": "../../../.design-sync/docs/dialog.md",
+    "DialogOverlay": "../../../.design-sync/docs/dialog.md",
+    "DialogContent": "../../../.design-sync/docs/dialog.md",
+    "DialogHeader": "../../../.design-sync/docs/dialog.md",
+    "DialogFooter": "../../../.design-sync/docs/dialog.md",
+    "DialogTitle": "../../../.design-sync/docs/dialog.md",
+    "DialogDescription": "../../../.design-sync/docs/dialog.md"
+  },
+  "extraFonts": [
+    "../../../.design-sync/fonts/fonts.css"
+  ],
+  "overrides": {
+    "Dialog": {
+      "cardMode": "single",
+      "viewport": "760x520"
+    },
+    "Table": {
+      "cardMode": "column"
+    },
+    "ChartContainer": {
+      "cardMode": "single"
+    },
+    "GridCard": {
+      "cardMode": "column"
+    },
+    "DoseDialog": {
+      "cardMode": "single",
+      "viewport": "760x560"
+    },
+    "NewPatientForm": {
+      "cardMode": "single",
+      "viewport": "820x700"
+    },
+    "QuestionSetsEditor": {
+      "cardMode": "single",
+      "viewport": "820x420"
+    },
+    "QuestionnaireCard": {
+      "cardMode": "single"
+    },
+    "PushToggle": {
+      "skip": [
+        "SemInscricao",
+        "ComInscricao"
+      ]
+    },
+    "Collapsible": {
+      "cardMode": "column"
+    },
+    "Empty": {
+      "cardMode": "column"
+    },
+    "Item": {
+      "cardMode": "column"
+    },
+    "Separator": {
+      "cardMode": "column"
+    },
+    "Tabs": {
+      "cardMode": "column"
+    },
+    "AlertsCard": {
+      "cardMode": "column"
+    },
+    "EpisodeCard": {
+      "cardMode": "column"
+    },
+    "MedicationsCard": {
+      "cardMode": "column"
+    },
+    "RespondentsCard": {
+      "cardMode": "column"
+    },
+    "RoutineCard": {
+      "cardMode": "column"
+    },
+    "InviteAccept": {
+      "cardMode": "column"
+    },
+    "Alert": {
+      "cardMode": "column"
+    },
+    "Field": {
+      "cardMode": "column"
+    },
+    "Card": {
+      "cardMode": "column"
+    },
+    "DialogFooter": {
+      "cardMode": "single",
+      "viewport": "700x420"
+    },
+    "SelectGroup": {
+      "cardMode": "single",
+      "viewport": "520x560"
+    },
+    "TableCell": {
+      "cardMode": "column"
+    },
+    "TableHead": {
+      "cardMode": "column"
+    },
+    "TableCaption": {
+      "cardMode": "column"
+    },
+    "FieldSeparator": {
+      "cardMode": "column"
+    },
+    "QuestionnaireActions": {
+      "cardMode": "column"
+    }
+  },
+  "extraEntries": [
+    "recharts"
+  ],
+  "readmeHeader": ".design-sync/conventions.md"
+}
