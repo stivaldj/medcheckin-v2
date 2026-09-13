@@ -468,6 +468,8 @@ export interface PatientRow {
   condition_tags: string[];
   timezone: string;
   status: 'active' | 'paused' | 'discharged';
+  /** D28 — preenchido só pela anonimização. Alta também grava `discharged`; não use o status. */
+  anonymized_at: Date | string | null;
   checkin_time: string;
   quiet_start: string;
   quiet_end: string;

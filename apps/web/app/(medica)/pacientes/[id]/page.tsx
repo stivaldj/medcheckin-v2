@@ -133,11 +133,7 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
             />
             <RespondentsCard patientId={p.id} respondents={detail.respondents} />
           </div>
-          <LgpdActions
-            patientId={p.id}
-            patientName={p.name}
-            discharged={p.status === 'discharged'}
-          />
+          <LgpdActions patientId={p.id} patientName={p.name} anonymizedAt={p.anonymized_at} />
         </TabsContent>
       </Tabs>
     </div>

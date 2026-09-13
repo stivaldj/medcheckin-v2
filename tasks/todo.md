@@ -1,3 +1,43 @@
+# D28 — Anonimizar depois da alta + hook de pre-push (13/09)
+
+**Bug:** a anonimização grava `status = 'discharged'`, e a tela esconde "Anonimizar" quando o
+status é `discharged`. Como "Dar alta" grava o mesmo status, paciente com alta perde o botão —
+justamente o perfil que mais pede exclusão (LGPD art. 18). O servidor aceitaria; só a UI bloqueia.
+
+**Decisão (dono, 13/09):** opção A — registrar a anonimização num campo próprio.
+
+## LGPD (`fix/lgpd-anonimizar-apos-alta`)
+
+- [x] 1. Teste que falha: paciente com alta (não anonimizado) tem `anonymized_at` nulo; anonimizar
+      grava a data; reanonimizar preserva a primeira data.
+- [x] 2. Migration `010_patient_anonymized_at`: coluna `anonymized_at timestamptz null` + backfill
+      dos já anonimizados (nome `Paciente anonimizado %` → `updated_at`).
+- [x] 3. `anonymizePatient` grava `anonymized_at` com `coalesce` (idempotente).
+- [x] 4. `PatientRow.anonymized_at` no `index.d.ts`.
+- [x] 5. `LgpdActions`: prop `anonymizedAt` no lugar de `discharged`; mostra "Anonimizado em DD/MM/AAAA".
+- [x] 6. Página do paciente passa `anonymizedAt={p.anonymized_at}`.
+- [x] 7. Preview do design-sync atualizado (histórias: em acompanhamento / com alta / anonimizado).
+- [x] 8. D28 no `DECISOES.md`.
+- [x] 9. `npm run check` verde com Postgres local.
+- [x] 10. Extra: teste de migration que prova o backfill (falha com o backfill desligado) e
+      asserção no E2E `lgpd.spec.ts` (data aparece, botão some) — E2E rodado localmente, passou.
+
+## Hook de pre-push (`chore/pre-push-hook`)
+
+- [x] 1. `.githooks/pre-push` roda `npm run check`; se o Postgres dos testes não responder, para com
+      a instrução de subir o container.
+- [x] 2. `prepare` no `package.json` aponta `core.hooksPath` para `.githooks` (Dockerfiles usam
+      `--ignore-scripts`, então o build não é afetado).
+- [x] 3. README: como funciona e como pular (`--no-verify`).
+- [x] 4. Provar: push com check verde passa; push com erro de lint é barrado.
+
+Feito no PR #29. Provas (remoto local descartável): erro de lint → barrado · Postgres desligado →
+barrado com `ECONNREFUSED` e o comando para subir · check verde → passa · push que só apaga
+branch → não roda o check. Uma execução isolada falhou logo após religar o banco (suíte de 8
+testes da web pulada); não reproduziu em 3 tentativas — o hook falhou para o lado seguro.
+
+---
+
 # Fatia 1 — Tokens e primitivos (design pass "Instrumento")
 
 Direção aprovada no protótipo navegável (25/08). Aditiva: nenhum `data-testid` muda,

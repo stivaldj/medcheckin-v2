@@ -13,6 +13,7 @@ import { symptomDoseSeries } from '../src/analytics/series.js';
 import { patientReport } from '../src/report/patientReport.js';
 import { exportPatientData, buildExportZip } from '../src/lgpd/export.js';
 import { anonymizePatient } from '../src/lgpd/anonymize.js';
+import { updatePatient } from '../src/patients/index.js';
 import { applyRetention } from '../src/lgpd/retention.js';
 
 const TODAY = DateTime.utc().setZone('America/Cuiaba').startOf('day');
@@ -372,5 +373,36 @@ describe('LGPD — export, anonimização, retenção', () => {
     const p = await db('patients').where({ id: fx.p1.id }).first();
     expect(p.name).not.toContain('Sintético');
     expect(p.birth_date).toBeNull();
+  });
+});
+
+// Banco próprio: o describe acima anonimiza p1 e p2 em testes anteriores, e este precisa de um
+// paciente que recebeu alta mas nunca foi anonimizado.
+describe('D28 — alta não é anonimização', () => {
+  let db, fx, doctor;
+  beforeAll(async () => {
+    db = await freshDb();
+    fx = await seedFixture(db);
+    ({ doctor } = await scenario(db, fx));
+  });
+  afterAll(async () => db.destroy());
+
+  it('D28: alta NÃO é anonimização — paciente com alta continua anonimizável, e a data da 1ª anonimização fica', async () => {
+    // "Dar alta" e "anonimizar" gravam o mesmo status; só anonymized_at distingue os dois.
+    await updatePatient(db, doctor, fx.p2.id, { status: 'discharged' }, AT('09:00'));
+    const comAlta = await db('patients').where({ id: fx.p2.id }).first();
+    expect(comAlta.status).toBe('discharged');
+    expect(comAlta.anonymized_at).toBeNull();
+
+    await anonymizePatient(db, doctor, fx.p2.id, { reason: 'pedido após a alta' }, AT('10:00'));
+    const anon = await db('patients').where({ id: fx.p2.id }).first();
+    expect(anon.name).toMatch(/^Paciente anonimizado /);
+    expect(anon.anonymized_at).not.toBeNull();
+    const primeira = new Date(anon.anonymized_at).getTime();
+
+    // idempotente: repetir não reescreve quando aconteceu
+    await anonymizePatient(db, doctor, fx.p2.id, { reason: 'repetido' }, AT('11:00'));
+    const denovo = await db('patients').where({ id: fx.p2.id }).first();
+    expect(new Date(denovo.anonymized_at).getTime()).toBe(primeira);
   });
 });
