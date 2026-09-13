@@ -3,3 +3,7 @@ node_modules
 dist
 coverage
 package-lock.json
+
+# Entradas do design-sync (claude.ai/design): o conteúdo desses arquivos entra no hash que decide
+# o que reverificar num re-sync. Reformatar reabriria a verificação de todos os previews.
+.design-sync
