@@ -73,8 +73,8 @@ Ficam no floor card ou mostram o estado real de erro; não é defeito do preview
 
 ## Inconsistências do app observadas durante o sync (não corrigidas aqui)
 
-- `RespondentsCard` e `InviteAccept` usam `<input type="checkbox">` cru em vez do `Checkbox` do
-  DS — aparecem como caixas azuis nativas, fora do tema.
+- `InviteAccept` usa `<input type="checkbox">` cru em vez do `Checkbox` do DS. (O
+  `RespondentsCard` tinha o mesmo problema e foi corrigido no #25.)
 - `LgpdActions` mostra "Anonimizar" apenas quando `discharged` é **falso**. Vale confirmar se é
   intencional; a leitura natural de um fluxo LGPD seria o contrário.
 
@@ -93,5 +93,14 @@ Ficam no floor card ou mostram o estado real de erro; não é defeito do preview
 - **Projeto:** "MedCheck-in v2 Design System" (`projectId` em `config.json`). Primeiro upload
   completo em 2026-09-13: 549 arquivos, âncora `_ds_sync.json` gravada por último. Re-syncs
   buscam essa âncora e pulam o que não mudou.
+- **Mudança no componente não reabre a nota do preview.** A verificação só reagenda um card
+  quando o `.tsx` do preview ou o config mudam. Se o *componente* muda (como o `RespondentsCard`
+  no #25), o driver marca `upload.bundle: true`, mas `pendingGrade` vem vazio — a nota antiga
+  continua valendo em silêncio. Depois de mudar componentes com preview autorado, recapture-os
+  com `--spot-check-components <nomes>` e confira o sheet antes de subir.
+- **Os scripts do conversor vêm de um diretório temporário do Claude Code** que some quando o
+  CLI atualiza. `.ds-sync/` (gitignored) guarda a cópia usada; se ele também sumir, rode
+  `/design-sync` para reobter os scripts — o `scriptsSha` da âncora muda e tudo é reverificado
+  uma vez.
 - 78 componentes seguem no floor card (sub-partes compostas e os quatro dependentes de backend).
   Autorar previews para eles é incremental: qualquer re-sync aproveita o que já está gravado.
