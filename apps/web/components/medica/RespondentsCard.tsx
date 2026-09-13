@@ -5,6 +5,7 @@ import { api, ApiError } from '@/lib/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -166,22 +167,17 @@ export function RespondentsCard({
               </Button>
             </div>
             <div className="mt-2 flex gap-4 text-xs">
-              <label className="flex items-center gap-1">
-                <input
-                  type="checkbox"
-                  checked={r.can_answer}
-                  onChange={() => toggle(r, 'can_answer')}
-                />{' '}
+              <Label className="gap-1 text-xs font-normal">
+                <Checkbox checked={r.can_answer} onCheckedChange={() => toggle(r, 'can_answer')} />{' '}
                 responde check-ins
-              </label>
-              <label className="flex items-center gap-1">
-                <input
-                  type="checkbox"
+              </Label>
+              <Label className="gap-1 text-xs font-normal">
+                <Checkbox
                   checked={r.receives_alarms}
-                  onChange={() => toggle(r, 'receives_alarms')}
+                  onCheckedChange={() => toggle(r, 'receives_alarms')}
                 />{' '}
                 recebe alarmes
-              </label>
+              </Label>
             </div>
           </div>
         ))}
