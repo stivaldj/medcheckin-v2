@@ -11,6 +11,9 @@ export default tseslint.config(
       '**/dist/**',
       '**/coverage/**',
       '**/next-env.d.ts',
+      // Saída gerada pelo design-sync (claude.ai/design); fora do git.
+      'ds-bundle/**',
+      '.ds-sync/**',
     ],
   },
   js.configs.recommended,
