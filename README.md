@@ -29,7 +29,11 @@ Login de dev: `medica@medcheckin.test` (seed). Convite de respondente (PWA): abr
 Scheduler: `npm run dev:scheduler` (ciclo a cada 60 s; `node apps/scheduler/src/index.js --once` roda um ciclo). Web Push exige `VAPID_*` no `.env`.
 E2E: `npm run test:e2e` (Playwright; usa `DATABASE_URL_TEST`).
 
-`npm run check` é obrigatório verde em todo PR (CI roda com service Postgres).
+`npm run check` é obrigatório verde em todo push. Quem garante isso é o hook de pre-push
+(`.githooks/pre-push`), instalado automaticamente pelo `npm ci`/`npm install` — o CI do GitHub não
+roda neste repositório. O hook exige o Postgres no ar (`docker compose up -d db mailpit`) e cancela
+o push se o check falhar. Numa emergência, `git push --no-verify` pula a verificação; rode
+`npm run check` logo em seguida.
 
 ## Regras
 
