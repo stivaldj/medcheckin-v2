@@ -24,12 +24,17 @@ justamente o perfil que mais pede exclusão (LGPD art. 18). O servidor aceitaria
 
 ## Hook de pre-push (`chore/pre-push-hook`)
 
-- [ ] 1. `.githooks/pre-push` roda `npm run check`; se o Postgres dos testes não responder, para com
+- [x] 1. `.githooks/pre-push` roda `npm run check`; se o Postgres dos testes não responder, para com
       a instrução de subir o container.
-- [ ] 2. `prepare` no `package.json` aponta `core.hooksPath` para `.githooks` (Dockerfiles usam
+- [x] 2. `prepare` no `package.json` aponta `core.hooksPath` para `.githooks` (Dockerfiles usam
       `--ignore-scripts`, então o build não é afetado).
-- [ ] 3. README: como funciona e como pular (`--no-verify`).
-- [ ] 4. Provar: push com check verde passa; push com erro de lint é barrado.
+- [x] 3. README: como funciona e como pular (`--no-verify`).
+- [x] 4. Provar: push com check verde passa; push com erro de lint é barrado.
+
+Feito no PR #29. Provas (remoto local descartável): erro de lint → barrado · Postgres desligado →
+barrado com `ECONNREFUSED` e o comando para subir · check verde → passa · push que só apaga
+branch → não roda o check. Uma execução isolada falhou logo após religar o banco (suíte de 8
+testes da web pulada); não reproduziu em 3 tentativas — o hook falhou para o lado seguro.
 
 ---
 
