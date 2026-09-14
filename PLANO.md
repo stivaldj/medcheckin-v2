@@ -681,6 +681,10 @@ $ cd packages/core && node ../../scripts/pilot-report.mjs --from 2026-08-18 --to
 
 ### E11 — WhatsApp "responda no app" (opcional, após E10) `[ ]`
 
+### E12 — Prontuário da consulta + importação agêntica do histórico `[ ]`
+
+Intenção registrada em 2026-09-14, ainda sem spec. A médica escreve o prontuário da consulta na página do paciente e pode **subir o histórico** (prontuários, pacientes, consultas antigas); um **agente** lê o material e já insere pacientes, medicações, doses e condutas no sistema, para revisão da médica antes de valer. Depende de decisões próprias: formato de entrada, LGPD do material subido, revisão humana obrigatória do que o agente inseriu. Pré-requisito já atendido pela feature "medicação por nome" (spec em `docs/superpowers/specs/2026-09-14-medicacao-por-nome-design.md`): find-or-create de produto no core, com dedupe por `name_key`, que o agente reaproveita.
+
 ## Log de progresso
 
 | Data       | Etapa | Evento                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
