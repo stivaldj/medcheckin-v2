@@ -30,6 +30,10 @@ celular / navegador ──HTTPS──▶ Tailscale Funnel ──▶ [seu PC · W
   Escolha uma vez e não mexa.
 - **Você é o operador dos dados de saúde** (LGPD art. 11). Criptografia do disco (parte 1) e backup
   fora do PC (parte 6) não são opcionais com paciente real.
+- **Windows sem atualização de segurança é risco.** O suporte do Windows 10 terminou em out/2025
+  (versões antigas, como a 21H2, antes disso). O app fica exposto na internet pelo Funnel e guarda
+  dado de saúde: confira a versão (`winver`) e **registre por escrito** se o piloto aceita esse risco
+  — ou use um PC com sistema suportado (ESU do Windows 10, Windows 11 ou Linux).
 
 Cada parte termina com **✅ Confira**: não siga para a próxima sem ver o resultado esperado.
 
@@ -70,7 +74,9 @@ Tudo daqui em diante roda **dentro do Ubuntu** (abra "Ubuntu" no menu Iniciar), 
    `wsl --version` precisa responder (é a versão da Microsoft Store, que suporta systemd). Anote o nome
    exato da distribuição em `wsl -l -v` (ex.: `Ubuntu` ou `Ubuntu-22.04`) — ele é usado na parte 3.
 
-2. **Ligue o systemd** no Ubuntu:
+2. **Ligue o systemd** no Ubuntu. Primeiro veja se já está ligado (versões novas do Ubuntu no WSL
+   já vêm assim): `systemctl is-system-running` respondendo `running` ou `degraded` → pule para o
+   passo 3. Senão:
 
    ```bash
    sudo tee /etc/wsl.conf >/dev/null <<'EOF'
@@ -172,44 +178,67 @@ Limite do Gmail: ~500 e-mails por dia. Para o piloto sobra.
 
 ## Parte 7 — Arquivo `.env.prod`
 
+Os segredos vão **direto para o arquivo**, sem aparecer na tela: terminal rolado, print e histórico
+de conversa não podem guardar senha do banco nem chave privada.
+
 No Ubuntu, dentro de `~/medcheckin`:
 
-```bash
-# gera segredos (anote a senha do banco e a passphrase no gerenciador de senhas)
-echo "POSTGRES_PASSWORD=$(openssl rand -base64 24 | tr -d '/+=')"
-docker run --rm node:22-alpine sh -c "npm i -g web-push >/dev/null 2>&1 && web-push generate-vapid-keys"
-```
+1. **Gere os segredos** (cria o arquivo só com permissão sua):
 
-Crie `~/medcheckin/.env.prod` (troque tudo que está entre `< >`):
+   ```bash
+   cd ~/medcheckin && umask 077
+   v=$(docker run --rm node:22-alpine sh -c "npx -y web-push@3 generate-vapid-keys --json 2>/dev/null")
+   {
+     echo "POSTGRES_PASSWORD=$(openssl rand -base64 24 | tr -d '/+=')"
+     echo "BACKUP_PASSPHRASE=$(openssl rand -base64 36 | tr -d '/+=')"
+     echo "VAPID_PUBLIC_KEY=$(printf '%s' "$v" | sed -n 's/.*"publicKey": *"\([^"]*\)".*/\1/p')"
+     echo "VAPID_PRIVATE_KEY=$(printf '%s' "$v" | sed -n 's/.*"privateKey": *"\([^"]*\)".*/\1/p')"
+   } > .env.prod
+   unset v
+   ```
 
-```ini
-POSTGRES_PASSWORD=<gerada acima>
-APP_BASE_URL=https://medcheckin.<nome-da-rede>
-# exigido pelo compose de produção; em casa o Caddy não usa
-DOMAIN=:80
+   ✅ **Confira sem mostrar os valores** — cada linha tem que dar `1`:
 
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=465
-SMTP_USER=<conta>@gmail.com
-SMTP_PASS=<senha de app, 16 letras>
-EMAIL_FROM="MedCheck-in <conta@gmail.com>"   # mesma conta do SMTP_USER; mantenha as aspas
+   ```bash
+   for k in POSTGRES_PASSWORD BACKUP_PASSPHRASE VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY; do echo "$k: $(grep -c "^$k=.\{20,\}$" .env.prod)"; done
+   ```
 
-VAPID_PUBLIC_KEY=<gerada acima>
-VAPID_PRIVATE_KEY=<gerada acima>
-VAPID_SUBJECT=mailto:<conta>@gmail.com
+2. **Guarde fora do PC** a `POSTGRES_PASSWORD` e a `BACKUP_PASSPHRASE`: abra o arquivo **você mesmo**
+   (`nano .env.prod`), copie as duas para o gerenciador de senhas e feche sem alterar. Sem a
+   passphrase o backup é inútil — inclusive para você.
 
-TS_AUTHKEY=<chave da parte 4>
-TS_HOSTNAME=medcheckin
+3. **Complete o resto** com `nano .env.prod`, acrescentando no fim (troque tudo que está entre `< >`).
+   A senha de app do Gmail e a chave do Tailscale você digita aqui — não cole em chat, e-mail ou print:
 
-BACKUP_HOST_DIR=/mnt/c/Users/<você>/Sync/medcheckin-backups
-BACKUP_PASSPHRASE=<frase longa>
+   ```ini
+   APP_BASE_URL=https://medcheckin.<nome-da-rede>
+   # exigido pelo compose de produção; em casa o Caddy não usa
+   DOMAIN=:80
 
-APP_VERSION=<saída de: git rev-parse --short HEAD>
-```
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=465
+   SMTP_USER=<conta>@gmail.com
+   SMTP_PASS=<senha de app, 16 letras SEM os espaços que o Google mostra>
+   EMAIL_FROM="MedCheck-in <conta@gmail.com>"   # mesma conta do SMTP_USER; mantenha as aspas
 
-```bash
-chmod 600 .env.prod
-```
+   VAPID_SUBJECT=mailto:<conta>@gmail.com
+
+   TS_AUTHKEY=<chave da parte 4>
+   TS_HOSTNAME=medcheckin
+
+   BACKUP_HOST_DIR=/mnt/c/Users/<você>/Sync/medcheckin-backups
+
+   APP_VERSION=<saída de: git rev-parse --short HEAD>
+   ```
+
+   ✅ **Confira sem mostrar os valores** — nenhum texto de exemplo pode sobrar e todas as chaves precisam
+   existir:
+
+   ```bash
+   grep -cE '<(conta|senha|chave|nome-da-rede|você|saída)' .env.prod   # tem que dar 0 (nenhum exemplo esquecido)
+   for k in APP_BASE_URL DOMAIN SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASS EMAIL_FROM VAPID_SUBJECT TS_AUTHKEY TS_HOSTNAME BACKUP_HOST_DIR APP_VERSION; do grep -q "^$k=." .env.prod && echo "ok $k" || echo "FALTA $k"; done
+   ls -l .env.prod         # -rw------- (só você lê)
+   ```
 
 ## Parte 8 — Subir
 
