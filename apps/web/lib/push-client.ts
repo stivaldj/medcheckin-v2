@@ -11,7 +11,7 @@ export type PushResult =
   | { ok: true }
   | {
       ok: false;
-      reason: 'unsupported' | 'denied' | 'taken' | 'unavailable' | 'error';
+      reason: 'unsupported' | 'denied' | 'dismissed' | 'taken' | 'unavailable' | 'error';
       message?: string;
     };
 
@@ -35,11 +35,17 @@ export function registerServiceWorker() {
 export async function subscribePush(): Promise<PushResult> {
   if (!pushSupported()) return { ok: false, reason: 'unsupported' };
   try {
+    // iPhone: o pedido de permissão precisa sair DIRETO do toque. Qualquer `await` antes dele
+    // (registrar o SW, buscar a chave) faz o iOS ignorar o pedido em silêncio. Por isso é a
+    // primeira chamada — e esta função tem de ser chamada sem espera no handler do clique.
+    const perm = await Notification.requestPermission();
+    // "default" = a pessoa fechou o pedido ou o sistema não mostrou: dá para tentar de novo.
+    // "denied" = recusou; só os ajustes do celular liberam.
+    if (perm === 'denied') return { ok: false, reason: 'denied' };
+    if (perm !== 'granted') return { ok: false, reason: 'dismissed' };
     await registerServiceWorker();
     const { publicKey } = await api<{ publicKey: string }>('/api/p/vapid');
     const reg = await navigator.serviceWorker.ready;
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') return { ok: false, reason: 'denied' };
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: b64ToUint8(publicKey),
