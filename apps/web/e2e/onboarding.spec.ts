@@ -182,6 +182,12 @@ test.describe.serial('PROVA E9.3 — primeiro acesso guiado', () => {
     await expect(p.getByTestId('setup-browser')).toContainText('Safari');
     await p.getByTestId('setup-browser-skip').click();
     await expect(p.getByTestId('setup-install-ios')).toContainText('Adicionar à Tela de Início');
+    // Bug do teste real (14/09): esta tela não tinha como seguir. Agora explica o próximo passo,
+    // o que fazer se o ícone abrir o Safari de novo, e dá uma saída honesta.
+    await expect(p.getByTestId('setup-diag')).toContainText('ios · navegador');
+    await p.getByTestId('setup-install-ios-added').click();
+    await expect(p.getByTestId('setup-install-ios-help')).toContainText('abriu o Safari de novo');
+    await expect(p.getByTestId('setup-skip-push')).toContainText('sem os avisos');
     await expect(p.getByTestId('setup-progress')).toHaveText('Passo 3 de 5');
     await p.setViewportSize({ width: 390, height: 844 });
     await p.screenshot({ path: 'test-results/onboarding-iphone-instalar.png', fullPage: true });
@@ -197,6 +203,7 @@ test.describe.serial('PROVA E9.3 — primeiro acesso guiado', () => {
     // entrou sozinho, sem termo. O app da tela inicial é OUTRO aparelho para o navegador: a
     // inscrição do Android não vale aqui → pede os avisos deste aparelho, continuando a conta.
     await expect(ap.getByTestId('setup-notify')).toBeVisible();
+    await expect(ap.getByTestId('setup-diag')).toContainText('ios · app');
     await expect(ap.getByTestId('setup-progress')).toHaveText('Passo 4 de 5');
     await expect(ap.getByTestId('setup-consent')).toHaveCount(0);
     await ap.getByTestId('setup-notify-go').click();
@@ -216,6 +223,14 @@ test.describe.serial('PROVA E9.3 — primeiro acesso guiado', () => {
     }
     await cel.close();
     await app.close();
+  });
+
+  test('sem sessão na ajuda: erro explica e "Tentar de novo" — nunca tela sem saída', async ({
+    page,
+  }) => {
+    await page.goto('/p/ajuda');
+    await expect(page.getByTestId('setup-error')).toContainText('QR code da clínica');
+    await expect(page.getByTestId('setup-retry')).toBeVisible();
   });
 
   test('celular compartilhado: médica marca → card vira "usa o celular de outra pessoa" → desfaz', async ({

@@ -110,10 +110,11 @@ export function SetupWizard(props: Props) {
   const installPrompt = useRef<InstallPromptEvent | null>(null);
   const [canPromptInstall, setCanPromptInstall] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [iosAdded, setIosAdded] = useState(false);
 
   // --- passo "notify"
   const [notifyProblem, setNotifyProblem] = useState<
-    null | 'denied' | 'unsupported' | 'taken' | 'unavailable' | 'error'
+    null | 'denied' | 'dismissed' | 'unsupported' | 'taken' | 'unavailable' | 'error'
   >(null);
 
   // --- passo "test"
@@ -348,7 +349,12 @@ export function SetupWizard(props: Props) {
   const who = props.mode === 'invite' ? props.name : (today?.respondent.name ?? '');
 
   if (step === 'loading' && error) {
-    body = null; // a mensagem de erro (abaixo) explica o que fazer
+    // Nunca beco sem saída: o erro (abaixo) explica e este botão tenta de novo.
+    body = (
+      <Button className={big} onClick={() => window.location.reload()} data-testid="setup-retry">
+        Tentar de novo
+      </Button>
+    );
   } else if (step === 'loading') {
     body = (
       <div className="space-y-3" aria-busy="true">
@@ -577,6 +583,39 @@ export function SetupWizard(props: Props) {
           <p className="rounded-xl bg-muted/60 p-4 text-base">
             O app vai abrir já com o seu nome e continuar daqui. Não precisa aceitar de novo.
           </p>
+          {!iosAdded ? (
+            <Button
+              className={big}
+              variant="outline"
+              onClick={() => setIosAdded(true)}
+              data-testid="setup-install-ios-added"
+            >
+              Já coloquei na tela inicial
+            </Button>
+          ) : (
+            <div
+              className="space-y-3 rounded-xl border p-4 text-base"
+              data-testid="setup-install-ios-help"
+            >
+              <p>
+                Agora <strong>feche o Safari</strong> e toque no ícone <strong>MedCheck-in</strong>{' '}
+                da tela do celular. É por lá que os avisos funcionam no iPhone.
+              </p>
+              <p>
+                <strong>O ícone abriu o Safari de novo nesta mesma tela?</strong> Apague o ícone
+                (segure o dedo nele → Remover), repita os passos acima e, se aparecer a opção de
+                abrir como app, deixe ligada.
+              </p>
+              <Button
+                variant="ghost"
+                className="h-11 w-full text-muted-foreground"
+                onClick={() => router.push('/p/hoje')}
+                data-testid="setup-skip-push"
+              >
+                Continuar sem os avisos (os lembretes não vão chegar)
+              </Button>
+            </div>
+          )}
         </Screen>
       );
     } else {
@@ -637,7 +676,13 @@ export function SetupWizard(props: Props) {
     body = (
       <Screen
         testId="setup-notify"
-        title={notifyProblem === 'denied' ? 'Os avisos foram bloqueados' : 'Ative os avisos'}
+        title={
+          notifyProblem === 'denied'
+            ? 'Os avisos foram bloqueados'
+            : notifyProblem === 'dismissed'
+              ? 'O pedido não apareceu'
+              : 'Ative os avisos'
+        }
         actions={
           <>
             {notifyProblem !== 'taken' && notifyProblem !== 'unavailable' && (
@@ -655,6 +700,12 @@ export function SetupWizard(props: Props) {
           </>
         }
       >
+        {notifyProblem === 'dismissed' && (
+          <p data-testid="setup-dismissed">
+            O celular não mostrou o pedido, ou ele foi fechado. Toque em “Tentar de novo” e, quando
+            aparecer a pergunta, escolha <strong>Permitir</strong>.
+          </p>
+        )}
         {!notifyProblem && (
           <>
             <p>É assim que chegam os lembretes de medicação e o check-in do dia.</p>
@@ -875,6 +926,17 @@ export function SetupWizard(props: Props) {
       )}
       {body}
       {errorBox}
+      {/* Diagnóstico discreto: num print, mostra o que o celular informou (sem dado pessoal). */}
+      {info && (
+        <p
+          className="pt-4 text-center font-mono text-[11px] text-muted-foreground/70"
+          data-testid="setup-diag"
+        >
+          {info.platform} · {standalone ? 'app' : 'navegador'}
+          {info.embedded ? ` (${info.embedded})` : ''} · aviso:{' '}
+          {typeof Notification !== 'undefined' ? Notification.permission : 'sem suporte'} · {step}
+        </p>
+      )}
     </div>
   );
 }
