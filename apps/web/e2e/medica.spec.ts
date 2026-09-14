@@ -51,8 +51,10 @@ test.describe('PROVA E4 — médica: cadastrar paciente → convidar cuidador �
     await page.getByRole('button', { name: 'Criar convite' }).click();
     await expect(page.getByTestId('respondents-card')).toContainText('Avó E2E');
 
-    // 5. medicação: sem dose vigente → ajustar dose → dose vigente
+    // 5. medicação: sem dose vigente → ajustar dose → dose vigente (D34: digita o nome do
+    // produto já cadastrado no seed e confirma)
     await expect(page.getByTestId('medications-card')).toContainText('Nenhuma medicação.');
+    await page.getByTestId('product-input').fill('Óleo Full Spectrum CBD 50mg/ml');
     await page.getByTestId('add-medication').click();
     const med = page.getByTestId('medication').first();
     await expect(med.getByTestId('current-dose')).toContainText('Sem dose vigente');
