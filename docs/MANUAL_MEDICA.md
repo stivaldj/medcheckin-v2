@@ -136,13 +136,15 @@ Abaixo, a página tem duas abas: **O caso** (para ler) e **A configuração** (p
 - **Novo período**: **Início**, **Fim (opcional)** e os **Alarmes (horário + o que tomar)** — um horário por linha, escrito do jeito que a família entende. **Adicionar horário** inclui outra linha (até 12 por período; horários não podem se repetir).
 - **Replicar período**: copia os horários e textos do período vigente para o próximo intervalo; você edita o que mudou antes de salvar. O período atual fica intacto.
 - **Encerrar hoje**: o período vigente termina hoje. A partir de amanhã, sem outro período, **os alarmes param**.
-- **Próximos períodos**: os já marcados para o futuro, cada um com **Editar**.
+- **Editar** (no período vigente): corrige horários, textos e a data de fim. O **início** de um período que já começou fica fixo — é o registro do que valeu nos dias passados. Corrigir o texto de um horário que já tocou hoje **não** manda o lembrete de novo.
+- **Apagar**: aparece só em período que não deixou rastro — os futuros, ou o que começou **hoje** e ainda não mandou nenhum lembrete (o caso "criei errado agora há pouco"). Período que já mandou lembrete fica no histórico: use **Editar** ou **Encerrar hoje**.
+- **Próximos períodos**: os já marcados para o futuro, cada um com **Editar** e **Apagar**.
 - **Quem recebe**: cada pessoa marcada para receber alarmes, com o estado — _"convite não aceito"_, _"push ativo"_ ou _"sem push no aparelho"_. Se ninguém estiver marcado, o card avisa que os avisos não saem.
 
 Detalhes que evitam susto:
 
-- **Dois períodos não podem se sobrepor.** Se o período atual não tem fim, use **Encerrar hoje** (ou crie o novo a partir do dia seguinte ao fim) antes de salvar outro — senão o sistema recusa com _"Já existe um período de rotina cobrindo essas datas"_.
-- O período vigente não se edita; só os futuros. Para mudar a rotina, **Replicar período** e ajuste os textos, ou **Encerrar hoje** e crie um **Novo período** a partir de amanhã.
+- **Dois períodos não podem se sobrepor.** Se tentar, o sistema diz **com qual período bateu** e o caminho: para mudar a rotina de hoje, **Editar** o vigente; para trocar a rotina, **Encerrar hoje** e criar o novo **a partir de amanhã** (encerrar hoje ainda cobre o dia de hoje).
+- Para mudar só o que vale **hoje em diante** sem perder o histórico dos dias anteriores, **Editar** o vigente. Para registrar uma fase nova (ex.: dose mudou), **Replicar período** ou **Encerrar hoje** + **Novo período** a partir de amanhã.
 - **Atraso máximo do lembrete (opcional)**: se o sistema ficar fora do ar, um lembrete atrasado além desse tempo não é mais enviado (em branco, 60 minutos). E um lembrete nunca é enviado depois que o horário da dose seguinte já chegou — assim ninguém recebe o aviso da manhã à noite e toma dose dobrada.
 - Ao criar ou replicar um período, a caixa **houve ajuste do óleo? registrar a dose estruturada em seguida** abre o **Ajustar dose** logo depois de salvar.
 

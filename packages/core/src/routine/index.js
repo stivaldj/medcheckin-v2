@@ -73,13 +73,46 @@ function periodPatch(input, { partial }) {
 
 const OVERLAP = 'routine_periods_no_overlap';
 
-function mapDbError(err) {
-  if (String(err?.constraint) === OVERLAP)
-    return new ValidationError(
-      'Já existe um período de rotina cobrindo essas datas. Encerre ou ajuste o período anterior.',
-      'starts_on',
-    );
-  return err;
+const br = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : null);
+
+/**
+ * Sobreposição vira mensagem que resolve: diz COM QUAL período bateu e o caminho. Antes, "encerre
+ * ou ajuste o anterior" levava a médica a encerrar hoje e bater de novo (fim = hoje ainda cobre hoje).
+ */
+async function mapDbError(err, db, { patientId, startsOn, endsOn, excludeId = null } = {}) {
+  if (String(err?.constraint) !== OVERLAP) return err;
+  let quem = '';
+  if (db && patientId && startsOn) {
+    const q = db('routine_periods')
+      .where({ patient_id: patientId })
+      .andWhere((w) => w.whereNull('ends_on').orWhere('ends_on', '>=', startsOn));
+    if (endsOn) q.andWhere('starts_on', '<=', endsOn);
+    if (excludeId) q.whereNot('id', excludeId);
+    const other = await q.orderBy('starts_on').first();
+    if (other)
+      quem = ` (${br(isoDate(other.starts_on))} → ${br(isoDate(other.ends_on)) ?? 'sem fim'})`;
+  }
+  return new ValidationError(
+    `Já existe um período de rotina cobrindo essas datas${quem}. Para mudar a rotina de hoje, use ` +
+      '“Editar” no período vigente. Para trocar a rotina, encerre o atual hoje e comece o novo amanhã.',
+    'starts_on',
+  );
+}
+
+function todayFor(patient, now) {
+  return toDT(now)
+    .setZone(patient.timezone || 'UTC')
+    .toISODate();
+}
+
+/** Algum lembrete deste período já saiu? (prova durável do envio = notifications, D18) */
+async function periodHasSentAlarms(db, periodId) {
+  const row = await db('notifications')
+    .where({ kind: 'alarm' })
+    .whereNotNull('sent_at')
+    .whereRaw("payload->>'period_id' = ?", [periodId])
+    .first('id');
+  return !!row;
 }
 
 async function loadPeriod(db, id) {
@@ -106,9 +139,27 @@ async function withAlarms(db, period) {
   };
 }
 
+/**
+ * Grava a lista de alarmes PRESERVANDO o id de cada horário que continua. O dedup do lembrete é
+ * `routine:<alarm_id>:<dia>:<respondente>` (D18): recriar a linha trocaria o id e o lembrete que já
+ * saiu hoje sairia de novo — num lembrete de medicação, isso é convite a dose dobrada.
+ */
 async function writeAlarms(trx, periodId, alarms) {
-  await trx('routine_alarms').where({ period_id: periodId }).del();
-  await trx('routine_alarms').insert(alarms.map((a) => ({ ...a, period_id: periodId })));
+  const existing = await trx('routine_alarms').where({ period_id: periodId });
+  const byTime = new Map(existing.map((a) => [toHm(a.time), a]));
+  const keep = new Set();
+  for (const a of alarms) {
+    const old = byTime.get(toHm(a.time));
+    if (old) {
+      keep.add(old.id);
+      if (old.description !== a.description)
+        await trx('routine_alarms').where({ id: old.id }).update({ description: a.description });
+    } else {
+      await trx('routine_alarms').insert({ ...a, period_id: periodId });
+    }
+  }
+  const gone = existing.filter((a) => !keep.has(a.id)).map((a) => a.id);
+  if (gone.length) await trx('routine_alarms').whereIn('id', gone).del();
 }
 
 /** Cria um período com seus alarmes. `replicated_from` só registra a origem — os textos vêm do input. */
@@ -143,7 +194,11 @@ export async function createRoutinePeriod(db, session, patientId, input, now) {
     await logAccess(db, { session, patientId, route: 'routine.create', action: 'create' }, now);
     return withAlarms(db, period);
   } catch (err) {
-    throw mapDbError(err);
+    throw await mapDbError(err, db, {
+      patientId,
+      startsOn: patch.starts_on,
+      endsOn: patch.ends_on ?? null,
+    });
   }
 }
 
@@ -151,12 +206,27 @@ export async function createRoutinePeriod(db, session, patientId, input, now) {
 export async function updateRoutinePeriod(db, session, periodId, input, now) {
   requireDoctor(session);
   const current = await loadPeriod(db, periodId);
-  await requirePatientInClinic(db, session, current.patient_id);
+  const patient = await requirePatientInClinic(db, session, current.patient_id);
   const patch = periodPatch(input, { partial: true });
   const startsOn = patch.starts_on ?? isoDate(current.starts_on);
   const endsOn = Object.hasOwn(patch, 'ends_on') ? patch.ends_on : isoDate(current.ends_on);
   if (endsOn && endsOn < startsOn)
     throw new ValidationError('O fim do período não pode ser antes do início.', 'ends_on');
+  // D33: período que já começou se edita (horários, textos, fim), mas o passado não se reescreve.
+  const today = todayFor(patient, now);
+  if (isoDate(current.starts_on) <= today) {
+    if (startsOn !== isoDate(current.starts_on))
+      throw new ValidationError(
+        'O início de um período que já começou não muda: ele registra a rotina que valeu nos dias ' +
+          'passados. Para trocar a partir de amanhã, encerre hoje e crie um novo período.',
+        'starts_on',
+      );
+    if (endsOn && endsOn < today)
+      throw new ValidationError(
+        'O fim não pode ficar antes de hoje. Para parar os alarmes, use “Encerrar hoje”.',
+        'ends_on',
+      );
+  }
   const alarms = Object.hasOwn(input ?? {}, 'alarms') ? normalizeAlarms(input.alarms) : null;
   if (!Object.keys(patch).length && !alarms) throw new ValidationError('Nada para atualizar.');
   try {
@@ -175,8 +245,42 @@ export async function updateRoutinePeriod(db, session, periodId, input, now) {
     );
     return withAlarms(db, period);
   } catch (err) {
-    throw mapDbError(err);
+    throw await mapDbError(err, db, {
+      patientId: current.patient_id,
+      startsOn,
+      endsOn,
+      excludeId: periodId,
+    });
   }
+}
+
+/**
+ * Apaga um período que não deixou rastro (D33): futuro, ou que começou hoje sem nenhum lembrete
+ * enviado — o caso "criei errado agora há pouco". Quem já valeu em algum dia fica: é o registro do
+ * que o paciente recebeu; para esse, "Encerrar hoje".
+ */
+export async function deleteRoutinePeriod(db, session, periodId, now) {
+  requireDoctor(session);
+  const current = await loadPeriod(db, periodId);
+  const patient = await requirePatientInClinic(db, session, current.patient_id);
+  const today = todayFor(patient, now);
+  const starts = isoDate(current.starts_on);
+  if (starts < today)
+    throw new ValidationError(
+      'Este período já valeu em dias passados e fica no histórico. Para parar os alarmes, use “Encerrar hoje”.',
+    );
+  if (starts === today && (await periodHasSentAlarms(db, periodId)))
+    throw new ValidationError(
+      'Este período já mandou lembrete hoje e fica no histórico. Use “Editar” para corrigir os ' +
+        'horários ou “Encerrar hoje” para parar.',
+    );
+  await db('routine_periods').where({ id: periodId }).del();
+  await logAccess(
+    db,
+    { session, patientId: current.patient_id, route: 'routine.delete', action: 'delete' },
+    now,
+  );
+  return { deleted: true };
 }
 
 /** Encerra o período hoje (fuso do paciente). Alarmes param sozinhos a partir de amanhã. */
@@ -237,6 +341,16 @@ export async function listRoutine(db, session, patientId, { now } = {}) {
     .filter((p) => p.starts_on > today)
     .sort((a, b) => (a.starts_on < b.starts_on ? -1 : 1));
   const past = periods.filter((p) => p.ends_on && p.ends_on < today);
+  // O que a tela pode oferecer em cada período — a regra mora aqui, não na UI (D33).
+  for (const p of periods) {
+    const started = p.starts_on <= today;
+    const isPast = !!p.ends_on && p.ends_on < today;
+    p.actions = {
+      edit: !isPast,
+      delete: !started || (p.starts_on === today && !(await periodHasSentAlarms(db, p.id))),
+      end_today: started && !isPast && (!p.ends_on || p.ends_on > today),
+    };
+  }
 
   const respondents = await db('respondents')
     .where({ patient_id: patientId, receives_alarms: true })

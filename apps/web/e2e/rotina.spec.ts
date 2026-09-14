@@ -121,4 +121,79 @@ test.describe('rotina de alarmes por período', () => {
     expect(Number(forPatient!.count)).toBe(1); // nada novo depois do fim do período
     expect(tomorrow.no_respondent).toBe(0);
   });
+
+  // Bug do teste real (14/09): período criado errado ficava preso — sem editar o vigente, sem
+  // apagar, e o novo começando hoje batia na sobreposição. D33.
+  test('período errado criado hoje: editar o vigente → apagar → criar outro hoje; depois de enviar, apagar some', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    const clinic = await db('clinics').first();
+    const doctor = await db('users').first();
+    const [p] = await db('patients')
+      .insert({
+        clinic_id: clinic.id,
+        name: 'Paciente Rotina Errada',
+        timezone: TZ,
+        created_by: doctor.id,
+      })
+      .returning('id');
+    await db('respondents').insert({
+      patient_id: p.id,
+      kind: 'patient',
+      name: 'Paciente Rotina Errada',
+      invite_token: 'e2e-rotina-errada',
+      accepted_at: new Date(),
+    });
+
+    await loginAsDoctor(context, baseURL!);
+    page.on('dialog', (d) => d.accept());
+    await page.goto(`/pacientes/${p.id}`);
+    await abrirConfiguracao(page);
+    const card = page.getByTestId('routine-card');
+    const current = card.getByTestId('routine-current');
+
+    // 1. cria errado, começando hoje
+    await card.getByTestId('routine-new').click();
+    await page.getByLabel('Início').fill(iso(0));
+    await page.getByTestId('routine-time-0').fill('23:30');
+    await page.getByTestId('routine-desc-0').fill('texto errado');
+    await page.getByTestId('routine-new-submit').click();
+    await expect(current).toContainText('texto errado');
+
+    // 2. edita o vigente: início travado, texto corrigido
+    await card.getByTestId('routine-edit-current').click();
+    await expect(page.getByLabel('Início')).toBeDisabled();
+    await page.getByTestId('routine-desc-0').fill('texto certo');
+    await page.getByTestId('routine-edit-current-submit').click();
+    await expect(current).toContainText('texto certo');
+
+    // 3. apaga (começou hoje, nada enviado) e cria outro começando hoje
+    const { id: periodId } = await db('routine_periods').where({ patient_id: p.id }).first();
+    await card.getByTestId(`routine-delete-${periodId}`).click();
+    await expect(current).toContainText('Nenhum período vigente');
+    await card.getByTestId('routine-new').click();
+    await page.getByLabel('Início').fill(iso(0));
+    await page.getByTestId('routine-time-0').fill('00:01');
+    await page.getByTestId('routine-desc-0').fill('rotina nova de hoje');
+    await page.getByTestId('routine-new-submit').click();
+    await expect(current).toContainText('rotina nova de hoje');
+
+    // 4. saiu um lembrete → "Apagar" some (fica no histórico); sobreposição explica o caminho
+    await dispatchDueRoutineAlarms(db, TODAY.set({ hour: 0, minute: 5 }).toJSDate(), {
+      notifier: fakeNotifier,
+      maxLateMin: Infinity,
+    });
+    await page.reload();
+    await abrirConfiguracao(page);
+    const { id: novoId } = await db('routine_periods').where({ patient_id: p.id }).first();
+    await expect(card.getByTestId(`routine-delete-${novoId}`)).toHaveCount(0);
+    await card.getByTestId('routine-new').click();
+    await page.getByLabel('Início').fill(iso(0));
+    await page.getByTestId('routine-time-0').fill('09:00');
+    await page.getByTestId('routine-desc-0').fill('outra');
+    await page.getByTestId('routine-new-submit').click();
+    await expect(page.getByRole('dialog')).toContainText('“Editar” no período vigente');
+  });
 });

@@ -169,6 +169,8 @@ export interface RoutinePeriod {
   replicated_from: string | null;
   created_at: Date | string;
   alarms: RoutineAlarm[];
+  /** D33 — o que a tela pode oferecer (presente em listRoutine). */
+  actions?: { edit: boolean; delete: boolean; end_today: boolean };
 }
 export interface RoutineRecipient {
   id: string;
@@ -208,6 +210,12 @@ export function updateRoutinePeriod(
   input: Partial<RoutinePeriodInput> | Record<string, unknown>,
   now?: Instant,
 ): Promise<RoutinePeriod>;
+export function deleteRoutinePeriod(
+  db: Knex,
+  session: Session,
+  periodId: string,
+  now?: Instant,
+): Promise<{ deleted: true }>;
 export function endRoutinePeriodToday(
   db: Knex,
   session: Session,
@@ -228,8 +236,16 @@ export function routineAlarmsForDay(
 export function dispatchDueRoutineAlarms(
   db: Knex,
   now: Instant,
-  opts: { notifier: Notifier },
-): Promise<{ due: number; sent: number; failed: number; duplicate: number; no_respondent: number }>;
+  /** `maxLateMin`: teto de atraso em minutos (P2-3/D27); `Infinity` desliga — só para teste. */
+  opts: { notifier: Notifier; maxLateMin?: number },
+): Promise<{
+  due: number;
+  sent: number;
+  failed: number;
+  duplicate: number;
+  no_respondent: number;
+  stale: number;
+}>;
 
 export interface CycleSummary {
   at: string;
