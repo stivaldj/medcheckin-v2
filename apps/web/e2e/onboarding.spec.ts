@@ -14,6 +14,8 @@ import { abrirConfiguracao, loginAsDoctor } from './helpers';
 const UA = {
   android:
     'Mozilla/5.0 (Linux; Android 14; SM-A546E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.71 Mobile Safari/537.36',
+  iosChrome:
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/126.0.6478.54 Mobile/15E148 Safari/604.1',
   iosInstagram:
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 339.0.3.12.91 (iPhone15,2; iOS 17_5; pt_BR; pt; scale=3.00; 1179x2556; 626245312)',
 };
@@ -223,6 +225,37 @@ test.describe.serial('PROVA E9.3 — primeiro acesso guiado', () => {
     }
     await cel.close();
     await app.close();
+  });
+
+  // Bug do teste real (14/09): QR aberto no Chrome do iPhone → "Abra no Safari" só com "Copiar o
+  // link", sem continuar; colado de novo no mesmo navegador, voltava ao começo em loop. Desde o
+  // iOS 16.4 outros navegadores também instalam na Tela de Início — não há por que travar.
+  test('iPhone no Chrome: não trava em "Abra no Safari"; vai direto para instalar, com dica do Chrome', async ({
+    browser,
+  }) => {
+    const cel = await browser.newContext({ userAgent: UA.iosChrome });
+    const p = await cel.newPage();
+    await p.goto('/p/convite/seed-p1');
+    await p.getByTestId('accept').click();
+    await expect(p.getByTestId('setup-install-ios')).toBeVisible();
+    await expect(p.getByTestId('setup-needs-safari')).toHaveCount(0);
+    await expect(p.getByTestId('setup-install-ios')).toContainText('três pontinhos');
+    await expect(p.getByTestId('setup-install-ios-chrome')).toContainText('Chrome');
+    await cel.close();
+  });
+
+  test('link dentro de outro app: "Já estou no Safari, continuar" é botão visível e avisa para não colar no mesmo app', async ({
+    browser,
+  }) => {
+    const cel = await browser.newContext({ userAgent: UA.iosInstagram });
+    const p = await cel.newPage();
+    await p.goto('/p/convite/seed-p1');
+    await p.getByTestId('accept').click();
+    await expect(p.getByTestId('setup-browser')).toContainText('não no Instagram');
+    const skip = p.getByTestId('setup-browser-skip');
+    await expect(skip).toBeVisible();
+    await expect(skip).toHaveClass(/border/);
+    await cel.close();
   });
 
   test('sem sessão na ajuda: erro explica e "Tentar de novo" — nunca tela sem saída', async ({

@@ -474,8 +474,8 @@ export function SetupWizard(props: Props) {
               <CopyIcon /> {copied ? 'Link copiado!' : 'Copiar o link'}
             </Button>
             <Button
-              variant="ghost"
-              className="h-11 w-full text-muted-foreground"
+              variant="outline"
+              className="h-12 w-full text-base"
               onClick={async () => {
                 const semEmbutido = { ...info, embedded: null };
                 setInfo(semEmbutido);
@@ -503,7 +503,8 @@ export function SetupWizard(props: Props) {
                 Abra o <strong>Safari</strong> (a bússola azul).
               </Instruction>
               <Instruction n={3}>
-                Toque na barra de endereço, segure o dedo e escolha <strong>Colar e Ir</strong>.
+                Toque na barra de endereço, segure o dedo e escolha <strong>Colar e Ir</strong> — no
+                Safari, não no {app}. Se colar no mesmo lugar, esta tela volta.
               </Instruction>
             </>
           ) : (
@@ -515,7 +516,8 @@ export function SetupWizard(props: Props) {
                 Escolha <strong>Abrir no Chrome</strong> (ou “Abrir no navegador”).
               </Instruction>
               <Instruction n={3}>
-                Não achou? Toque em “Copiar o link” e cole no <strong>Chrome</strong>.
+                Não achou? Toque em “Copiar o link” e cole no <strong>Chrome</strong> — não no {app}
+                .
               </Instruction>
             </>
           )}
@@ -539,35 +541,27 @@ export function SetupWizard(props: Props) {
           </ol>
         </Screen>
       );
-    } else if (info.platform === 'ios' && info.needsSafari) {
-      body = (
-        <Screen
-          testId="setup-needs-safari"
-          title="Abra no Safari"
-          actions={
-            <Button className={big} onClick={copyLink} data-testid="setup-copy">
-              <CopyIcon /> {copied ? 'Link copiado!' : 'Copiar o link'}
-            </Button>
-          }
-        >
-          <p>No iPhone, o jeito mais simples de instalar é pelo Safari.</p>
-          <ol className="space-y-5">
-            <Instruction n={1}>Toque em “Copiar o link”.</Instruction>
-            <Instruction n={2} icon={<CompassIcon className="size-7" />}>
-              Abra o <strong>Safari</strong> (a bússola azul).
-            </Instruction>
-            <Instruction n={3}>
-              Toque na barra de endereço, segure e escolha <strong>Colar e Ir</strong>.
-            </Instruction>
-          </ol>
-        </Screen>
-      );
     } else if (info.platform === 'ios') {
       body = (
         <Screen testId="setup-install-ios" title="Coloque o app na tela inicial">
+          {/* Chrome/Firefox/Edge no iPhone também instalam na Tela de Início (iOS 16.4+) — travar
+              em "abra no Safari" gerava loop no teste real (14/09). */}
+          {info.needsSafari && (
+            <p
+              className="rounded-xl bg-muted/60 p-4 text-base"
+              data-testid="setup-install-ios-chrome"
+            >
+              Você está no <strong>Chrome</strong> (ou outro navegador): dá para instalar por aqui
+              mesmo. O botão Compartilhar fica <strong>ao lado do endereço</strong>, em cima. Se não
+              aparecer “Adicionar à Tela de Início”, abra este mesmo link no <strong>Safari</strong>
+              .
+            </p>
+          )}
           <ol className="space-y-6">
             <Instruction n={1} icon={<ShareIcon className="size-7" />}>
-              Toque no botão <strong>Compartilhar</strong>. Ele fica embaixo, no meio da tela.
+              Toque em <strong>Compartilhar</strong> (o quadrado com uma seta para cima), embaixo ou
+              em cima da tela. Não achou? Toque nos <strong>três pontinhos</strong> (⋯) e depois em{' '}
+              <strong>Compartilhar</strong>.
             </Instruction>
             <Instruction n={2} icon={<SquarePlusIcon className="size-7" />}>
               Role a lista para baixo e toque em <strong>Adicionar à Tela de Início</strong>.
