@@ -177,4 +177,21 @@ describe('pilotReport — E10: critérios de sucesso e de aborto escritos ANTES'
     expect(md).toContain('## Decisão');
     expect(md).toMatch(/ampliar|encerrar/i);
   });
+
+  // E9.3 — o aviso de teste do wizard é configuração, não lembrete: não entra na confiabilidade do push.
+  it('aviso de teste (kind test) não entra na taxa de entrega do piloto', async () => {
+    const base = { respondent_id: fx.r1.id, patient_id: fx.p1.id, kind: 'test', payload: '{}' };
+    await db('notifications').insert({
+      ...base,
+      dedup_key: 'test:pilot:1',
+      scheduled_at: AT('10:00', 0),
+      created_at: AT('10:00', 0),
+      failed_at: AT('10:01', 0),
+      attempts: 3,
+      error: 'fake',
+    });
+    const r = await run();
+    expect(r.reliability.push_delivery_rate).toBe(1);
+    await db('notifications').where({ kind: 'test' }).del();
+  });
 });

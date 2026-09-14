@@ -80,13 +80,16 @@ export async function shadowReport(db, { clinicId, from, to, now }) {
   const toJs = DateTime.fromISO(to, { zone: tz }).endOf('day').toUTC().toJSDate();
   const patientIds = await db('patients').where({ clinic_id: clinicId }).pluck('id');
 
-  const notif = patientIds.length
+  const allNotif = patientIds.length
     ? await db('notifications')
         .whereIn('patient_id', patientIds)
         .andWhere('created_at', '>=', fromJs)
         .andWhere('created_at', '<=', toJs)
         .select('kind', 'sent_at', 'failed_at', 'attempts')
     : [];
+  // E9.3: o aviso de teste do wizard é configuração, não lembrete — fica fora da taxa de entrega
+  // (um teste que falhou enquanto a pessoa ajustava o celular não diz nada sobre os lembretes).
+  const notif = allNotif.filter((n) => n.kind !== 'test');
   const sent = notif.filter((n) => n.sent_at).length;
   // falhas = tentativas que falharam antes de um reenvio (attempts-1) + falhas sem sucesso final
   const failed = notif.reduce(
@@ -100,10 +103,10 @@ export async function shadowReport(db, { clinicId, from, to, now }) {
     delivery_rate: ratio(sent, sent + failed),
     by_kind: {},
   };
-  for (const k of ['checkin', 'alarm', 'alert'])
+  for (const k of ['checkin', 'alarm', 'alert', 'test'])
     push.by_kind[k] = {
-      sent: notif.filter((n) => n.kind === k && n.sent_at).length,
-      failed: notif.filter((n) => n.kind === k && n.failed_at && !n.sent_at).length,
+      sent: allNotif.filter((n) => n.kind === k && n.sent_at).length,
+      failed: allNotif.filter((n) => n.kind === k && n.failed_at && !n.sent_at).length,
     };
 
   const cks = patientIds.length
