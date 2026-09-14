@@ -74,6 +74,15 @@ export default async function ConfiguracoesPage() {
             <p className="mt-2 text-xs text-muted-foreground">
               Acesso por link mágico no e-mail. Não há senha.
             </p>
+            <p className="mt-3">
+              <Link
+                href="/configuracoes/guia"
+                className="font-medium underline underline-offset-4"
+                data-testid="doctor-guide-link"
+              >
+                Guia da médica (passo a passo, imprimível)
+              </Link>
+            </p>
           </CardContent>
         </Card>
         <Card data-testid="system-card">

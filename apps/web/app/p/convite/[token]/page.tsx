@@ -1,9 +1,23 @@
-import { InviteAccept } from '@/components/pwa/InviteAccept';
+import type { Metadata } from 'next';
+import { SetupWizard } from '@/components/pwa/setup/SetupWizard';
 import { getDb } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-/** Mostra para quem é o convite (sem dados clínicos) e o termo; o aceite acontece no cliente. */
+/**
+ * E9.3: o manifest desta página é o do convite. Instalado daqui, o app da tela inicial do iPhone
+ * (que não enxerga o cookie do Safari) abre no próprio convite e entra sozinho.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}): Promise<Metadata> {
+  const { token } = await params;
+  return { manifest: `/p/convite/${encodeURIComponent(token)}/manifest.webmanifest` };
+}
+
+/** Mostra para quem é o convite (sem dados clínicos) e conduz a configuração do celular. */
 export default async function ConvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const r = await getDb()('respondents as r')
@@ -14,16 +28,17 @@ export default async function ConvitePage({ params }: { params: Promise<{ token:
     .first();
   if (!r) {
     return (
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Convite inválido</h1>
-        <p className="text-sm text-muted-foreground">
-          Este link não é válido ou foi substituído. Peça um novo link à clínica.
+      <div className="space-y-3" data-testid="invite-invalid">
+        <h1 className="text-2xl font-semibold">Este link não vale mais</h1>
+        <p className="text-[17px] leading-relaxed text-muted-foreground">
+          Ele foi trocado ou digitado errado. Peça à clínica um QR code novo.
         </p>
       </div>
     );
   }
   return (
-    <InviteAccept
+    <SetupWizard
+      mode="invite"
       token={token}
       name={r.name}
       kind={r.kind}

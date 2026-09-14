@@ -64,7 +64,9 @@ describe('migrations — latest → seed → rollback total → latest', () => {
     await db.raw('drop schema public cascade; create schema public');
     await db.migrate.latest(migrationConfig);
     await runSeed(db, { reset: true });
-    await db.migrate.down(migrationConfig); // volta para antes da 010
+    // Volta para antes da 010 — desfazendo também as que vieram depois (011+), uma por vez.
+    for (let i = 0; i < 20 && (await db.schema.hasColumn('patients', 'anonymized_at')); i += 1)
+      await db.migrate.down(migrationConfig);
     expect(await db.schema.hasColumn('patients', 'anonymized_at')).toBe(false);
 
     const [anon, alta] = await db('patients').orderBy('created_at').limit(2);

@@ -1,4 +1,5 @@
 import { toDT } from '../time.js';
+import { dispatchPushTests } from '../onboarding/index.js';
 import { planCheckins, expireCheckins } from './planner.js';
 import { dispatchDueCheckins } from '../checkin/engine.js';
 import { dispatchDueRoutineAlarms } from './routineAlarms.js';
@@ -48,6 +49,8 @@ export async function runCycle(db, now, { notifier, force = false, maxLateMin } 
   // E9.1/D15: os alarmes nascem da rotina por período (routine_alarms). `medication_intakes`
   // está deprecado (D17) — a tabela fica para histórico, mas nada novo é criado.
   const alarms = await dispatchDueRoutineAlarms(db, nowDT, { notifier, maxLateMin });
+  // E9.3: testes de aviso pedidos pelo wizard (a chave VAPID privada fica só aqui).
+  const pushTests = await dispatchPushTests(db, nowDT, { notifier });
 
   let alerts = null;
   const lastRaw =
@@ -81,6 +84,7 @@ export async function runCycle(db, now, { notifier, force = false, maxLateMin } 
     expired,
     dispatch,
     alarms,
+    push_tests: pushTests,
     alerts,
     retention,
   };

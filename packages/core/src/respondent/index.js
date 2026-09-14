@@ -6,6 +6,7 @@ import { recordAnswer, getNextQuestion } from '../checkin/engine.js';
 import { conditionSatisfied } from '../checkin/engine.js';
 import { routineAlarmsForDay } from '../routine/index.js';
 import { questionsForPatient } from '../questions/patientQuestions.js';
+import { setupStatus } from '../onboarding/index.js';
 
 function requireRespondent(session) {
   if (!session || session.kind !== 'respondent')
@@ -24,6 +25,9 @@ async function loadRespondent(db, session) {
       'r.can_answer',
       'r.receives_alarms',
       'r.consent_version',
+      'r.accepted_at',
+      'r.install_confirmed_at',
+      'r.push_test_confirmed_at',
       'p.id as patient_id',
       'p.name as patient_name',
       'p.timezone',
@@ -144,6 +148,7 @@ export async function respondentToday(db, session, now) {
     checkin,
     alarms,
     push: { subscriptions: Number(count) },
+    setup: setupStatus(r, Number(count)),
     now: nowDT.toISO(),
   };
 }

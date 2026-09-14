@@ -16,8 +16,8 @@ Aparelhos a cobrir (checklist de push abaixo): Android + Chrome, iPhone + Safari
 ## Preparação (dia 0)
 
 1. Deploy remoto (`docs/DEPLOY.md`) concluído: `https://DOMAIN/api/health` 200; scheduler ativo; monitor de uptime apontado; backup rodou 1× e `restore-drill.sh` OK.
-2. Médica entra por link mágico; cria os "pacientes" com respondentes; envia os links de convite (WhatsApp manual serve).
-3. Cada participante abre o link, aceita o termo, **ativa notificações** e (iOS) instala o PWA na tela inicial. Marcar no checklist abaixo o resultado por aparelho.
+2. Médica entra por link mágico; cria os "pacientes" com respondentes (guia em `/configuracoes/guia`).
+3. Cada participante lê o **QR code** do card Respondentes (ou recebe por **Enviar por WhatsApp**) e segue o wizard até **"Tudo pronto!"**. A médica só libera quando o card mostra os 4 ✓ (Convite aceito · App instalado · Avisos ativos · Teste confirmado). Marcar no checklist abaixo o resultado por aparelho.
 4. Médica monta a rotina de alarmes (período + horário + texto livre) e registra a primeira dose de cada "paciente" (abre titulação diária); confere `/hoje` → "Próximos envios".
 5. Observador zera o relatório: `node scripts/shadow-report.mjs --from <dia1> --to <dia7>` já responde (tudo "sem dado").
 
@@ -46,6 +46,22 @@ Aparelhos a cobrir (checklist de push abaixo): Android + Chrome, iPhone + Safari
 | Desktop · Firefox (opcional)                |                      |                                 |                        |                        |             |
 
 Se iOS falhar sistematicamente: registrar em ACHADOS e priorizar E11 (WhatsApp "responda no app").
+
+## Prova no aparelho do primeiro acesso guiado (E9.3) — dia 0
+
+O E2E prova o wizard em Chromium com push simulado; **isto aqui só um celular de verdade prova**. Um participante por plataforma, sem ajuda de quem conhece o app (observar, não conduzir):
+
+| #   | Passo                                                                                         | iPhone (iOS ≥ 16.4) | Android · Chrome |
+| --- | --------------------------------------------------------------------------------------------- | ------------------- | ---------------- |
+| 1   | Câmera lê o QR → abre no Safari/Chrome (não num navegador embutido)                           |                     |                  |
+| 2   | Link aberto **pelo WhatsApp** → wizard mostra "Abra no Safari/Chrome" com o nome do app       |                     |                  |
+| 3   | Instalar na tela inicial seguindo só as instruções da tela                                    |                     |                  |
+| 4   | **Abrir pelo ícone → entra já logado, sem pedir o termo de novo** (risco principal do iPhone) |                     | n/a              |
+| 5   | "Permitir" notificações → teste de aviso chega **com a tela bloqueada**                       |                     |                  |
+| 6   | Card da médica mostra os 4 ✓ (no Android, "App instalado" só vira ✓ ao abrir pelo ícone)      |                     |                  |
+| 7   | Tempo total do QR ao "Tudo pronto!" (min) · travou em algum passo? onde?                      |                     |                  |
+
+Qualquer "não" nas linhas 4 ou 5 = critério de aborto do shadow run (o lembrete não chegaria).
 
 ## Rotina diária
 

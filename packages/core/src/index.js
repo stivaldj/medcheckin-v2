@@ -89,6 +89,15 @@ export {
   removePushSubscription,
 } from './push/index.js';
 export { respondentToday, respondentHistory, answerFromRespondent } from './respondent/index.js';
+export {
+  requestPushTest,
+  dispatchPushTests,
+  pushTestStatus,
+  confirmPushTest,
+  markInstalled,
+  setupStatus,
+  PUSH_TEST_MAX_AGE_MIN,
+} from './onboarding/index.js';
 export { getSystemState, setSystemState, STATE_KEYS, resetCycleState } from './scheduler/cycle.js';
 export { dashboardToday } from './dashboard/today.js';
 export { symptomDoseSeries } from './analytics/series.js';

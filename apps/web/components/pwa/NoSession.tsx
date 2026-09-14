@@ -8,8 +8,8 @@ export function NoSession() {
       </div>
       <h1 className="text-lg font-semibold tracking-tight">Sessão não encontrada</h1>
       <p className="max-w-[32ch] text-sm text-muted-foreground">
-        Abra o link de convite que a clínica enviou para você. Ele conecta este aparelho ao
-        acompanhamento.
+        Leia de novo o QR code da clínica ou abra o link que ela mandou pelo WhatsApp. Ele conecta
+        este celular ao acompanhamento.
       </p>
     </div>
   );

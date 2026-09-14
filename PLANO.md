@@ -564,6 +564,88 @@ $ npm run test:e2e → 11 passed (34.5s)
 
 **Fora do escopo, registrado em ACHADOS.md:** extras sempre no fim, sem condição nem peso de score; convivência do preset de adesão com um pack que ganhe a pergunta depois.
 
+### E9.3 — Primeiro acesso guiado (wizard + guias) `[x]` (repositório; prova no aparelho = dia 0 do shadow run)
+
+**Por quê (dono, 13/09):** 3 pessoas sem nenhuma familiaridade com tecnologia — 1 médica, 1 paciente, 1 cuidador que **mora junto e usa o mesmo celular**. Aparelho desconhecido → iPhone **e** Android. Convite chega por **QR na consulta + WhatsApp**. Erro de instalação = alarme que nunca chega = sucesso falso.
+
+**Fatos do código hoje (verificados):**
+
+- Convite = link reutilizável `/p/convite/{token}`; a médica só tem "Copiar link" (`RespondentsCard`). Sem QR, sem botão WhatsApp.
+- Aceite cria sessão por cookie (180 dias). O manifest é estático com `start_url: /p/hoje`.
+- **Risco iPhone:** o app da Tela de Início tem cookies separados do Safari → abre em `/p/hoje` **sem sessão** → `NoSession` ("abra o link de convite"). Beco sem saída para leigo.
+- `PushToggle` pede permissão sem explicar antes; não há instrução de instalação, detecção de navegador embutido (Gmail/WhatsApp/Instagram) nem notificação de teste.
+- `push_subscriptions.endpoint` é único e não troca de dono (P2-4) → **um celular = uma conta com push**. Paciente e cuidador no mesmo aparelho não recebem os dois.
+
+**Spec:**
+
+| Peça                            | Conteúdo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Celular compartilhado (D29)     | Um aparelho = **uma conta ativa** no app. Na página do paciente, ao convidar, a médica marca "usa o celular de outra pessoa da casa" → esse respondente fica sem convite próprio (`can_answer`/`receives_alarms` desligados) e a tela explica quem responde. Qual conta vai no aparelho: **decisão do dono** (recomendado: cuidador).                                                                                                                                                                                                                                                                                                             |
+| Convite (médica)                | Em `RespondentsCard`: **QR code** do link, botão **"Enviar por WhatsApp"** (`wa.me` com texto pronto, sem número salvo no servidor) e **"Imprimir guia com QR"** (1 página A4 com nome, QR, 4 passos com ilustração e o telefone da clínica).                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Wizard `/p/convite/{token}`     | Uma tela por passo, texto grande, um botão, barra "passo 2 de 6": **1** Boas-vindas · **2** Termo em linguagem simples (aceite atual) · **3** Navegador: detecta navegador embutido → "abra no Safari/Chrome" com ilustração e botão "copiar link" · **4** Instalar: iPhone (Compartilhar → Adicionar à Tela de Início, com imagens) / Android (botão `beforeinstallprompt`, ou menu ⋮) · **5** Notificações: explicação **antes** do pedido do sistema; negado → passo de conserto por plataforma · **6** Teste: servidor envia push de teste → "Chegou?" Sim grava confirmação / Não → conserto guiado. Fim: próximo alarme e próximo check-in. |
+| Login no app instalado (iPhone) | Manifest **por convite** em `/p/convite/{token}/manifest.webmanifest` com `start_url` = página do convite; aberta em modo `standalone` com convite já aceito → entra direto (sem nova tela de termo). Troca de link ("Novo link") invalida → mensagem "peça um novo QR à clínica".                                                                                                                                                                                                                                                                                                                                                                |
+| Estado de configuração          | Migration 011: `respondents.install_confirmed_at`, `push_test_sent_at`, `push_test_confirmed_at`. Página do paciente mostra por respondente: **Convite aceito · App instalado · Notificação ativa · Teste confirmado** (✓ ou "parou aqui"), nunca ✓ sem registro no servidor.                                                                                                                                                                                                                                                                                                                                                                     |
+| Ajuda contínua                  | Em `/p/hoje`: **"Ativar os avisos"** / **"Testar agora"** quando falta algo e **"testar de novo"** quando completo — levam a `/p/ajuda`, que refaz o passo que falta (implementado assim no lugar de um botão "Preciso de ajuda" genérico). `NoSession` ganha instrução "abra o QR/WhatsApp da clínica de novo".                                                                                                                                                                                                                                                                                                                                  |
+| Médica                          | Checklist do primeiro paciente em `/pacientes/{id}`: cadastrar → convidar → rotina de alarmes → perguntas e horário → **teste confirmado**. Some quando completo. Guia da médica imprimível (1 página) em `/configuracoes`.                                                                                                                                                                                                                                                                                                                                                                                                                       |
+
+**Não faz:** tour animado, vídeo, chat de suporte, SMS, WhatsApp automático (E11), conta dupla no mesmo aparelho.
+
+**RED planejado:**
+
+- `core/test/onboarding.test.js`: registrar teste de push só com envio real (`notifier` falha → `push_test_sent_at` nulo); confirmar exige sessão do próprio respondente; status por respondente (`accepted/installed/push/test`) derivado do banco; respondente "sem aparelho próprio" não entra no envio.
+- `web/test/manifest-invite.test.ts`: manifest por convite devolve `start_url` do convite; token inválido → 404.
+- `web/test/browser-detect.test.ts`: user agents de Gmail, WhatsApp, Instagram (iOS/Android) → `embedded`; Safari iOS / Chrome Android → `ok`.
+- E2E `onboarding.spec`: médica gera QR → abre o link → 6 passos → "Chegou? Sim" → página da médica mostra "Teste confirmado ✓"; e "Não" → tela de conserto.
+
+**Prova que só o aparelho dá (fica no roteiro do shadow run, `docs/SHADOW_RUN.md`):** iPhone real — QR pela Câmera → instalar → abrir pela Tela de Início **já logado** → push de teste chega com a tela bloqueada. Idem Android. Playwright não emula o cookie separado do iOS; não vou declarar isso provado sem o aparelho.
+
+**Decisão do dono (13/09):** no celular compartilhado, a conta que fica no aparelho é a do **cuidador** (D29).
+
+**RED (13/09, antes do código):**
+
+```
+$ npx vitest run test/onboarding.test.js            (core)
+Error: Cannot find module '../src/onboarding/index.js' imported from .../packages/core/test/onboarding.test.js
+ Test Files  1 failed (1) · Tests  no tests
+$ npx vitest run test/browser-detect.test.ts test/onboarding-api.test.ts   (web)
+Error: Cannot find module '../lib/browser-detect'
+Error: Cannot find module '../app/p/convite/[token]/manifest.webmanifest/route'
+Error: Cannot find module '../app/api/p/push-test/route'
+```
+
+**GREEN (14/09):**
+
+```
+$ npm run migrate → 011_onboarding.js (respondents.install_confirmed_at / push_test_confirmed_at; notifications.kind + 'test')
+$ npx vitest run test/onboarding.test.js → 11 passed
+   sem inscrição → no_subscription, nada enfileirado · só sessão de respondente · pedir 2× enquanto espera = 1 notificação ·
+   PROVA envio falhou → failed com motivo, confirmar recusado (not_sent), nada vira ✓ · falhou → pedido novo cria teste novo ·
+   enviado → "não" não grava, "sim" grava; outro respondente → not_found · parado > 10 min → failed "expirou", não envia atrasado ·
+   runCycle conta push_tests · markInstalled guarda a 1ª data · setupStatus (shared, inscrição revogada ≠ completo) ·
+   página do paciente e tela Hoje trazem setup
+$ npm run check → verde: eslint · prettier · tsc · core 183 (29 arquivos) · web 56 (11 arquivos)
+   novos no web: browser-detect (11: Gmail/Instagram/Facebook/WhatsApp/webview genérico → embutido; app da tela inicial do
+   iPhone NÃO é embutido; iOS < 16.4; Chrome no iPhone → Safari) · onboarding-api (manifest por convite 200/404,
+   push-test 400/201/waiting/409, installed) · invite (wa.me com DDI; sem número → escolher contato — escrito depois do código)
+$ npm run test:e2e → 16 passed (52.7s)
+   ✓ onboarding: médica vê QR + WhatsApp + checklist → paciente Android faz os 5 passos (manifest do convite no <head>) →
+     teste fica "enviando" até o scheduler rodar → "não chegou" mostra o conserto → "sim" → Tudo pronto → Hoje "Avisos
+     funcionando" → card da médica: aceito ✓ avisos ✓ teste ✓ e instalado SEM ✓ (não abriu pelo ícone) → 2 testes com sent_at
+   ✓ iPhone: link no Instagram → "Abra no Safari" → Tela de Início (Passo 3 de 5, sem botão continuar) → app pela start_url
+     entra SEM termo, pede os avisos DESTE aparelho (Passo 4 de 5) → teste → Tudo pronto; install_confirmed_at gravado
+   ✓ celular compartilhado: marcar → card "usa o celular de outra pessoa", sem QR → desfazer
+   ✓ guias imprimíveis (respondente com QR; médica a partir de Configurações)
+   ✓ respondente/medica specs ajustados ao wizard (aceite → "Configurar depois"; badge "configuração pendente")
+```
+
+Correções de raiz no caminho: o teste da migration 010 fazia `migrate.down` uma vez só (quebraria com qualquer migration nova) → agora desce até antes da 010; o termo v1 foi mantido **palavra por palavra** no wizard (mudar exige v2 + reaceite — ACHADOS).
+
+**Ambiente (14/09):** o disco do Mac encheu durante o E2E (ENOSPC) e travou o Docker Desktop; reiniciado com autorização do dono. As falhas de `medica`/`questionario` daquela rodada eram do disco — na rodada limpa, 16/16.
+
+**CI:** não roda — GitHub Actions bloqueado por cobrança da conta ("recent account payments have failed"), inclusive na `main`. Prova = local + hook de pre-push.
+
+**Fora do escopo, registrado em ACHADOS.md:** CI bloqueada por cobrança; 3 vulnerabilidades novas fora das exceções; teste noturno da rotina (correção em `feat/deploy-casa`); relatórios contando o teste de aviso na entrega de push.
+
 ### E10 — Piloto real `[~]` (instrumento pronto; a rodada depende do dono)
 
 Critério de sucesso e de aborto definidos antes. **Prova:** relatório final; decisão de ampliar.

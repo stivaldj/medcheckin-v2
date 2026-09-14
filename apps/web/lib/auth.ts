@@ -79,10 +79,13 @@ export function errorResponse(err: unknown): NextResponse {
     code === 'condition' ||
     code === 'unknown_question' ||
     code === 'closed' ||
-    code === 'forbidden'
+    code === 'forbidden' ||
+    code === 'no_subscription'
   ) {
     return NextResponse.json({ error: code, message }, { status: 400 });
   }
+  // E9.3: confirmar um teste de aviso que ainda não saiu — conflito de estado, não entrada inválida.
+  if (code === 'not_sent') return NextResponse.json({ error: code, message }, { status: 409 });
   if (code === 'validation') {
     const field = (err as { field?: string | null }).field ?? null;
     return NextResponse.json({ error: 'validation', message, field }, { status: 400 });

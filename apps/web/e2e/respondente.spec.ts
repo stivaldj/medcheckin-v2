@@ -43,13 +43,16 @@ test.describe('PWA do respondente', () => {
   test('aceite → hoje → lembretes SEM botões de confirmação → responde check-in inteiro (com adesão) → concluído → histórico; SW registrado', async ({
     page,
   }) => {
-    // 1. convite + consentimento
+    // 1. convite (wizard E9.3) + consentimento; os passos do celular ficam para depois aqui —
+    //    o caminho completo do wizard é provado em onboarding.spec.
     await page.goto('/p/convite/seed-c2');
     await expect(page.getByRole('heading', { name: /Olá, Cuidadora Sintética/ })).toBeVisible();
+    await page.getByTestId('setup-start').click();
     await expect(page.getByTestId('consent-text')).toContainText('Termo de consentimento (v1)');
     await expect(page.getByTestId('accept')).toBeDisabled();
     await page.getByTestId('agree').click();
     await page.getByTestId('accept').click();
+    await page.getByTestId('setup-later').click();
 
     // 2. hoje: cuidadora vê alarmes de P2 e o check-in
     await expect(page).toHaveURL(/\/p\/hoje$/);
@@ -120,8 +123,8 @@ test.describe('PWA do respondente', () => {
       return reg?.scope ?? null;
     });
     expect(swScope).toMatch(/\/p\/$/);
-    // headless: permissão de notificação costuma vir "denied"; qualquer estado do toggle é aceitável aqui
-    await expect(page.locator('[data-testid^="push-"]').first()).toBeVisible();
+    // sem avisos configurados, a tela Hoje diz o que falta e leva à ajuda (E9.3)
+    await expect(page.getByTestId('push-setup')).toContainText('não estão ativados');
 
     // 6. histórico
     await page.goto('/p/historico');

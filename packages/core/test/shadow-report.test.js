@@ -107,4 +107,43 @@ describe('shadowReport — métricas critério × resultado', () => {
       SHADOW_CRITERIA.every((c) => typeof c.threshold === 'number' && c.metric && c.label),
     ).toBe(true);
   });
+
+  // E9.3 — o aviso de teste do wizard é configuração, não lembrete: não entra na taxa de entrega.
+  it('aviso de teste (kind test) fica fora da "Entrega de push" e aparece separado em by_kind.test', async () => {
+    const args = {
+      clinicId: fx.clinic.id,
+      from: TODAY.minus({ days: 1 }).toISODate(),
+      to: TODAY.toISODate(),
+      now: AT('12:00'),
+    };
+    const antes = await shadowReport(db, args);
+    const base = { respondent_id: fx.r1.id, patient_id: fx.p1.id, kind: 'test', payload: '{}' };
+    await db('notifications').insert([
+      {
+        ...base,
+        dedup_key: 'test:shadow:1',
+        scheduled_at: AT('10:00'),
+        created_at: AT('10:00'),
+        failed_at: AT('10:01'),
+        attempts: 3,
+        error: 'fake',
+      },
+      {
+        ...base,
+        dedup_key: 'test:shadow:2',
+        scheduled_at: AT('10:05'),
+        created_at: AT('10:05'),
+        sent_at: AT('10:06'),
+      },
+    ]);
+    const depois = await shadowReport(db, args);
+    expect(depois.push).toMatchObject({
+      total: antes.push.total,
+      sent: antes.push.sent,
+      failed: antes.push.failed,
+      delivery_rate: antes.push.delivery_rate,
+    });
+    expect(depois.push.by_kind.test).toEqual({ sent: 1, failed: 1 });
+    await db('notifications').where({ kind: 'test' }).del();
+  });
 });

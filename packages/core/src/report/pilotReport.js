@@ -337,6 +337,8 @@ export async function pilotReport(
         .whereIn('patient_id', patientIds)
         .andWhere('created_at', '>=', fromJs)
         .andWhere('created_at', '<=', toJs)
+        // E9.3: aviso de teste do wizard é configuração, não lembrete — fora da confiabilidade.
+        .whereNot('kind', 'test')
         .select('sent_at', 'failed_at', 'attempts')
     : [];
   const pushSent = notif.filter((n) => n.sent_at).length;

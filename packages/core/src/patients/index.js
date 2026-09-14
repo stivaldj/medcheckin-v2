@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon';
+import { setupStatus, activeSubscriptionCounts } from '../onboarding/index.js';
 import { toDT } from '../time.js';
 import { newToken, AuthError } from '../auth/tokens.js';
 import { requirePatientInClinic, logAccess } from '../auth/access.js';
@@ -332,11 +333,18 @@ export async function patientGrid(db, patientId, { days = 14, now } = {}) {
 export async function getPatientDetail(db, session, patientId, { baseUrl = '', now } = {}) {
   requireDoctor(session);
   const patient = await requirePatientInClinic(db, session, patientId);
-  const respondents = (
-    await db('respondents').where({ patient_id: patientId }).orderBy('created_at')
-  ).map((r) => ({
+  const respondentRows = await db('respondents')
+    .where({ patient_id: patientId })
+    .orderBy('created_at');
+  const subs = await activeSubscriptionCounts(
+    db,
+    respondentRows.map((r) => r.id),
+  );
+  const respondents = respondentRows.map((r) => ({
     ...r,
     invite_url: `${String(baseUrl).replace(/\/$/, '')}/p/convite/${r.invite_token}`,
+    // E9.3: cada ✓ da configuração do celular vem de uma data gravada por evento real.
+    setup: setupStatus(r, subs.get(r.id) ?? 0),
   }));
   const meds = (await medicationsWithDose(db, [patientId], now)).get(patientId) ?? [];
   for (const m of meds) {
