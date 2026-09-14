@@ -40,6 +40,10 @@ export default defineConfig({
       SMTP_PORT: String(MAILPIT_SMTP),
       EMAIL_FROM: 'e2e@medcheckin.test',
       LOG_LEVEL: 'warn',
+      // Chave PÚBLICA VAPID só de teste (não é segredo): o wizard busca /api/p/vapid antes de
+      // assinar o push. Fixada aqui para o E2E não depender do .env de quem roda — na CI não há.
+      VAPID_PUBLIC_KEY:
+        'BLUhM2hi2AZAnDIDP0OOQY48kOUGBDVqHehzDHXVWoHulP1SbAkZye0FdweR-cJb5cMQzr6JyDlkjWE3FSj2YLo',
     },
   },
 });

@@ -113,7 +113,7 @@ export function SetupWizard(props: Props) {
 
   // --- passo "notify"
   const [notifyProblem, setNotifyProblem] = useState<
-    null | 'denied' | 'unsupported' | 'taken' | 'error'
+    null | 'denied' | 'unsupported' | 'taken' | 'unavailable' | 'error'
   >(null);
 
   // --- passo "test"
@@ -640,7 +640,7 @@ export function SetupWizard(props: Props) {
         title={notifyProblem === 'denied' ? 'Os avisos foram bloqueados' : 'Ative os avisos'}
         actions={
           <>
-            {notifyProblem !== 'taken' && (
+            {notifyProblem !== 'taken' && notifyProblem !== 'unavailable' && (
               <Button
                 className={big}
                 disabled={busy}
@@ -705,6 +705,12 @@ export function SetupWizard(props: Props) {
           <p data-testid="setup-taken">
             Este celular já recebe os avisos de <strong>outra pessoa</strong> cadastrada. Na mesma
             casa, só uma pessoa usa o app em cada celular. Fale com a clínica.
+          </p>
+        )}
+        {notifyProblem === 'unavailable' && (
+          <p data-testid="setup-unavailable">
+            Os avisos ainda não foram ligados no sistema da clínica. O problema não é o seu celular.
+            Avise a clínica e volte a este passo depois.
           </p>
         )}
         {notifyProblem === 'error' && <p>Algo deu errado ao ativar. Tente de novo.</p>}

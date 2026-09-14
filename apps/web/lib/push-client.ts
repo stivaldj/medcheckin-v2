@@ -9,7 +9,11 @@ function b64ToUint8(b64: string) {
 
 export type PushResult =
   | { ok: true }
-  | { ok: false; reason: 'unsupported' | 'denied' | 'taken' | 'error'; message?: string };
+  | {
+      ok: false;
+      reason: 'unsupported' | 'denied' | 'taken' | 'unavailable' | 'error';
+      message?: string;
+    };
 
 export function pushSupported() {
   return (
@@ -49,6 +53,9 @@ export async function subscribePush(): Promise<PushResult> {
   } catch (e) {
     // P2-4: a inscrição deste aparelho já pertence a outra pessoa (celular compartilhado).
     if (e instanceof ApiError && e.code === 'forbidden') return { ok: false, reason: 'taken' };
+    // Servidor sem VAPID configurado: problema do sistema da clínica, não do celular.
+    if (e instanceof ApiError && e.code === 'push_unavailable')
+      return { ok: false, reason: 'unavailable' };
     return { ok: false, reason: 'error', message: (e as Error).message };
   }
 }
