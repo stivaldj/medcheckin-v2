@@ -260,6 +260,17 @@ Faça cada item **pelo celular, fora do Wi-Fi de casa**:
 1. Conta gratuita em <https://uptimerobot.com>.
 2. New Monitor → **HTTP(s)** → URL `https://medcheckin.<nome-da-rede>/api/health` → intervalo 5 min.
 3. Alerta por e-mail (e, se quiser, pelo app no celular).
+4. **Prove o aviso antes de precisar dele** — um alarme só exercitado no dia da queda não é
+   alarme (é critério de aborto do piloto: "scheduler parado > 60 min sem alerta"). Derrube o app de
+   propósito e espere o e-mail chegar:
+
+   ```bash
+   mc stop web      # o /api/health passa a falhar
+   # espere o e-mail do UptimeRobot (até ~2 intervalos do monitor)
+   mc start web
+   ```
+
+   Não chegou? Confira o contato de alerta no UptimeRobot antes de seguir.
 
 O `/api/health` responde **503** quando o banco caiu ou o scheduler parou — não só quando o PC desliga.
 

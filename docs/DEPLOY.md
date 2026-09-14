@@ -30,7 +30,16 @@
    `docker compose … exec backup sh -c 'apk add --no-cache openssl >/dev/null; /usr/local/bin/restore-drill.sh'` → esperar `RESTORE DRILL OK <hash>`. Copie o script para o container se a imagem não o tiver (`docker cp scripts/restore-drill.sh <container>:/usr/local/bin/`).
    Off-site: monte `rclone` no container ou copie `/backups` por `rsync` para outra máquina.
 8. **Uptime**: monitor externo → `https://DOMAIN/api/health` a cada 1–5 min, alerta em ≠200. Alternativa sem serviço externo: cron em outra máquina/GitHub Actions rodando `scripts/uptime-check.mjs` (`HEALTH_URL`, `ALERT_EMAIL`, `SMTP_*`).
-9. **Atualizar**: `git pull && docker compose … up -d --build` (migrations rodam de novo, idempotentes). Rollback: `git checkout <sha>` + mesmo comando; banco: restaurar backup (RUNBOOK).
+9. **Prove o alerta antes de precisar dele** — um alarme só exercitado no dia do incêndio não é alarme:
+
+   ```bash
+   HEALTH_URL=https://DOMAIN/api/health ALERT_EMAIL=... SMTP_HOST=... EMAIL_FROM=... \
+     node scripts/uptime-check.mjs --selftest
+   ```
+
+   Sai 0 e manda um e-mail de teste; **confirme na caixa de entrada**. Se sair 1 ("ALERTA DE UPTIME CEGO"), o SMTP de produção está errado e nenhuma queda seria avisada — corrija antes de seguir. Repetir sempre que trocar provedor de e-mail.
+
+10. **Atualizar**: `git pull && docker compose … up -d --build` (migrations rodam de novo, idempotentes). Rollback: `git checkout <sha>` + mesmo comando; banco: restaurar backup (RUNBOOK).
 
 ## Imagens
 
