@@ -64,17 +64,18 @@ Trocar "escolha o produto" por: escreva o nome do produto (ex.: _Óleo CBD 50 mg
 
 ## 6. Erros
 
-| Situação | Resposta |
-| --- | --- |
-| Nome com < 2 caracteres ou vazio, e sem `product_id` | 400 `ValidationError` em `name` |
-| `product_id` de outra clínica | 404 `not_found` (mantido) |
-| Duas requisições simultâneas com o mesmo nome novo | uma insere, a outra recebe `23505`, relê e usa o mesmo produto; as duas medicações apontam para um só produto |
-| Mesmo produto adicionado duas vezes ao mesmo paciente | permitido hoje e continua permitido; não é desta feature |
+| Situação                                              | Resposta                                                                                                      |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Nome com < 2 caracteres ou vazio, e sem `product_id`  | 400 `ValidationError` em `name`                                                                               |
+| `product_id` de outra clínica                         | 404 `not_found` (mantido)                                                                                     |
+| Duas requisições simultâneas com o mesmo nome novo    | uma insere, a outra recebe `23505`, relê e usa o mesmo produto; as duas medicações apontam para um só produto |
+| Mesmo produto adicionado duas vezes ao mesmo paciente | permitido hoje e continua permitido; não é desta feature                                                      |
 
 ## 7. Testes
 
 **Core (`packages/core/test/medications-by-name.test.js`, vitest):**
-- `productNameKey`: "  Óleo  CBD 50mg/ml " → "oleo cbd 50mg/ml"; "ÓLEO CBD" e "oleo cbd" dão a mesma chave.
+
+- `productNameKey`: " Óleo CBD 50mg/ml " → "oleo cbd 50mg/ml"; "ÓLEO CBD" e "oleo cbd" dão a mesma chave.
 - nome novo cria produto com o nome como digitado e vincula ao paciente.
 - nome repetido com maiúsculas e acentos diferentes reaproveita o produto (contagem de `products` não muda).
 - nome vazio recusa; `product_id` continua funcionando; nem `name` nem `product_id` recusa.
@@ -82,6 +83,7 @@ Trocar "escolha o produto" por: escreva o nome do produto (ex.: _Óleo CBD 50 mg
 - migration: `migrations.test.js` já roda up/down; adicionar caso com dois produtos de chaves iguais na mesma clínica para provar que a 012 falha nomeando os ids.
 
 **E2E (`apps/web/e2e/medicacao-por-nome.spec.ts`, Playwright):**
+
 - clínica sem produtos: digitar "Óleo CBD 50 mg/ml", Enter, medicação aparece no card.
 - segundo paciente: ao digitar "óleo", a sugestão "Óleo CBD 50 mg/ml" aparece; escolher e adicionar; banco tem um produto só.
 
@@ -89,17 +91,17 @@ Trocar "escolha o produto" por: escreva o nome do produto (ex.: _Óleo CBD 50 mg
 
 ## 8. Arquivos
 
-| Arquivo | Ação |
-| --- | --- |
-| `packages/core/src/medications/index.js` | `productNameKey`, `findOrCreateProduct`, `addMedication` por nome |
-| `packages/core/src/migrations/012_product_name_key.js` | novo |
-| `packages/core/src/index.js`, `index.d.ts` | exports e tipos |
-| `packages/core/test/medications-by-name.test.js` | novo |
-| `packages/core/test/migrations.test.js` | caso de colisão |
-| `apps/web/components/medica/MedicationsCard.tsx` | campo digite-ou-escolha |
-| `apps/web/e2e/medicacao-por-nome.spec.ts` | novo |
-| `docs/MANUAL_MEDICA.md` | 1 item |
-| `DECISOES.md` | D34 |
-| `PLANO.md` | linha no log |
+| Arquivo                                                | Ação                                                              |
+| ------------------------------------------------------ | ----------------------------------------------------------------- |
+| `packages/core/src/medications/index.js`               | `productNameKey`, `findOrCreateProduct`, `addMedication` por nome |
+| `packages/core/src/migrations/012_product_name_key.js` | novo                                                              |
+| `packages/core/src/index.js`, `index.d.ts`             | exports e tipos                                                   |
+| `packages/core/test/medications-by-name.test.js`       | novo                                                              |
+| `packages/core/test/migrations.test.js`                | caso de colisão                                                   |
+| `apps/web/components/medica/MedicationsCard.tsx`       | campo digite-ou-escolha                                           |
+| `apps/web/e2e/medicacao-por-nome.spec.ts`              | novo                                                              |
+| `docs/MANUAL_MEDICA.md`                                | 1 item                                                            |
+| `DECISOES.md`                                          | D34                                                               |
+| `PLANO.md`                                             | linha no log                                                      |
 
 Sem mudança em `apps/web/app/api/patients/[id]/medications/route.ts` além do tipo do body.

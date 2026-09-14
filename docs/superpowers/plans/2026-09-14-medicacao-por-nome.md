@@ -24,34 +24,36 @@
 
 ## Estrutura de arquivos
 
-| Arquivo | Responsabilidade |
-| --- | --- |
-| `packages/core/src/medications/nameKey.js` (novo) | `productNameKey(name)`: função pura, sem dependências. Importada pela migration, pelo core e pelo cliente web. |
-| `packages/core/src/medications/nameKey.d.ts` (novo) | Tipo da função para o subpath export. |
-| `packages/core/package.json` | Subpath export `./name-key` (cliente web importa sem puxar knex). |
-| `packages/core/src/migrations/012_product_name_key.js` (novo) | Coluna `name_key`, backfill em JS, NOT NULL, unique `(clinic_id, name_key)`. |
-| `packages/core/src/medications/index.js` | `findOrCreateProduct`, `createProduct` via find-or-create, `addMedication` por `product_id` ou `name`. |
-| `packages/core/src/index.js`, `src/index.d.ts` | Exports e tipos. |
-| `packages/core/test/name-key.test.js` (novo) | Testes puros da normalização. |
-| `packages/core/test/medications-by-name.test.js` (novo) | Find-or-create, addMedication por nome, corrida. |
-| `packages/core/test/migrations.test.js` | Caso: colisão de chaves faz a 012 falhar nomeando ids. |
-| `apps/web/components/medica/ProductNameInput.tsx` (novo) | Campo "digite ou escolha": input + lista de sugestões, teclado, ARIA. |
-| `apps/web/components/medica/MedicationsCard.tsx` | Usa `ProductNameInput`, envia `{ name }`. |
-| `apps/web/app/api/patients/[id]/medications/route.ts` | Tipo do body. |
-| `apps/web/e2e/medicacao-por-nome.spec.ts` (novo) | Digitar cria; segundo paciente vê sugestão e reaproveita. |
-| `docs/MANUAL_MEDICA.md`, `DECISOES.md`, `PLANO.md` | Manual, D34, log. |
+| Arquivo                                                       | Responsabilidade                                                                                               |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `packages/core/src/medications/nameKey.js` (novo)             | `productNameKey(name)`: função pura, sem dependências. Importada pela migration, pelo core e pelo cliente web. |
+| `packages/core/src/medications/nameKey.d.ts` (novo)           | Tipo da função para o subpath export.                                                                          |
+| `packages/core/package.json`                                  | Subpath export `./name-key` (cliente web importa sem puxar knex).                                              |
+| `packages/core/src/migrations/012_product_name_key.js` (novo) | Coluna `name_key`, backfill em JS, NOT NULL, unique `(clinic_id, name_key)`.                                   |
+| `packages/core/src/medications/index.js`                      | `findOrCreateProduct`, `createProduct` via find-or-create, `addMedication` por `product_id` ou `name`.         |
+| `packages/core/src/index.js`, `src/index.d.ts`                | Exports e tipos.                                                                                               |
+| `packages/core/test/name-key.test.js` (novo)                  | Testes puros da normalização.                                                                                  |
+| `packages/core/test/medications-by-name.test.js` (novo)       | Find-or-create, addMedication por nome, corrida.                                                               |
+| `packages/core/test/migrations.test.js`                       | Caso: colisão de chaves faz a 012 falhar nomeando ids.                                                         |
+| `apps/web/components/medica/ProductNameInput.tsx` (novo)      | Campo "digite ou escolha": input + lista de sugestões, teclado, ARIA.                                          |
+| `apps/web/components/medica/MedicationsCard.tsx`              | Usa `ProductNameInput`, envia `{ name }`.                                                                      |
+| `apps/web/app/api/patients/[id]/medications/route.ts`         | Tipo do body.                                                                                                  |
+| `apps/web/e2e/medicacao-por-nome.spec.ts` (novo)              | Digitar cria; segundo paciente vê sugestão e reaproveita.                                                      |
+| `docs/MANUAL_MEDICA.md`, `DECISOES.md`, `PLANO.md`            | Manual, D34, log.                                                                                              |
 
 ---
 
 ### Task 1: `productNameKey` — módulo puro + subpath export
 
 **Files:**
+
 - Create: `packages/core/src/medications/nameKey.js`
 - Create: `packages/core/src/medications/nameKey.d.ts`
 - Modify: `packages/core/package.json` (bloco `exports`)
 - Test: `packages/core/test/name-key.test.js`
 
 **Interfaces:**
+
 - Produces: `productNameKey(name: unknown): string` — exportada de `@medcheckin/core` (Task 3) e de `@medcheckin/core/name-key` (cliente).
 
 - [ ] **Step 1: Escrever o teste que falha**
@@ -141,10 +143,12 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 2: Migration 012 — `products.name_key` único por clínica
 
 **Files:**
+
 - Create: `packages/core/src/migrations/012_product_name_key.js`
 - Modify: `packages/core/test/migrations.test.js` (novo `it` no fim do `describe`)
 
 **Interfaces:**
+
 - Consumes: `productNameKey` de `../medications/nameKey.js`.
 - Produces: coluna `products.name_key text NOT NULL`, índice único `products_clinic_id_name_key_unique` em `(clinic_id, name_key)`. Inserts em `products` a partir daqui **precisam** informar `name_key`.
 
@@ -153,39 +157,39 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 Acrescentar ao fim do `describe` em `packages/core/test/migrations.test.js` (antes do `});` final):
 
 ```js
-  /**
-   * D34 — o backfill da 012 não funde produtos às cegas: duas linhas da mesma clínica que caem
-   * na mesma chave fazem a migration falhar nomeando os ids, para alguém decidir.
-   */
-  it('012 falha com mensagem clara quando dois produtos da clínica têm a mesma chave', async () => {
-    await db.raw('drop schema public cascade; create schema public');
-    // sobe até a 011 (tudo menos a última)
-    const [, pendentes] = await db.migrate.list(migrationConfig);
-    for (let i = 0; i < pendentes.length - 1; i += 1) await db.migrate.up(migrationConfig);
-    expect(await db.schema.hasColumn('products', 'name_key')).toBe(false);
+/**
+ * D34 — o backfill da 012 não funde produtos às cegas: duas linhas da mesma clínica que caem
+ * na mesma chave fazem a migration falhar nomeando os ids, para alguém decidir.
+ */
+it('012 falha com mensagem clara quando dois produtos da clínica têm a mesma chave', async () => {
+  await db.raw('drop schema public cascade; create schema public');
+  // sobe até a 011 (tudo menos a última)
+  const [, pendentes] = await db.migrate.list(migrationConfig);
+  for (let i = 0; i < pendentes.length - 1; i += 1) await db.migrate.up(migrationConfig);
+  expect(await db.schema.hasColumn('products', 'name_key')).toBe(false);
 
-    const [clinic] = await db('clinics').insert({ name: 'Clínica colisão' }).returning('id');
-    await db('products').insert([
-      { clinic_id: clinic.id, name: 'Óleo CBD 50mg/ml', form: 'oil' },
-      { clinic_id: clinic.id, name: 'oleo cbd 50mg/ml', form: 'oil' },
-    ]);
+  const [clinic] = await db('clinics').insert({ name: 'Clínica colisão' }).returning('id');
+  await db('products').insert([
+    { clinic_id: clinic.id, name: 'Óleo CBD 50mg/ml', form: 'oil' },
+    { clinic_id: clinic.id, name: 'oleo cbd 50mg/ml', form: 'oil' },
+  ]);
 
-    await expect(db.migrate.up(migrationConfig)).rejects.toThrow(/mesma chave.*oleo cbd 50mg\/ml/);
+  await expect(db.migrate.up(migrationConfig)).rejects.toThrow(/mesma chave.*oleo cbd 50mg\/ml/);
 
-    // sem a colisão, a 012 sobe e o índice único vale
-    await db('products').where({ name: 'oleo cbd 50mg/ml' }).delete();
-    await db.migrate.up(migrationConfig);
-    const row = await db('products').where({ name: 'Óleo CBD 50mg/ml' }).first();
-    expect(row.name_key).toBe('oleo cbd 50mg/ml');
-    await expect(
-      db('products').insert({
-        clinic_id: clinic.id,
-        name: 'ÓLEO CBD 50MG/ML',
-        name_key: 'oleo cbd 50mg/ml',
-        form: 'oil',
-      }),
-    ).rejects.toMatchObject({ code: '23505' });
-  });
+  // sem a colisão, a 012 sobe e o índice único vale
+  await db('products').where({ name: 'oleo cbd 50mg/ml' }).delete();
+  await db.migrate.up(migrationConfig);
+  const row = await db('products').where({ name: 'Óleo CBD 50mg/ml' }).first();
+  expect(row.name_key).toBe('oleo cbd 50mg/ml');
+  await expect(
+    db('products').insert({
+      clinic_id: clinic.id,
+      name: 'ÓLEO CBD 50MG/ML',
+      name_key: 'oleo cbd 50mg/ml',
+      form: 'oil',
+    }),
+  ).rejects.toMatchObject({ code: '23505' });
+});
 ```
 
 - [ ] **Step 2: Rodar e ver falhar**
@@ -256,16 +260,16 @@ import { productNameKey } from '../medications/nameKey.js';
 e no insert:
 
 ```js
-    const [product] = await trx('products')
-      .insert({
-        clinic_id: clinic.id,
-        name: 'Óleo Full Spectrum CBD 50mg/ml',
-        name_key: productNameKey('Óleo Full Spectrum CBD 50mg/ml'),
-        cbd_mg_ml: 50,
-        thc_mg_ml: 0.5,
-        form: 'oil',
-      })
-      .returning('id');
+const [product] = await trx('products')
+  .insert({
+    clinic_id: clinic.id,
+    name: 'Óleo Full Spectrum CBD 50mg/ml',
+    name_key: productNameKey('Óleo Full Spectrum CBD 50mg/ml'),
+    cbd_mg_ml: 50,
+    thc_mg_ml: 0.5,
+    form: 'oil',
+  })
+  .returning('id');
 ```
 
 Também nos testes que inserem `products` direto: `packages/core/test/doses.test.js` (linha ~13) e qualquer outro que `grep -rn "db('products')" packages/core/test apps/web/e2e` mostrar inserindo — acrescentar `name_key: productNameKey(<mesmo nome>)` com o import `from '../src/medications/nameKey.js'`.
@@ -289,12 +293,14 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 3: Core — `findOrCreateProduct` e `addMedication` por nome
 
 **Files:**
+
 - Modify: `packages/core/src/medications/index.js:16-50`
 - Modify: `packages/core/src/index.js:66-72`
 - Modify: `packages/core/src/index.d.ts:567-575` e `:721-733`
 - Test: `packages/core/test/medications-by-name.test.js`
 
 **Interfaces:**
+
 - Consumes: `productNameKey` (Task 1); coluna `name_key` (Task 2).
 - Produces:
   - `findOrCreateProduct(db, session, { name, form?, cbd_mg_ml?, thc_mg_ml? }) → Promise<{ product: ProductRow, created: boolean }>`
@@ -487,7 +493,11 @@ export async function addMedication(db, session, patientId, input, now) {
     const [row] = await trx('medications')
       .insert({ patient_id: patientId, product_id: product.id })
       .returning('*');
-    await logAccess(trx, { session, patientId, route: 'medications.create', action: 'update' }, now);
+    await logAccess(
+      trx,
+      { session, patientId, route: 'medications.create', action: 'update' },
+      now,
+    );
     return { ...row, product_name: product.name };
   });
 }
@@ -555,11 +565,13 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 4: UI — `ProductNameInput` e o card enviando `{ name }`
 
 **Files:**
+
 - Create: `apps/web/components/medica/ProductNameInput.tsx`
 - Modify: `apps/web/components/medica/MedicationsCard.tsx` (imports, estado, `addMed`, o `<form>`)
 - Modify: `apps/web/app/api/patients/[id]/medications/route.ts:8`
 
 **Interfaces:**
+
 - Consumes: `productNameKey` de `@medcheckin/core/name-key` (Task 1); `AddMedicationInput` (Task 3); `POST /api/patients/:id/medications` com `{ name }`.
 - Produces: componente `ProductNameInput` com props `{ id, value, onChange(value: string), suggestions: string[], onSubmit(): void, disabled?: boolean }`; test ids `product-input`, `product-suggestion`, `add-medication`.
 
@@ -705,28 +717,28 @@ import { ProductNameInput } from './ProductNameInput';
 Trocar o estado e a função de envio:
 
 ```tsx
-  const [name, setName] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const podeAdicionar = name.trim().length >= 2 && !busy;
+const [name, setName] = useState('');
+const [error, setError] = useState<string | null>(null);
+const [busy, setBusy] = useState(false);
+const podeAdicionar = name.trim().length >= 2 && !busy;
 
-  async function addMed() {
-    if (!podeAdicionar) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await api(`/api/patients/${patientId}/medications`, {
-        method: 'POST',
-        json: { name: name.trim() },
-      });
-      setName('');
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erro');
-    } finally {
-      setBusy(false);
-    }
+async function addMed() {
+  if (!podeAdicionar) return;
+  setBusy(true);
+  setError(null);
+  try {
+    await api(`/api/patients/${patientId}/medications`, {
+      method: 'POST',
+      json: { name: name.trim() },
+    });
+    setName('');
+    router.refresh();
+  } catch (err) {
+    setError(err instanceof ApiError ? err.message : 'Erro');
+  } finally {
+    setBusy(false);
   }
+}
 ```
 
 (Remover `const [productId, setProductId] = useState(products[0]?.id ?? '');`.)
@@ -734,40 +746,35 @@ Trocar o estado e a função de envio:
 Trocar o `<form>` inteiro por:
 
 ```tsx
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void addMed();
-          }}
-          className="space-y-1"
-        >
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Label htmlFor="product">Adicionar medicação</Label>
-              <ProductNameInput
-                id="product"
-                value={name}
-                onChange={setName}
-                suggestions={products.map((p) => p.name)}
-                onSubmit={() => void addMed()}
-                disabled={busy}
-              />
-            </div>
-            <Button
-              type="submit"
-              variant="outline"
-              disabled={!podeAdicionar}
-              data-testid="add-medication"
-            >
-              Adicionar
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {products.length === 0
-              ? 'Escreva o nome do produto e toque em Adicionar. Ele fica salvo para os próximos pacientes.'
-              : 'Escreva o nome ou escolha um produto já usado na clínica.'}
-          </p>
-        </form>
+<form
+  onSubmit={(e) => {
+    e.preventDefault();
+    void addMed();
+  }}
+  className="space-y-1"
+>
+  <div className="flex items-end gap-2">
+    <div className="flex-1">
+      <Label htmlFor="product">Adicionar medicação</Label>
+      <ProductNameInput
+        id="product"
+        value={name}
+        onChange={setName}
+        suggestions={products.map((p) => p.name)}
+        onSubmit={() => void addMed()}
+        disabled={busy}
+      />
+    </div>
+    <Button type="submit" variant="outline" disabled={!podeAdicionar} data-testid="add-medication">
+      Adicionar
+    </Button>
+  </div>
+  <p className="text-xs text-muted-foreground">
+    {products.length === 0
+      ? 'Escreva o nome do produto e toque em Adicionar. Ele fica salvo para os próximos pacientes.'
+      : 'Escreva o nome ou escolha um produto já usado na clínica.'}
+  </p>
+</form>
 ```
 
 - [ ] **Step 3: Tipar o body da rota**
@@ -808,9 +815,11 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 5: E2E — digitar cria; segundo paciente reaproveita
 
 **Files:**
+
 - Create: `apps/web/e2e/medicacao-por-nome.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `loginAsDoctor`, `abrirConfiguracao` de `./helpers`; `createPatient`, `createDb` de `@medcheckin/core`; test ids `product-input`, `product-suggestion`, `add-medication`, `medication`.
 
 O seed do E2E já cria um produto ("Óleo Full Spectrum CBD 50mg/ml"), que outros specs usam. Este spec **não** esvazia o catálogo: cria dois pacientes próprios, usa um nome que não existe, e prova pela contagem de `products` que só um produto nasceu.
@@ -902,7 +911,9 @@ test.describe('medicação por nome', () => {
     const db = createDb(process.env.DATABASE_URL_TEST || process.env.DATABASE_URL!);
     try {
       const p = await db('patients').where({ name: 'Paciente Sintético Um' }).first();
-      const antes = Number((await db('medications').where({ patient_id: p.id }).count().first())!.count);
+      const antes = Number(
+        (await db('medications').where({ patient_id: p.id }).count().first())!.count,
+      );
       await page.goto(`/pacientes/${p.id}`);
       await abrirConfiguracao(page);
       const card = page.getByTestId('medications-card');
@@ -910,7 +921,9 @@ test.describe('medicação por nome', () => {
       await expect(card.getByTestId('add-medication')).toBeDisabled();
       await card.getByTestId('product-input').press('Enter');
       await page.waitForTimeout(500);
-      const depois = Number((await db('medications').where({ patient_id: p.id }).count().first())!.count);
+      const depois = Number(
+        (await db('medications').where({ patient_id: p.id }).count().first())!.count,
+      );
       expect(depois).toBe(antes);
     } finally {
       await db.destroy();
@@ -945,6 +958,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 6: Manual, D34 e log do PLANO
 
 **Files:**
+
 - Modify: `docs/MANUAL_MEDICA.md:153`
 - Modify: `DECISOES.md` (nova linha após D33, linha 157)
 - Modify: `PLANO.md` (nova linha no topo da tabela "Log de progresso")

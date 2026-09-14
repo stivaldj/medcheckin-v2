@@ -81,7 +81,9 @@ test.describe('medicação por nome', () => {
     const db = createDb(process.env.DATABASE_URL_TEST || process.env.DATABASE_URL!);
     try {
       const p = await db('patients').where({ name: 'Paciente Sintético Um' }).first();
-      const antes = Number((await db('medications').where({ patient_id: p.id }).count().first())!.count);
+      const antes = Number(
+        (await db('medications').where({ patient_id: p.id }).count().first())!.count,
+      );
       await page.goto(`/pacientes/${p.id}`);
       await abrirConfiguracao(page);
       const card = page.getByTestId('medications-card');
@@ -89,7 +91,9 @@ test.describe('medicação por nome', () => {
       await expect(card.getByTestId('add-medication')).toBeDisabled();
       await card.getByTestId('product-input').press('Enter');
       await page.waitForTimeout(500);
-      const depois = Number((await db('medications').where({ patient_id: p.id }).count().first())!.count);
+      const depois = Number(
+        (await db('medications').where({ patient_id: p.id }).count().first())!.count,
+      );
       expect(depois).toBe(antes);
     } finally {
       await db.destroy();

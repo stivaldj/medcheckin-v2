@@ -82,7 +82,11 @@ export async function addMedication(db, session, patientId, input, now) {
     const [row] = await trx('medications')
       .insert({ patient_id: patientId, product_id: product.id })
       .returning('*');
-    await logAccess(trx, { session, patientId, route: 'medications.create', action: 'update' }, now);
+    await logAccess(
+      trx,
+      { session, patientId, route: 'medications.create', action: 'update' },
+      now,
+    );
     return { ...row, product_name: product.name };
   });
 }
