@@ -3,17 +3,12 @@
   "excecoes": [
     {
       "pacote": "postcss",
-      "motivo": "GHSA-r28c-9q8g-f849 e correlatas: path traversal ao carregar sourceMappingURL. Só roda em BUILD, sobre CSS do próprio repo — nenhuma entrada de usuário. Corrigir exige Next 15 → 16 (major).",
+      "motivo": "Cópia aninhada no Next (next/node_modules/postcss). GHSA-r28c-9q8g-f849, GHSA-6g55-p6wh-862q, GHSA-fxqj-rqcc-2cmp (sourceMappingURL) e GHSA-qx2v-qp2m-jg93 (</style> no stringify): só roda em BUILD, sobre CSS do próprio repo — nenhuma entrada de usuário. Corrigir exige Next 15 → 16 (major). Em 14/09 o Next foi para 15.5.25, que fecha as advisories PRÓPRIAS do Next (RCE em Image Optimization e em servidor Windows).",
       "reavaliar_em": "2026-11-30"
     },
     {
       "pacote": "sharp",
-      "motivo": "GHSA-f88m-g3jw-g9cj (libvips). O app não usa next/image em lugar nenhum (conferido por grep), então sharp nunca é chamado em runtime. Corrigir exige Next 15 → 16 (major).",
-      "reavaliar_em": "2026-11-30"
-    },
-    {
-      "pacote": "next",
-      "motivo": "Herda postcss e sharp acima; não há advisory própria do Next nesta versão.",
+      "motivo": "GHSA-f88m-g3jw-g9cj (libvips) e GHSA-rgj7-g3m4-5g8c (libheif). O app não usa next/image em lugar nenhum (conferido por grep em 14/09), então sharp nunca é chamado em runtime. Corrigir exige Next 15 → 16 (major).",
       "reavaliar_em": "2026-11-30"
     }
   ]
