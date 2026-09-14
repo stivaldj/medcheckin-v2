@@ -60,7 +60,7 @@ Para sair: **Sair**, no canto superior direito.
 
 ## 4. As telas — o que tem em cada uma
 
-O menu no topo tem quatro lugares: **Hoje · Pacientes · Perguntas & planos · Configurações** (e **Sair**, à direita).
+O menu no topo tem quatro lugares: **Hoje · Pacientes · Perguntas & planos · Configurações** (e **Sair**, à direita). Ao lado do seu nome fica o botão de **tema**: toque para alternar entre **sistema** (segue o computador ou celular), **claro** e **escuro**. A escolha vale para aquele aparelho; o celular do paciente tem o mesmo botão, no alto.
 
 ### 4.1 Hoje — sua primeira e última tela do dia
 

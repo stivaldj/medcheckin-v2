@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export const metadata = {
   title: 'MedCheck-in',
@@ -17,7 +18,7 @@ export default function PwaLayout({ children }: { children: ReactNode }) {
           MedCheck-in
         </Link>
         {/* Alvos de 44 px: quem usa isso pode estar com dor, sono ou tremor. */}
-        <nav className="flex gap-1 text-sm">
+        <nav className="flex items-center gap-1 text-sm">
           <Link
             href="/p/hoje"
             className="rounded-md px-3 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -30,6 +31,7 @@ export default function PwaLayout({ children }: { children: ReactNode }) {
           >
             Histórico
           </Link>
+          <ThemeToggle />
         </nav>
       </header>
       <main className="flex-1 px-4 pt-5 pb-12">{children}</main>
