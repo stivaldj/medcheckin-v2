@@ -33,13 +33,13 @@ Trate qualquer achado nessas categorias como bloqueante, mesmo que "improvável"
 
 ## Leitura obrigatória (nesta ordem)
 
-| Arquivo                                                                                     | O que é                                              | Como tratar                                                                                          |
-| ------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `PLANO.md`                                                                                  | Etapas E0–E11, com "provas" coladas                  | **Afirmações a verificar.** É a fonte principal do que o produto promete                             |
-| `DECISOES.md`                                                                               | D1–D24 (produto/arquitetura) e L1–L15 (lições do v1) | Contexto do _porquê_. As lições L são falhas reais do sistema anterior                               |
-| `ACHADOS.md`                                                                                | Achados fora de escopo, alguns fechados              | Lista do que já se sabe. Não gaste tempo redescobrindo; **conteste se a mitigação for insuficiente** |
-| `README.md`                                                                                 | Como subir                                           | Verifique se cada comando funciona de verdade                                                        |
-| `docs/LGPD.md`, `docs/DEPLOY.md`, `docs/RUNBOOK.md`, `docs/SHADOW_RUN.md`, `docs/PILOTO.md` | Operação e conformidade                              | Confronte com o código                                                                               |
+| Arquivo                                                                                     | O que é                                                    | Como tratar                                                                                          |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `PLANO.md`                                                                                  | Etapas E0–E11, com "provas" coladas                        | **Afirmações a verificar.** É a fonte principal do que o produto promete                             |
+| `DECISOES.md`                                                                               | D1 em diante (produto/arquitetura) e L1–L15 (lições do v1) | Contexto do _porquê_. As lições L são falhas reais do sistema anterior                               |
+| `ACHADOS.md`                                                                                | Achados fora de escopo, alguns fechados                    | Lista do que já se sabe. Não gaste tempo redescobrindo; **conteste se a mitigação for insuficiente** |
+| `README.md`                                                                                 | Como subir                                                 | Verifique se cada comando funciona de verdade                                                        |
+| `docs/LGPD.md`, `docs/DEPLOY.md`, `docs/RUNBOOK.md`, `docs/SHADOW_RUN.md`, `docs/PILOTO.md` | Operação e conformidade                                    | Confronte com o código                                                                               |
 
 Regra do repositório que também vale para você: **prova é saída de comando colada, nunca "revisei"**.
 
@@ -68,7 +68,7 @@ Esta é a frente mais importante e a mais fácil de fazer mal. Não resuma o que
 
 **Método obrigatório:**
 
-1. **Levante a lista de promessas.** Extraia de: a missão no topo do `PLANO.md`, cada etapa E0–E10, o `README.md` e as decisões D1–D24. Cada promessa vira uma linha. Espere algo entre 40 e 80 linhas.
+1. **Levante a lista de promessas.** Extraia de: a missão no topo do `PLANO.md`, cada etapa E0–E10, o `README.md` e as decisões registradas (D1 em diante). Cada promessa vira uma linha. Espere algo entre 40 e 80 linhas.
 2. **Classifique cada promessa com evidência:**
    - ✅ **Funciona ponta a ponta** — você exercitou pelo caminho real (UI/API/scheduler, não só a função do core) e viu o efeito no banco ou na tela. Cole o comando ou descreva o clique.
    - 🟡 **Parcial** — funciona em parte. Diga exatamente o que falta e o que quebra.
