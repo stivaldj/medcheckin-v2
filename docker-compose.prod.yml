@@ -96,7 +96,11 @@ services:
       BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:?BACKUP_PASSPHRASE obrigatório}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
       BACKUP_CRON: ${BACKUP_CRON:-15 3 * * *}
+      # Off-site: nome de um remoto do rclone (ex.: `b2:medcheckin-backups`). Vazio = só no volume.
+      BACKUP_RCLONE_REMOTE: ${BACKUP_RCLONE_REMOTE:-}
     volumes:
+      # config do rclone (`rclone config` gera rclone.conf) — só é lida se BACKUP_RCLONE_REMOTE estiver definido
+      - ${RCLONE_CONFIG_DIR:-./deploy/rclone}:/root/.config/rclone:ro
       - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
       - ./scripts/restore-drill.sh:/usr/local/bin/restore-drill.sh:ro
       - backups:/backups
@@ -104,7 +108,7 @@ services:
       - /bin/sh
       - -c
       - |
-        apk add --no-cache openssl >/dev/null
+        apk add --no-cache openssl rclone >/dev/null
         echo "$$BACKUP_CRON /usr/local/bin/backup.sh >> /proc/1/fd/1 2>&1" > /etc/crontabs/root
         exec crond -f -l 8
     depends_on:

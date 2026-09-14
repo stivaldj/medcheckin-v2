@@ -338,8 +338,16 @@ describe('perguntas', () => {
 });
 
 describe('rotina de alarmes (E9.1)', () => {
+  // "Hoje" é o dia no fuso do PACIENTE — é o que o core usa (endRoutinePeriodToday, alarmes).
+  // Calcular em UTC fazia este describe falhar toda noite a partir das 20h em Cuiabá, quando o UTC
+  // já virou o dia: o app gravava 13/09 (certo) e o teste esperava 14/09.
+  let tz = 'UTC';
+  beforeAll(async () => {
+    tz = (await db('patients').where({ id: fx.p1 }).first()).timezone;
+  });
   const day = (n: number) => {
-    const d = new Date();
+    const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date()); // YYYY-MM-DD
+    const d = new Date(`${hoje}T12:00:00Z`);
     d.setUTCDate(d.getUTCDate() + n);
     return d.toISOString().slice(0, 10);
   };

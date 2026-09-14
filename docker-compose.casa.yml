@@ -1,0 +1,41 @@
+# Deploy em casa — PC ligado 24 h, sem VPS e sem domínio. Complementa o docker-compose.prod.yml:
+#
+#   docker compose -p medcheckin -f docker-compose.prod.yml -f docker-compose.casa.yml \
+#     --env-file .env.prod up -d --build
+#
+# O que muda em relação ao prod (passo a passo em docs/DEPLOY-CASA.md):
+# - HTTPS público vem do Tailscale Funnel (https://<TS_HOSTNAME>.<sua-rede>.ts.net), não do Caddy.
+# - O Caddy não publica porta nenhuma: só o container do Tailscale fala com ele.
+# - O backup cifrado vai para uma pasta do PC (BACKUP_HOST_DIR), sincronizada com outro aparelho.
+services:
+  caddy:
+    ports: !reset []
+    # DOMAIN continua obrigatório no .env.prod (o prod valida antes do merge): use DOMAIN=:80.
+    # O Caddyfile de casa não lê essa variável.
+    volumes: !override
+      - ./deploy/Caddyfile.casa:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  tailscale:
+    image: tailscale/tailscale:${TAILSCALE_VERSION:-stable}
+    restart: unless-stopped
+    hostname: ${TS_HOSTNAME:-medcheckin}
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:?TS_AUTHKEY obrigatório - gere em login.tailscale.com/admin/settings/keys}
+      TS_HOSTNAME: ${TS_HOSTNAME:-medcheckin}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_USERSPACE: 'true'
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+      - ./deploy/tailscale-serve.json:/config/serve.json:ro
+    depends_on: [caddy]
+
+  backup:
+    volumes:
+      # substitui o volume nomeado `backups` (mesmo destino /backups) por uma pasta do PC
+      - ${BACKUP_HOST_DIR:?BACKUP_HOST_DIR obrigatório - pasta sincronizada fora do PC}:/backups
+
+volumes:
+  tailscale_state:
