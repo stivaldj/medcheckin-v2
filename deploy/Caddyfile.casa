@@ -1,0 +1,28 @@
+# Deploy em casa (docker-compose.casa.yml): o Tailscale Funnel termina o HTTPS e entrega HTTP para cá.
+# MANTER OS CABEÇALHOS EM SINCRONIA com deploy/Caddyfile (produção com domínio próprio).
+{
+	servers {
+		# O Funnel chega pelo container do Tailscale (rede privada do compose). Sem confiar nele, o
+		# Caddy descarta o X-Forwarded-For e o app veria TODO cliente com o IP do container — o rate
+		# limit de login viraria um balde só, e qualquer um poderia bloquear a médica.
+		# Seguro aqui porque nenhuma porta do Caddy é publicada: só o Tailscale alcança o :80.
+		trusted_proxies static private_ranges
+	}
+}
+
+:80 {
+	encode zstd gzip
+	header {
+		# O navegador fala HTTPS com o Funnel, então o HSTS vale mesmo saindo daqui em HTTP.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		X-Frame-Options "DENY"
+		-Server
+	}
+	reverse_proxy web:3000 {
+		health_uri /api/health
+		health_interval 30s
+	}
+}

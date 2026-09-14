@@ -18,7 +18,17 @@ echo "{\"ts\":\"$(date -u +%FT%TZ)\",\"msg\":\"backup.ok\",\"file\":\"$(basename
 # retenção
 find "$DIR" -name 'medcheckin-*.dump.enc' -mtime +"$KEEP" -print -delete | sed 's/^/{"msg":"backup.pruned","file":"/;s/$/"}/'
 find "$DIR" -name 'medcheckin-*.dump.enc.sha256' -mtime +"$KEEP" -delete
-# off-site opcional
-if [ -n "${BACKUP_RCLONE_REMOTE:-}" ] && command -v rclone >/dev/null 2>&1; then
-  rclone copy "$OUT" "$BACKUP_RCLONE_REMOTE" && rclone copy "$OUT.sha256" "$BACKUP_RCLONE_REMOTE"
+# off-site (opcional). Configurado = obrigatório: se BACKUP_RCLONE_REMOTE está definido e a cópia não
+# acontece, é falha — antes o script pulava calado quando faltava o rclone e dizia "backup.ok", e a
+# única cópia continuava no mesmo disco do banco (lição do v1: 910 prontuários numa cópia única).
+if [ -n "${BACKUP_RCLONE_REMOTE:-}" ]; then
+  if ! command -v rclone >/dev/null 2>&1; then
+    echo "{\"ts\":\"$(date -u +%FT%TZ)\",\"msg\":\"backup.offsite_failed\",\"reason\":\"rclone ausente\"}"
+    exit 5
+  fi
+  if ! rclone copy "$OUT" "$BACKUP_RCLONE_REMOTE" || ! rclone copy "$OUT.sha256" "$BACKUP_RCLONE_REMOTE"; then
+    echo "{\"ts\":\"$(date -u +%FT%TZ)\",\"msg\":\"backup.offsite_failed\",\"reason\":\"rclone copy falhou\",\"remote\":\"$BACKUP_RCLONE_REMOTE\"}"
+    exit 6
+  fi
+  echo "{\"ts\":\"$(date -u +%FT%TZ)\",\"msg\":\"backup.offsite_ok\",\"remote\":\"$BACKUP_RCLONE_REMOTE\"}"
 fi

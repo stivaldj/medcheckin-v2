@@ -1,3 +1,38 @@
+# Deploy em casa — PC Windows 10 + WSL Ubuntu, sem VPS e sem domínio (13/09)
+
+Piloto: 1 médica + 2 pacientes reais. Sem custo: Tailscale Funnel (HTTPS público em `*.ts.net`),
+SMTP do Gmail (senha de app), backup cifrado sincronizado para o Mac via Syncthing, nobreak.
+
+## Repositório (`feat/deploy-casa`)
+
+- [x] 1. `docker-compose.casa.yml` (override do prod): serviço `tailscale` (Funnel → caddy:80);
+      Caddy só HTTP interno, sem portas publicadas; `/backups` vira pasta do host
+      (`BACKUP_HOST_DIR`, a pasta do Syncthing).
+- [x] 2. `deploy/Caddyfile.casa`: mesmos cabeçalhos do prod + `trusted_proxies private_ranges`
+      (sem isso o rate limit veria todo mundo com o IP do container do Tailscale).
+- [x] 3. `deploy/tailscale-serve.json`: Funnel na 443 → `http://caddy:80`.
+- [x] 4. Conserto do off-site no prod: o container de backup não tinha `rclone` nem recebia
+      `BACKUP_RCLONE_REMOTE`, e o `backup.sh` pulava o envio calado — sucesso falso. Passa a
+      falhar alto quando o remoto está configurado e o envio não acontece.
+- [x] 5. `docs/DEPLOY-CASA.md`: Windows (energia, updates, criptografia), WSL (systemd, Docker,
+      tarefa agendada que mantém o Ubuntu vivo), Tailscale, Gmail, Syncthing (Mac só recebe +
+      versionamento), subir, verificar, UptimeRobot, atualizar, limites.
+- [x] 6. Provas locais: `docker compose config` do merge; Caddy casa em HTTP com cabeçalhos;
+      `backup.sh` com remoto rclone local (envia) e com remoto sem rclone (falha alto).
+
+**Provas locais:** `backup.sh` — remoto sem rclone → exit 5; remoto local válido → arquivos chegam;
+remoto inexistente → exit 6; sem remoto → só local, exit 0 (antes: `backup.ok`/exit 0 sem enviar nada).
+Merge dos composes → nenhuma porta publicada, Caddyfile de casa, `/backups` como bind, Tailscale
+presente; sem `TS_AUTHKEY`/`BACKUP_HOST_DIR` o compose recusa. Caddy casa → os 5 cabeçalhos, sem
+`Server`, `X-Forwarded-For` do cliente preservado; **sem** `trusted_proxies` o app veria só o IP do
+container (prova de que a linha é necessária).
+
+## Só dá para provar no PC (roteiro no guia)
+
+Funnel público · WSL vivo após reinício sem login · IP real do cliente chegando ao app.
+
+---
+
 # D28 — Anonimizar depois da alta + hook de pre-push (13/09)
 
 **Bug:** a anonimização grava `status = 'discharged'`, e a tela esconde "Anonimizar" quando o

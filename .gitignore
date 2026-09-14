@@ -28,3 +28,6 @@ ds-bundle/
 .design-sync/learnings/
 .design-sync/node_modules
 apps/web/.ds-css/
+
+# credenciais do rclone (backup off-site)
+deploy/rclone/rclone.conf
