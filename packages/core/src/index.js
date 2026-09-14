@@ -13,6 +13,7 @@ export {
   createRoutinePeriod,
   updateRoutinePeriod,
   endRoutinePeriodToday,
+  deleteRoutinePeriod,
   listRoutine,
   routineAlarmsForDay,
   ADHERENCE_QUESTION_KEY,

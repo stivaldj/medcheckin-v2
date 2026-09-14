@@ -111,6 +111,8 @@ function PeriodDialog({
       : mode === 'replicate' && source?.ends_on
         ? addDays(source.ends_on, 1)
         : today;
+  // D33: período que já começou se edita, mas o início é o registro do que valeu — fica fixo.
+  const started = mode === 'edit' && !!period && period.starts_on <= today;
   const [open, setOpen] = useState(false);
   const [starts, setStarts] = useState(defaultStart);
   const [ends, setEnds] = useState(mode === 'edit' ? (period?.ends_on ?? '') : '');
@@ -198,15 +200,22 @@ function PeriodDialog({
                   id={`${testId}-start`}
                   type="date"
                   required
+                  disabled={started}
                   value={starts}
                   onChange={(e) => setStarts(e.target.value)}
                 />
+                {started && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Já começou — o início fica fixo.
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor={`${testId}-end`}>Fim (opcional)</Label>
                 <Input
                   id={`${testId}-end`}
                   type="date"
+                  min={started ? today : starts}
                   value={ends}
                   onChange={(e) => setEnds(e.target.value)}
                 />
@@ -264,6 +273,42 @@ function PeriodDialog({
         />
       )}
     </>
+  );
+}
+
+/** Apagar só aparece quando o núcleo permite (futuro, ou começou hoje sem lembrete enviado — D33). */
+function DeletePeriodButton({
+  period,
+  onError,
+}: {
+  period: RoutinePeriod;
+  onError: (m: string) => void;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  async function remove() {
+    if (!confirm('Apagar este período e os horários dele? Não dá para desfazer.')) return;
+    setBusy(true);
+    try {
+      await api(`/api/routine-periods/${period.id}`, { method: 'DELETE' });
+      router.refresh();
+    } catch (err) {
+      onError(err instanceof ApiError ? err.message : 'Erro');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      className="text-destructive"
+      disabled={busy}
+      onClick={remove}
+      data-testid={`routine-delete-${period.id}`}
+    >
+      {busy ? 'Apagando…' : 'Apagar'}
+    </Button>
   );
 }
 
@@ -348,6 +393,19 @@ export function RoutineCard({
             trigger="Novo período"
             testId="routine-new"
           />
+          {cur?.actions?.edit && (
+            <PeriodDialog
+              key={`edit-${cur.id}-${cur.alarms.map((a) => a.id + a.description).join()}`}
+              patientId={patientId}
+              mode="edit"
+              period={cur}
+              medications={medications}
+              questionSets={questionSets}
+              today={routine.today}
+              trigger="Editar"
+              testId="routine-edit-current"
+            />
+          )}
           {cur && (
             <>
               <PeriodDialog
@@ -360,15 +418,18 @@ export function RoutineCard({
                 trigger="Replicar período"
                 testId="routine-replicate"
               />
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                onClick={endToday}
-                data-testid="routine-end-today"
-              >
-                Encerrar hoje
-              </Button>
+              {cur.actions?.end_today && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={endToday}
+                  data-testid="routine-end-today"
+                >
+                  Encerrar hoje
+                </Button>
+              )}
+              {cur.actions?.delete && <DeletePeriodButton period={cur} onError={setError} />}
             </>
           )}
         </div>
@@ -394,6 +455,7 @@ export function RoutineCard({
                     trigger="Editar"
                     testId={`routine-edit-${p.id}`}
                   />
+                  {p.actions?.delete && <DeletePeriodButton period={p} onError={setError} />}
                 </div>
                 <AlarmList period={p} />
               </div>
