@@ -738,7 +738,7 @@ export function addMedication(
   patientId: string,
   input: AddMedicationInput,
   now?: Instant,
-): Promise<MedicationRow & { product_name: string }>;
+): Promise<Pick<MedicationRow, 'id' | 'patient_id' | 'product_id' | 'active' | 'product_name'>>;
 export function adjustDose(
   db: Knex,
   session: Session,
