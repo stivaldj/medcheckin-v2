@@ -36,7 +36,13 @@ test.describe('PROVA E4 — médica: cadastrar paciente → convidar cuidador �
     const caregiverCard = page.getByTestId('respondent-caregiver');
     await expect(caregiverCard).toContainText('Cuidadora E2E');
     await expect(caregiverCard.getByTestId('invite-url')).toContainText('/p/convite/');
-    await expect(caregiverCard).toContainText('convite pendente');
+    // E9.3: status da configuração do celular + QR e WhatsApp do convite
+    await expect(caregiverCard).toContainText('configuração pendente');
+    await expect(caregiverCard.getByTestId('setup-accepted')).toHaveAttribute('data-done', 'false');
+    await expect(caregiverCard.getByTestId('invite-qr')).toHaveAttribute(
+      'data-value',
+      /\/p\/convite\//,
+    );
 
     // 4. convidar mais um cuidador pela tela do paciente
     await page.getByRole('button', { name: 'Convidar cuidador' }).click();

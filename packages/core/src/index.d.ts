@@ -493,9 +493,61 @@ export interface RespondentRow {
   accepted_at: Date | string | null;
   consent_version: string | null;
   consent_at: Date | string | null;
+  /** E9.3: o app abriu em modo instalado neste aparelho (primeira vez). */
+  install_confirmed_at: Date | string | null;
+  /** E9.3: a pessoa confirmou que um teste de aviso ENVIADO chegou. */
+  push_test_confirmed_at: Date | string | null;
   created_at: Date | string;
   updated_at: Date | string;
 }
+/** E9.3 — estado de configuração do celular, derivado só do banco. */
+export interface SetupStatus {
+  /** `shared`: não responde nem recebe alarme — usa o celular de outra pessoa da casa (D29). */
+  device: 'own' | 'shared';
+  accepted: boolean;
+  installed: boolean;
+  push_active: boolean;
+  test_confirmed: boolean;
+  complete: boolean;
+}
+export const PUSH_TEST_MAX_AGE_MIN: number;
+export function setupStatus(
+  respondent: Pick<
+    RespondentRow,
+    | 'can_answer'
+    | 'receives_alarms'
+    | 'accepted_at'
+    | 'install_confirmed_at'
+    | 'push_test_confirmed_at'
+  >,
+  activeSubscriptionCount: number,
+): SetupStatus;
+export function requestPushTest(
+  db: Knex,
+  session: Session,
+  now?: Instant,
+): Promise<{ notificationId: string }>;
+export function dispatchPushTests(
+  db: Knex,
+  now: Instant,
+  opts: { notifier: Notifier },
+): Promise<{ due: number; sent: number; failed: number; duplicate: number; expired: number }>;
+export function pushTestStatus(
+  db: Knex,
+  session: Session,
+  notificationId: string,
+): Promise<
+  | { status: 'waiting' }
+  | { status: 'sent'; sent_at: Date | string }
+  | { status: 'failed'; error: string | null }
+>;
+export function confirmPushTest(
+  db: Knex,
+  session: Session,
+  input: { notificationId: string; arrived: boolean },
+  now?: Instant,
+): Promise<{ confirmed: boolean }>;
+export function markInstalled(db: Knex, session: Session, now?: Instant): Promise<{ ok: true }>;
 export interface ProductRow {
   id: string;
   clinic_id: string;
@@ -624,7 +676,7 @@ export interface PatientDetail {
   patient_questions: PatientQuestion[];
   /** true quando o pack do episódio já pergunta adesão (não faz sentido oferecer a extra). */
   pack_has_adherence: boolean;
-  respondents: Array<RespondentRow & { invite_url: string }>;
+  respondents: Array<RespondentRow & { invite_url: string; setup: SetupStatus }>;
   medications: Array<MedicationRow & { dose_history: DoseEvent[] }>;
   episode: (EpisodeRow & { question_set_name: string | null }) | null;
   alerts: AlertRow[];
@@ -798,6 +850,7 @@ export interface RespondentTodayView {
   checkin: TodayCheckin | null;
   alarms: TodayAlarm[];
   push: { subscriptions: number };
+  setup: SetupStatus;
   now: string;
 }
 export function respondentToday(

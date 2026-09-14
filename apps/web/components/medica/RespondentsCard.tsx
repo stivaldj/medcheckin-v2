@@ -1,13 +1,17 @@
 'use client';
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { CheckIcon, CircleIcon, MessageCircleIcon, PrinterIcon } from 'lucide-react';
 import { api, ApiError } from '@/lib/client';
-import { Button } from '@/components/ui/button';
+import { whatsappLink } from '@/lib/invite';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { QrCode } from '@/components/QrCode';
 import {
   Dialog,
   DialogContent,
@@ -16,9 +20,42 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 
-import type { RespondentRow } from '@medcheckin/core';
+import type { RespondentRow, SetupStatus } from '@medcheckin/core';
 
-type Respondent = RespondentRow & { invite_url: string };
+type Respondent = RespondentRow & { invite_url: string; setup: SetupStatus };
+
+const STEPS: Array<[keyof SetupStatus, string]> = [
+  ['accepted', 'Convite aceito'],
+  ['installed', 'App instalado'],
+  ['push_active', 'Avisos ativos'],
+  ['test_confirmed', 'Teste confirmado'],
+];
+
+/** Onde a configuração parou, passo a passo. Cada ✓ é uma data gravada no servidor. */
+function SetupSteps({ setup }: { setup: SetupStatus }) {
+  return (
+    <ol className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs" data-testid="setup-steps">
+      {STEPS.map(([key, label]) => {
+        const done = setup[key] === true;
+        return (
+          <li
+            key={key}
+            className={`flex items-center gap-1 ${done ? 'text-foreground' : 'text-muted-foreground'}`}
+            data-testid={`setup-${key}`}
+            data-done={done ? 'true' : 'false'}
+          >
+            {done ? (
+              <CheckIcon className="size-3.5 text-primary" />
+            ) : (
+              <CircleIcon className="size-3" />
+            )}
+            {label}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 export function RespondentsCard({
   patientId,
@@ -43,17 +80,18 @@ export function RespondentsCard({
       setError('Não foi possível copiar; selecione o link manualmente.');
     }
   }
-  async function toggle(r: Respondent, field: 'can_answer' | 'receives_alarms') {
+  async function patch(r: Respondent, json: Record<string, boolean>) {
     setError(null);
     try {
-      await api(`/api/respondents/${r.id}`, { method: 'PATCH', json: { [field]: !r[field] } });
+      await api(`/api/respondents/${r.id}`, { method: 'PATCH', json });
       router.refresh();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Erro');
     }
   }
   async function rotate(r: Respondent) {
-    if (!confirm('Gerar novo link invalida o anterior. Continuar?')) return;
+    if (!confirm('Gerar novo link invalida o anterior (e o app instalado com ele). Continuar?'))
+      return;
     try {
       await api(`/api/respondents/${r.id}/rotate`, { method: 'POST' });
       router.refresh();
@@ -81,7 +119,7 @@ export function RespondentsCard({
   }
 
   return (
-    <Card data-testid="respondents-card">
+    <Card data-testid="respondents-card" className="lg:col-span-2">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Respondentes</CardTitle>
         <Dialog open={open} onOpenChange={setOpen}>
@@ -120,9 +158,10 @@ export function RespondentsCard({
                 />
               </div>
               <div>
-                <Label htmlFor="cg-phone">Telefone (opcional)</Label>
+                <Label htmlFor="cg-phone">Celular com DDD (para enviar pelo WhatsApp)</Label>
                 <Input
                   id="cg-phone"
+                  inputMode="tel"
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 />
@@ -135,52 +174,140 @@ export function RespondentsCard({
         </Dialog>
       </CardHeader>
       <CardContent className="space-y-3">
-        {respondents.map((r) => (
-          <div
-            key={r.id}
-            className="rounded-md border p-3 text-sm"
-            data-testid={`respondent-${r.kind}`}
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <strong>{r.name}</strong>
-              <Badge variant="outline">
-                {r.kind === 'patient'
-                  ? 'paciente'
-                  : `cuidador${r.relationship ? ` · ${r.relationship}` : ''}`}
-              </Badge>
-              <Badge variant={r.accepted_at ? 'default' : 'secondary'}>
-                {r.accepted_at ? 'aceitou' : 'convite pendente'}
-              </Badge>
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <code
-                className="max-w-full truncate rounded bg-muted px-2 py-1 text-xs"
-                data-testid="invite-url"
+        {respondents.map((r) => {
+          const label =
+            r.kind === 'patient'
+              ? 'paciente'
+              : `cuidador${r.relationship ? ` · ${r.relationship}` : ''}`;
+          if (r.setup.device === 'shared') {
+            return (
+              <div
+                key={r.id}
+                className="rounded-md border border-dashed p-3 text-sm"
+                data-testid={`respondent-${r.kind}`}
+                data-device="shared"
               >
-                {r.invite_url}
-              </code>
-              <Button size="sm" variant="secondary" onClick={() => copy(r)}>
-                {copied === r.id ? 'Copiado!' : 'Copiar link'}
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => rotate(r)}>
-                Novo link
-              </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <strong>{r.name}</strong>
+                  <Badge variant="outline">{label}</Badge>
+                  <Badge variant="secondary">usa o celular de outra pessoa da casa</Badge>
+                </div>
+                <p className="mt-1.5 text-muted-foreground">
+                  Não recebe convite nem avisos. Quem responde e recebe os lembretes é quem tem o
+                  app no celular.
+                </p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="mt-1 px-0"
+                  onClick={() => patch(r, { can_answer: true, receives_alarms: true })}
+                  data-testid="device-own"
+                >
+                  Voltar a usar celular próprio
+                </Button>
+              </div>
+            );
+          }
+          return (
+            <div
+              key={r.id}
+              className="rounded-md border p-3 text-sm"
+              data-testid={`respondent-${r.kind}`}
+              data-device="own"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <strong>{r.name}</strong>
+                <Badge variant="outline">{label}</Badge>
+                <Badge variant={r.setup.complete ? 'default' : 'secondary'}>
+                  {r.setup.complete ? 'celular pronto' : 'configuração pendente'}
+                </Badge>
+              </div>
+              <div className="mt-2">
+                <SetupSteps setup={r.setup} />
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-start gap-4">
+                <QrCode
+                  value={r.invite_url}
+                  size={132}
+                  label={`QR code do convite de ${r.name}`}
+                  testId="invite-qr"
+                />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Na consulta: a pessoa aponta a câmera do celular para o código e segue os
+                    passos. Espere “Teste confirmado” ficar ✓ antes de ela ir embora.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      href={whatsappLink(r)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={buttonVariants({ size: 'sm' })}
+                      data-testid="invite-whatsapp"
+                    >
+                      <MessageCircleIcon /> Enviar por WhatsApp
+                    </a>
+                    <Link
+                      href={`/pacientes/${patientId}/guia/${r.id}`}
+                      className={buttonVariants({ size: 'sm', variant: 'outline' })}
+                      data-testid="invite-print"
+                    >
+                      <PrinterIcon /> Imprimir guia com QR
+                    </Link>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <code
+                      className="max-w-full truncate rounded bg-muted px-2 py-1 text-xs"
+                      data-testid="invite-url"
+                    >
+                      {r.invite_url}
+                    </code>
+                    <Button size="sm" variant="secondary" onClick={() => copy(r)}>
+                      {copied === r.id ? 'Copiado!' : 'Copiar link'}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => rotate(r)}>
+                      Novo link
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+                <Label className="gap-1 text-xs font-normal">
+                  <Checkbox
+                    checked={r.can_answer}
+                    onCheckedChange={() => patch(r, { can_answer: !r.can_answer })}
+                  />{' '}
+                  responde check-ins
+                </Label>
+                <Label className="gap-1 text-xs font-normal">
+                  <Checkbox
+                    checked={r.receives_alarms}
+                    onCheckedChange={() => patch(r, { receives_alarms: !r.receives_alarms })}
+                  />{' '}
+                  recebe alarmes
+                </Label>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-auto px-0 text-xs text-muted-foreground underline underline-offset-4"
+                  onClick={() => {
+                    if (
+                      confirm(
+                        `${r.name} usa o celular de outra pessoa da casa? Deixa de receber convite e avisos; quem tem o app no celular responde.`,
+                      )
+                    )
+                      patch(r, { can_answer: false, receives_alarms: false });
+                  }}
+                  data-testid="device-shared"
+                >
+                  Usa o celular de outra pessoa da casa
+                </Button>
+              </div>
             </div>
-            <div className="mt-2 flex gap-4 text-xs">
-              <Label className="gap-1 text-xs font-normal">
-                <Checkbox checked={r.can_answer} onCheckedChange={() => toggle(r, 'can_answer')} />{' '}
-                responde check-ins
-              </Label>
-              <Label className="gap-1 text-xs font-normal">
-                <Checkbox
-                  checked={r.receives_alarms}
-                  onCheckedChange={() => toggle(r, 'receives_alarms')}
-                />{' '}
-                recebe alarmes
-              </Label>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {error && <p className="text-sm text-destructive">{error}</p>}
       </CardContent>
     </Card>

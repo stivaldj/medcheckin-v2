@@ -1,13 +1,14 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { CheckIcon } from 'lucide-react';
+import Link from 'next/link';
+import { BellRingIcon, CheckIcon } from 'lucide-react';
 import type { RespondentTodayView, TodayQuestion } from '@medcheckin/core';
 
 import { api, ApiError } from '@/lib/client';
-import { Button } from '@/components/ui/button';
+import { pushSupported, registerServiceWorker } from '@/lib/push-client';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NoSession } from './NoSession';
-import { PushToggle } from './PushToggle';
 
 /** Extremos da escala em palavras: "7" sozinho não quer dizer nada às 6 da manhã. */
 const EXTREMOS: Record<string, [string, string]> = {
@@ -175,6 +176,43 @@ function QuestionForm({
   );
 }
 
+/**
+ * E9.3: o estado dos avisos deste celular, em linguagem de gente. Falta algo → um botão que leva
+ * direto ao passo que falta. Nunca "funcionando" sem teste confirmado e inscrição ativa.
+ */
+function SetupBanner({ setup }: { setup: RespondentTodayView['setup'] }) {
+  if (setup.device === 'shared') return null;
+  if (setup.complete)
+    return (
+      <p className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="push-ok">
+        <CheckIcon className="size-4 text-primary" /> Avisos funcionando neste celular ·{' '}
+        <Link href="/p/ajuda" className="underline underline-offset-4">
+          testar de novo
+        </Link>
+      </p>
+    );
+  return (
+    <div
+      className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-4"
+      data-testid="push-setup"
+    >
+      <p className="flex items-start gap-2.5 text-[15px] leading-snug">
+        <BellRingIcon className="mt-0.5 size-5 shrink-0 text-primary" />
+        {setup.push_active
+          ? 'Falta testar se os avisos chegam neste celular.'
+          : 'Os avisos ainda não estão ativados neste celular. Sem eles, os lembretes não chegam.'}
+      </p>
+      <Link
+        href="/p/ajuda"
+        className={buttonVariants({ className: 'h-12 w-full text-base' })}
+        data-testid="push-setup-go"
+      >
+        {setup.push_active ? 'Testar agora' : 'Ativar os avisos'}
+      </Link>
+    </div>
+  );
+}
+
 export function TodayView() {
   const [data, setData] = useState<RespondentTodayView | null>(null);
   const [status, setStatus] = useState<'loading' | 'ok' | 'nosession' | 'error'>('loading');
@@ -188,6 +226,9 @@ export function TodayView() {
   }, []);
   useEffect(() => {
     load();
+    // Registra o SW a cada abertura (é idempotente): o clique no aviso volta para cá por ele.
+    if (pushSupported())
+      registerServiceWorker().catch((e) => console.error('[pwa] service worker', e));
   }, [load]);
 
   if (status === 'loading')
@@ -214,7 +255,7 @@ export function TodayView() {
             : data.patient.clinic_name}
         </p>
       </div>
-      <PushToggle subscriptions={data.push.subscriptions} />
+      <SetupBanner setup={data.setup} />
 
       {data.respondent.receives_alarms && (
         <section className="space-y-2.5">

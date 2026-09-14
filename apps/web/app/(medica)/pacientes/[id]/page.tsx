@@ -21,6 +21,7 @@ import { QuestionnaireCard } from '@/components/medica/QuestionnaireCard';
 import { GridCard } from '@/components/medica/GridCard';
 import { AlertsCard } from '@/components/medica/AlertsCard';
 import { SymptomDoseChart } from '@/components/medica/SymptomDoseChart';
+import { SetupChecklist } from '@/components/medica/SetupChecklist';
 
 export default async function PacientePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -88,6 +89,8 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
         </div>
         <PatientHeaderActions patientId={p.id} status={p.status} />
       </div>
+
+      <SetupChecklist detail={detail} />
 
       <Tabs defaultValue="caso">
         <TabsList>
