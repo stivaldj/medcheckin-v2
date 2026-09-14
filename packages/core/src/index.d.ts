@@ -568,6 +568,7 @@ export interface ProductRow {
   id: string;
   clinic_id: string;
   name: string;
+  name_key: string;
   cbd_mg_ml: number | null;
   thc_mg_ml: number | null;
   form: string;
@@ -724,13 +725,20 @@ export function createProduct(
   session: Session,
   input: Record<string, unknown>,
 ): Promise<ProductRow>;
+export function productNameKey(name: unknown): string;
+export function findOrCreateProduct(
+  db: Knex,
+  session: Session,
+  input: { name: string; form?: string; cbd_mg_ml?: number | null; thc_mg_ml?: number | null },
+): Promise<{ product: ProductRow; created: boolean }>;
+export type AddMedicationInput = { product_id: string } | { name: string };
 export function addMedication(
   db: Knex,
   session: Session,
   patientId: string,
-  input: { product_id: string },
+  input: AddMedicationInput,
   now?: Instant,
-): Promise<{ id: string; patient_id: string; product_id: string; active: boolean }>;
+): Promise<MedicationRow & { product_name: string }>;
 export function adjustDose(
   db: Knex,
   session: Session,

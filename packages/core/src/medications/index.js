@@ -3,11 +3,13 @@ import { AuthError } from '../auth/tokens.js';
 import { requirePatientInClinic, logAccess } from '../auth/access.js';
 import { toHm } from '../scheduler/next-run.js';
 import { ValidationError } from '../errors.js';
+import { productNameKey } from './nameKey.js';
 
 const FORMS = new Set(['oil', 'capsule', 'flower', 'other']);
 const UNITS = new Set(['gotas', 'ml', 'mg', 'cápsulas', 'capsulas']);
 const EPISODE_KINDS = new Set(['titration', 'maintenance']);
 const FREQS = new Set(['daily', 'weekly', 'biweekly']);
+const NAME_MAX = 120;
 
 function requireDoctor(session) {
   if (!session || session.kind !== 'user')
@@ -18,10 +20,19 @@ export async function listProducts(db, clinicId) {
   return db('products').where({ clinic_id: clinicId }).orderBy('name');
 }
 
-export async function createProduct(db, session, input) {
+/**
+ * D34 — acha ou cria o produto pela chave normalizada. Idempotente: em corrida, quem perde o
+ * insert (23505 no unique) relê e devolve o mesmo produto. Roda em autocommit de propósito
+ * (um 23505 dentro de transação a abortaria inteira).
+ */
+export async function findOrCreateProduct(db, session, input) {
   requireDoctor(session);
-  const name = String(input?.name ?? '').trim();
+  const name = String(input?.name ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (name.length < 2) throw new ValidationError('Nome do produto é obrigatório.', 'name');
+  if (name.length > NAME_MAX)
+    throw new ValidationError(`Nome do produto muito longo (máx. ${NAME_MAX}).`, 'name');
   const form = String(input?.form ?? 'oil');
   if (!FORMS.has(form)) throw new ValidationError('Forma farmacêutica inválida.', 'form');
   const num = (v) => (v === undefined || v === null || v === '' ? null : Number(v));
@@ -29,24 +40,51 @@ export async function createProduct(db, session, input) {
   const thc = num(input?.thc_mg_ml);
   if ((cbd !== null && !(cbd >= 0)) || (thc !== null && !(thc >= 0)))
     throw new ValidationError('Concentração inválida.');
-  const [row] = await db('products')
-    .insert({ clinic_id: session.clinicId, name, form, cbd_mg_ml: cbd, thc_mg_ml: thc })
-    .returning('*');
-  return row;
+
+  const where = { clinic_id: session.clinicId, name_key: productNameKey(name) };
+  const existing = await db('products').where(where).first();
+  if (existing) return { product: existing, created: false };
+  try {
+    const [row] = await db('products')
+      .insert({ ...where, name, form, cbd_mg_ml: cbd, thc_mg_ml: thc })
+      .returning('*');
+    return { product: row, created: true };
+  } catch (err) {
+    if (err?.code !== '23505') throw err;
+    const again = await db('products').where(where).first();
+    if (!again) throw err;
+    return { product: again, created: false };
+  }
 }
 
-export async function addMedication(db, session, patientId, { product_id }, now) {
+export async function createProduct(db, session, input) {
+  const { product } = await findOrCreateProduct(db, session, input);
+  return product;
+}
+
+/**
+ * Aceita `product_id` (produto já existente na clínica) ou `name` (acha ou cria). Devolve a
+ * medicação com `product_name` para a tela não precisar de outra chamada.
+ */
+export async function addMedication(db, session, patientId, input, now) {
   requireDoctor(session);
   await requirePatientInClinic(db, session, patientId);
-  const product = await db('products')
-    .where({ id: product_id, clinic_id: session.clinicId })
-    .first();
-  if (!product) throw new AuthError('not_found', 'Produto não encontrado.');
-  const [row] = await db('medications')
-    .insert({ patient_id: patientId, product_id })
-    .returning('*');
-  await logAccess(db, { session, patientId, route: 'medications.create', action: 'update' }, now);
-  return row;
+  let product;
+  if (input?.product_id) {
+    product = await db('products')
+      .where({ id: input.product_id, clinic_id: session.clinicId })
+      .first();
+    if (!product) throw new AuthError('not_found', 'Produto não encontrado.');
+  } else {
+    ({ product } = await findOrCreateProduct(db, session, { name: input?.name }));
+  }
+  return db.transaction(async (trx) => {
+    const [row] = await trx('medications')
+      .insert({ patient_id: patientId, product_id: product.id })
+      .returning('*');
+    await logAccess(trx, { session, patientId, route: 'medications.create', action: 'update' }, now);
+    return { ...row, product_name: product.name };
+  });
 }
 
 async function medicationInClinic(db, session, medicationId) {

@@ -65,10 +65,12 @@ export {
 export {
   listProducts,
   createProduct,
+  findOrCreateProduct,
   addMedication,
   adjustDose,
   setEpisode,
 } from './medications/index.js';
+export { productNameKey } from './medications/nameKey.js';
 export {
   listPatientQuestions,
   addPatientQuestion,
