@@ -5,7 +5,9 @@ Uma frase: a médica monta a rotina de alarmes e o questionário; paciente **ou 
 
 Documentos de trabalho: [`PLANO.md`](PLANO.md) (etapas e provas) · [`DECISOES.md`](DECISOES.md) (decisões e lições do v1) · [`ACHADOS.md`](ACHADOS.md).
 
-Operação: [`docs/DEPLOY.md`](docs/DEPLOY.md) · [`docs/RUNBOOK.md`](docs/RUNBOOK.md) · [`docs/LGPD.md`](docs/LGPD.md) · [`docs/SHADOW_RUN.md`](docs/SHADOW_RUN.md) (E9) · [`docs/PILOTO.md`](docs/PILOTO.md) (E10).
+Operação: [`docs/DEPLOY.md`](docs/DEPLOY.md) (VPS) · [`docs/DEPLOY-CASA.md`](docs/DEPLOY-CASA.md) (PC de casa) · [`docs/RUNBOOK.md`](docs/RUNBOOK.md) · [`docs/LGPD.md`](docs/LGPD.md) · [`docs/SHADOW_RUN.md`](docs/SHADOW_RUN.md) (E9) · [`docs/PILOTO.md`](docs/PILOTO.md) (E10).
+
+Uso: [`docs/MANUAL_MEDICA.md`](docs/MANUAL_MEDICA.md) (manual completo da médica) · no app, **Configurações → Guia da médica** (1 página, imprimível) e, por respondente, **Imprimir guia com QR** (paciente/cuidador).
 
 ## Estrutura
 
