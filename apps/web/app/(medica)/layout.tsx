@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { currentUserSession } from '@/lib/session';
 import { Button } from '@/components/ui/button';
 import { MedicaNav } from '@/components/medica/MedicaNav';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,7 @@ export default async function MedicaLayout({ children }: { children: ReactNode }
             <MedicaNav />
           </div>
           <form action="/api/auth/logout" method="post" className="flex items-center gap-2">
+            <ThemeToggle showLabel />
             <span className="hidden text-[13px] text-muted-foreground sm:inline">
               {session.name}
             </span>
