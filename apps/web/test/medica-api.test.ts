@@ -284,6 +284,17 @@ describe('medicações, doses, episódios, produtos', () => {
       params({}),
     );
     expect(c.status).toBe(201);
+    const created = await c.json();
+    const again = await POST(
+      req('/api/products', {
+        method: 'POST',
+        headers: H(),
+        body: JSON.stringify({ name: 'Óleo API 30', cbd_mg_ml: 30, thc_mg_ml: 0.3, form: 'oil' }),
+      }),
+      params({}),
+    );
+    expect(again.status).toBe(200);
+    expect((await again.json()).id).toBe(created.id);
   });
 });
 
