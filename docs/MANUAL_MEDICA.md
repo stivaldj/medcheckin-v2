@@ -124,7 +124,7 @@ Abaixo, a página tem duas abas: **O caso** (para ler) e **A configuração** (p
 
 #### Aba "O caso"
 
-**Prontuário** — o primeiro card. Toque em **Nova nota**, escreva como você escreve (tipo: consulta, evolução ou contato; a data vem hoje e pode ser mudada) e salve com o botão ou **Ctrl+Enter**. Abaixo fica a **linha do tempo**: por dia, a sua nota e, logo embaixo, o **ajuste de dose** e a **conduta** daquele dia, sem você repetir nada no texto. **Editar** corrige; **Ocultar** tira da lista, mas a nota fica guardada (prontuário não se apaga). **Imprimir / salvar PDF** imprime a linha do tempo inteira.
+**Prontuário** — o primeiro card. Toque em **Nova nota**, escreva como você escreve (tipo: consulta, evolução ou contato; a data vem hoje e pode ser mudada) e salve com o botão ou **Ctrl+Enter**. Abaixo fica a **linha do tempo**: por dia, a sua nota e, logo embaixo, o **ajuste de dose** e a **conduta** daquele dia, sem você repetir nada no texto. **Editar** corrige; **Ocultar** tira da lista, mas a nota fica guardada (prontuário não se apaga). **Imprimir / salvar PDF** imprime a página do paciente, com a linha do tempo.
 
 **Sintoma × dose** — o gráfico. Escolha a pergunta (dor, sono, humor…) e o período (**14**, **30**, **60** ou **90 dias**). A área mostra a resposta do dia; a linha tracejada, o score; **as linhas verticais tracejadas em cobre marcam cada ajuste de dose**, com o valor. Dia sem resposta aparece como **lacuna** — o gráfico não liga os pontos por cima do vazio. Abaixo, uma tabelinha compara a média dos 7 dias **antes** e **depois** de cada ajuste (**Ajuste · Antes (7 d) · Depois (7 d) · Δ**), com quantas respostas entraram na conta. Onde não há dado suficiente, aparece "—".
 
