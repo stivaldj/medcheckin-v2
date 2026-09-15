@@ -128,6 +128,8 @@ describe('condições (catálogo da clínica)', () => {
     await addPatientCondition(db, session, p2, { condition_id: tea.id }, NOW);
     const out = await mergeConditions(db, session, { from_id: tea.id, into_id: aut.id }, NOW);
     expect(out.moved).toBe(1); // p2; p1 já tinha Autismo
+    // TEA tinha cid10 F84.0 (setado antes) e Autismo não: a fusão preserva o CID-10 da origem.
+    expect(out.into.cid10).toBe('F84.0');
     expect(await db('conditions').where({ id: tea.id }).first()).toBeUndefined();
     const all = await listConditions(db, ctx.clinicId);
     const autRow = all.find((c) => c.id === aut.id);

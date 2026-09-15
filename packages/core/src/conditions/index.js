@@ -124,8 +124,15 @@ export async function mergeConditions(db, session, { from_id, into_id }, now) {
       .update({ condition_id: into.id });
     await trx('patient_conditions').where({ condition_id: from.id }).del();
     await trx('conditions').where({ id: from.id }).del();
+    let mergedInto = into;
+    if (!into.cid10 && from.cid10) {
+      [mergedInto] = await trx('conditions')
+        .where({ id: into.id })
+        .update({ cid10: from.cid10, updated_at: trx.fn.now() })
+        .returning('*');
+    }
     await logAccess(trx, { session, route: 'conditions.merge', action: 'update' }, now);
-    return { into, moved };
+    return { into: mergedInto, moved };
   });
 }
 
