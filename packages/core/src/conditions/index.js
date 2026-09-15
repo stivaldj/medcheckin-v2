@@ -2,6 +2,7 @@ import { AuthError } from '../auth/tokens.js';
 import { requirePatientInClinic, logAccess } from '../auth/access.js';
 import { ValidationError } from '../errors.js';
 import { catalogNameKey } from '../catalog/nameKey.js';
+import { noteDay } from '../notes/index.js';
 
 const NAME_MIN = 2;
 const NAME_MAX = 120;
@@ -159,12 +160,6 @@ export async function removePatientCondition(db, session, patientId, conditionId
   await logAccess(db, { session, patientId, route: 'conditions.remove', action: 'update' }, now);
 }
 
-/** pg devolve `date` como Date (meia-noite UTC); normaliza para AAAA-MM-DD como o resto do core. */
-function isoDay(v) {
-  if (v === null || v === undefined) return null;
-  return v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10);
-}
-
 /** Condições de um paciente, em ordem alfabética. Sem audit: é chamada por quem já auditou. */
 export async function listPatientConditions(db, patientId) {
   const rows = await db('patient_conditions as pc')
@@ -172,7 +167,7 @@ export async function listPatientConditions(db, patientId) {
     .where('pc.patient_id', patientId)
     .orderBy('c.name')
     .select('c.id', 'c.name', 'c.cid10', 'pc.noted_at');
-  return rows.map((r) => ({ ...r, noted_at: isoDay(r.noted_at) }));
+  return rows.map((r) => ({ ...r, noted_at: r.noted_at === null ? null : noteDay(r.noted_at) }));
 }
 
 /** Mapa patient_id → condições, para listas. */

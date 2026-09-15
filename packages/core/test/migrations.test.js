@@ -127,7 +127,8 @@ describe('migrations — latest → seed → rollback total → latest', () => {
   it('013: condition_tags vira conditions + patient_conditions; down reconstrói a coluna', async () => {
     await db.raw('drop schema public cascade; create schema public');
     const [, pendentes] = await db.migrate.list(migrationConfig);
-    for (let i = 0; i < pendentes.length - 1; i += 1) await db.migrate.up(migrationConfig);
+    const ate013 = pendentes.findIndex((m) => m.file.startsWith('013_'));
+    for (let i = 0; i < ate013; i += 1) await db.migrate.up(migrationConfig);
     expect(await db.schema.hasColumn('patients', 'condition_tags')).toBe(true);
     expect(await db.schema.hasTable('conditions')).toBe(false);
 

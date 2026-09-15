@@ -114,5 +114,6 @@ export async function listNotes(db, session, patientId, { includeDeleted = false
   await requirePatientInClinic(db, session, patientId);
   let q = db('clinical_notes').where({ patient_id: patientId });
   if (!includeDeleted) q = q.whereNull('deleted_at');
-  return q.orderBy('occurred_at', 'desc').orderBy('created_at', 'desc');
+  const rows = await q.orderBy('occurred_at', 'desc').orderBy('created_at', 'desc');
+  return rows.map((row) => ({ ...row, occurred_at: noteDay(row.occurred_at) }));
 }
