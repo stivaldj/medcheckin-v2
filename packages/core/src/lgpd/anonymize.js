@@ -3,6 +3,8 @@ import { toDT } from '../time.js';
 import { AuthError, newToken } from '../auth/tokens.js';
 import { requirePatientInClinic, logAccess } from '../auth/access.js';
 import { logger } from '../logger.js';
+import { purgeAttachmentFiles } from '../attachments/index.js';
+import { catalogNameKey } from '../catalog/nameKey.js';
 
 function requireDoctor(session) {
   if (!session || session.kind !== 'user')
@@ -28,6 +30,7 @@ export async function anonymizePatient(db, session, patientId, { reason }, now) 
       .where({ id: patientId })
       .update({
         name: anonName,
+        name_key: catalogNameKey(anonName),
         birth_date: null,
         status: 'discharged',
         // D28: é este campo, e não o status, que diz "anonimizado" — alta grava o mesmo status.
@@ -105,6 +108,8 @@ export async function anonymizePatient(db, session, patientId, { reason }, now) 
     await trx('clinical_notes')
       .where({ patient_id: patientId })
       .update({ body: '[removido]', updated_at: trx.fn.now() });
+    // D38: os bytes dos anexos saem do disco; o nome original é substituído por um rótulo neutro.
+    await purgeAttachmentFiles(trx, patientId);
     await logAccess(
       trx,
       { session, patientId, route: `patients.anonymize:${why.slice(0, 120)}`, action: 'anonymize' },

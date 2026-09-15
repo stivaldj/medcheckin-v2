@@ -1335,3 +1335,47 @@ export function renderPilotReportMarkdown(
   report: PilotReport,
   criteria?: readonly PilotCriterion[],
 ): string;
+
+export type AttachmentKind = 'pdf' | 'image';
+export interface AttachmentRow {
+  id: string;
+  patient_id: string;
+  kind: AttachmentKind;
+  original_name: string;
+  mime: string;
+  size_bytes: number;
+  sha256: string;
+  stored_path: string;
+  source: 'upload' | 'import';
+  uploaded_by: string | null;
+  deleted_at: Date | null;
+  created_at: Date;
+}
+
+export const ATTACHMENT_MAX_BYTES: number;
+export function sniffKind(buf: Buffer): AttachmentKind | null;
+export function storeAttachment(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  input: { buffer: Buffer; originalName: string; mime?: string; source?: 'upload' | 'import' },
+  now?: Instant,
+): Promise<AttachmentRow>;
+export function listAttachments(
+  db: Knex,
+  session: Session,
+  patientId: string,
+): Promise<AttachmentRow[]>;
+export function openAttachment(
+  db: Knex,
+  session: Session,
+  attachmentId: string,
+  now?: Instant,
+): Promise<{ row: AttachmentRow; path: string }>;
+export function hideAttachment(
+  db: Knex,
+  session: Session,
+  attachmentId: string,
+  now?: Instant,
+): Promise<AttachmentRow>;
+export function attachmentAbsolutePath(row: Pick<AttachmentRow, 'stored_path'>): string;

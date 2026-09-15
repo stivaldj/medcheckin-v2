@@ -154,6 +154,7 @@ describe('LGPD — export, anonimização, retenção', () => {
     expect(Object.keys(data.files).sort()).toEqual([
       'access_audit.json',
       'alerts.json',
+      'attachments.json',
       'checkins.json',
       'clinical_notes.json',
       'conditions.json',
@@ -167,6 +168,7 @@ describe('LGPD — export, anonimização, retenção', () => {
       'routine_periods.json',
       'scores.json',
     ]);
+    expect(Object.keys(data.files).some((k) => k.startsWith('anexos/'))).toBe(false);
     const buf = await buildExportZip(data);
     const zip = await JSZip.loadAsync(buf);
     const names = Object.keys(zip.files).sort();
