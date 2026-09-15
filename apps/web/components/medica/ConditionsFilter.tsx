@@ -18,6 +18,7 @@ export function ConditionsFilter({
     const params = new URLSearchParams(searchParams.toString());
     if (v === ALL) params.delete('condition');
     else params.set('condition', v);
+    params.delete('page');
     const s = params.toString();
     router.push(s ? `/pacientes?${s}` : '/pacientes');
   }

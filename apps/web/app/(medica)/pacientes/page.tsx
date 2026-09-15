@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { UsersIcon } from 'lucide-react';
 import { listPatients, listConditions, type PatientListStatus } from '@medcheckin/core';
 
@@ -60,6 +61,17 @@ export default async function PacientesPage({
     listConditions(db, session.clinicId),
   ]);
 
+  if (rows.length === 0 && total > 0) {
+    const last = Math.ceil(total / pageSize);
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (status !== 'following') params.set('status', status);
+    if (condition) params.set('condition', condition);
+    if (last > 1) params.set('page', String(last));
+    const s = params.toString();
+    redirect(s ? `/pacientes?${s}` : '/pacientes');
+  }
+
   const countLabel = q
     ? `encontrado${total === 1 ? '' : 's'}`
     : status === 'following'
@@ -111,7 +123,7 @@ export default async function PacientesPage({
           </Button>
         </div>
       </div>
-      {rows.length === 0 ? (
+      {total === 0 ? (
         <Empty className="rounded-xl border bg-card py-12">
           <EmptyHeader>
             <EmptyMedia variant="icon">
