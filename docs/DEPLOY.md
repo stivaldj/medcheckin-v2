@@ -26,9 +26,12 @@
    - `/hoje` (após login) mostra "Scheduler ativo".
 6. **Primeiro acesso**: crie a clínica e a médica **sem seed** (D7 — seed é recusado em produção):
    `docker compose -p medcheckin -f docker-compose.prod.yml --env-file .env.prod exec db psql -U medcheckin -d medcheckin -c "insert into clinics(name) values('Clínica X') returning id"` e depois `insert into users(clinic_id, role, email, name) values('<id>','doctor','medica@…','Dra. …')`. Ela entra em `/login` pelo link mágico.
-7. **Backup**: automático (cron `BACKUP_CRON`, default 03:15 UTC) → volume `backups`. **Restore drill mensal**:
-   `docker compose … exec backup sh -c 'apk add --no-cache openssl >/dev/null; /usr/local/bin/restore-drill.sh'` → esperar `RESTORE DRILL OK <hash>`. Copie o script para o container se a imagem não o tiver (`docker cp scripts/restore-drill.sh <container>:/usr/local/bin/`).
-   Off-site: monte `rclone` no container ou copie `/backups` por `rsync` para outra máquina.
+7. **Backup**: automático (cron `BACKUP_CRON`, default 03:15 UTC) → volume `backups`. Gera **dois** arquivos
+   cifrados: `medcheckin-*.dump.enc` (banco) e `uploads-*.tar.enc` (anexos, D38 — o serviço `backup` monta o
+   volume `uploads` como somente leitura e `UPLOADS_DIR=/data/uploads` já vem fixado no compose). **Restore
+   drill mensal**:
+   `docker compose … exec backup sh -c 'apk add --no-cache openssl >/dev/null; /usr/local/bin/restore-drill.sh'` → esperar `RESTORE DRILL OK <hash>` seguido de `RESTORE DRILL anexos OK` (confere que cada `stored_path` do banco restaurado existe no tar de uploads mais recente). Copie o script para o container se a imagem não o tiver (`docker cp scripts/restore-drill.sh <container>:/usr/local/bin/`).
+   Off-site: monte `rclone` no container ou copie `/backups` (os dois arquivos) por `rsync` para outra máquina.
 8. **Uptime**: monitor externo → `https://DOMAIN/api/health` a cada 1–5 min, alerta em ≠200. Alternativa sem serviço externo: cron em outra máquina/GitHub Actions rodando `scripts/uptime-check.mjs` (`HEALTH_URL`, `ALERT_EMAIL`, `SMTP_*`).
 9. **Prove o alerta antes de precisar dele** — um alarme só exercitado no dia do incêndio não é alarme:
 

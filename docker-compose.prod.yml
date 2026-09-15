@@ -46,6 +46,9 @@ services:
       HEALTH_REQUIRE_SCHEDULER: ${HEALTH_REQUIRE_SCHEDULER:-1}
       APP_VERSION: ${APP_VERSION:-unknown}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      UPLOADS_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
     depends_on:
       db: { condition: service_healthy }
       migrate: { condition: service_completed_successfully }
@@ -98,12 +101,14 @@ services:
       BACKUP_CRON: ${BACKUP_CRON:-15 3 * * *}
       # Off-site: nome de um remoto do rclone (ex.: `b2:medcheckin-backups`). Vazio = só no volume.
       BACKUP_RCLONE_REMOTE: ${BACKUP_RCLONE_REMOTE:-}
+      UPLOADS_DIR: /data/uploads
     volumes:
       # config do rclone (`rclone config` gera rclone.conf) — só é lida se BACKUP_RCLONE_REMOTE estiver definido
       - ${RCLONE_CONFIG_DIR:-./deploy/rclone}:/root/.config/rclone:ro
       - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
       - ./scripts/restore-drill.sh:/usr/local/bin/restore-drill.sh:ro
       - backups:/backups
+      - uploads:/data/uploads:ro
     entrypoint:
       - /bin/sh
       - -c
@@ -119,3 +124,4 @@ volumes:
   caddy_data:
   caddy_config:
   backups:
+  uploads:

@@ -35,3 +35,17 @@ if [ "$SRC_HASH" = "$DRILL_HASH" ]; then
 else
   echo "RESTORE DRILL FAIL: hash origem $SRC_HASH ≠ restaurado $DRILL_HASH (arquivo $(basename "$FILE"))"; exit 4
 fi
+# 4) anexos (D38): cada stored_path do banco restaurado precisa existir no tar de uploads mais recente
+UP_FILE="${UPLOADS_FILE:-$(ls -1t "$DIR"/uploads-*.tar.enc 2>/dev/null | head -1)}"
+N_ATT="$(psql -d "$DRILL" -qAtc "select count(*) from attachments" 2>/dev/null || echo 0)"
+if [ "$N_ATT" -gt 0 ]; then
+  [ -n "$UP_FILE" ] || { echo "RESTORE DRILL FAIL: $N_ATT anexo(s) no banco e nenhum uploads-*.tar.enc em $DIR"; exit 7; }
+  UP_TMP="$(mktemp)"; trap 'rm -f "$TMP" "$UP_TMP"; psql -d postgres -qAtc "drop database if exists $DRILL" >/dev/null 2>&1 || true' EXIT
+  openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in "$UP_FILE" -out "$UP_TMP" -pass env:BACKUP_PASSPHRASE
+  MISSING=0
+  for p in $(psql -d "$DRILL" -qAtc "select stored_path from attachments"); do
+    tar -tf "$UP_TMP" "./$p" >/dev/null 2>&1 || { echo "RESTORE DRILL: anexo ausente no tar: $p"; MISSING=$((MISSING+1)); }
+  done
+  [ "$MISSING" -eq 0 ] || { echo "RESTORE DRILL FAIL: $MISSING anexo(s) sem arquivo no tar"; exit 8; }
+  echo "RESTORE DRILL anexos OK ($N_ATT arquivo(s) conferido(s) em $(basename "$UP_FILE"))"
+fi
