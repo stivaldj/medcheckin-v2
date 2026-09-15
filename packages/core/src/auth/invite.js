@@ -25,22 +25,30 @@ export async function acceptInvite(db, { inviteToken, consentVersion = null, ua 
         'consent_required',
         'É preciso aceitar o termo de consentimento para continuar.',
       );
-    await db('respondents').where({ id: r.id }).update({
-      accepted_at: nowJs,
-      consent_version: v,
-      consent_at: nowJs,
-      updated_at: db.fn.now(),
+    // As duas escritas (aceite do respondente + promoção do paciente) formam uma única operação
+    // de negócio: se a segunda falhasse depois da primeira já ter sido commitada, o respondente
+    // ficaria aceito com o paciente ainda "registered" — inconsistência permanente. Mesma transação.
+    await db.transaction(async (trx) => {
+      await trx('respondents').where({ id: r.id }).update({
+        accepted_at: nowJs,
+        consent_version: v,
+        consent_at: nowJs,
+        updated_at: trx.fn.now(),
+      });
+      // D37: paciente "Cadastrado" (importado) passa a ativo no primeiro aceite — é o consentimento
+      // v2 que autoriza o acompanhamento. Quem já era ativo/pausado não muda.
+      await trx('patients').where({ id: r.patient_id, status: 'registered' }).update({
+        status: 'active',
+        consent_version: v,
+        consent_at: nowJs,
+        updated_at: trx.fn.now(),
+      });
     });
     logger.info('auth.invite.accepted', {
       respondent_id: r.id,
       patient_id: r.patient_id,
       consent_version: v,
     });
-    // D37: paciente "Cadastrado" (importado) passa a ativo no primeiro aceite — é o consentimento
-    // v2 que autoriza o acompanhamento. Quem já era ativo/pausado não muda.
-    await db('patients')
-      .where({ id: r.patient_id, status: 'registered' })
-      .update({ status: 'active', consent_version: v, consent_at: nowJs, updated_at: db.fn.now() });
   }
   const out = await createSession(db, { respondentId: r.id, clinicId: r.clinic_id, ua }, now);
   logger.info('auth.login', { respondent_id: r.id, kind: 'respondent' });

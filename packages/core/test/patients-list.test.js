@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { freshDb, seedClinic } from './helpers/db.js';
 import { createPatient, listPatients } from '../src/patients/index.js';
 import { acceptInvite } from '../src/auth/invite.js';
@@ -98,5 +98,46 @@ describe('listPatients paginada + registered', () => {
     expect(depois.status).toBe('active');
     expect(depois.consent_version).toBe('v2');
     expect(depois.consent_at).not.toBeNull();
+  });
+
+  it('acceptInvite grava o aceite do respondente e a promoção do paciente em uma única transação', async () => {
+    // D37 fix round 1: as duas escritas (respondents.accepted_at/consent_* e patients.status/consent_*)
+    // não podem ser commits independentes — se a segunda falhasse depois da primeira, o respondente
+    // ficaria aceito com o paciente ainda "registered", uma inconsistência permanente. Provamos que
+    // ambas passam pela mesma `db.transaction` (spy chamado exatamente uma vez) e que as duas linhas
+    // mudam juntas.
+    const patient2 = await db('patients')
+      .insert({
+        clinic_id: ctx.clinicId,
+        name: 'Joana Cadastrada',
+        name_key: catalogNameKey('Joana Cadastrada'),
+        timezone: 'America/Cuiaba',
+        created_by: ctx.userId,
+        status: 'registered',
+        external_source: 'versatilis',
+        external_ref: 'V-2',
+        imported_at: NOW,
+      })
+      .returning('*');
+    const joana = patient2[0];
+    const [r2] = await db('respondents')
+      .insert({
+        patient_id: joana.id,
+        kind: 'patient',
+        name: 'Joana',
+        invite_token: 'tok-joana',
+        can_answer: true,
+        receives_alarms: true,
+      })
+      .returning('*');
+    const txSpy = vi.spyOn(db, 'transaction');
+    await acceptInvite(db, { inviteToken: r2.invite_token, consentVersion: 'v2' }, NOW);
+    expect(txSpy).toHaveBeenCalledTimes(1);
+    txSpy.mockRestore();
+    const respondentDepois = await db('respondents').where({ id: r2.id }).first();
+    const patientDepois = await db('patients').where({ id: joana.id }).first();
+    expect(respondentDepois.accepted_at).not.toBeNull();
+    expect(patientDepois.status).toBe('active');
+    expect(patientDepois.consent_version).toBe('v2');
   });
 });
