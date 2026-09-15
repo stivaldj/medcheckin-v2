@@ -4,10 +4,10 @@ import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/client';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { SimpleSelect } from '@/components/ui/simple-select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { fmt, fmtDate, isoDay } from '@/lib/format';
 import { DoseDialog, type Med } from './DoseDialog';
+import { ProductNameInput } from './ProductNameInput';
 
 import type { ProductRow, QuestionSetRow } from '@medcheckin/core';
 
@@ -26,18 +26,21 @@ export function MedicationsCard({
   questionSets: QSet[];
 }) {
   const router = useRouter();
-  const [productId, setProductId] = useState(products[0]?.id ?? '');
+  const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  async function addMed(e: React.FormEvent) {
-    e.preventDefault();
+  const podeAdicionar = name.trim().length >= 2 && !busy;
+
+  async function addMed() {
+    if (!podeAdicionar) return;
     setBusy(true);
     setError(null);
     try {
       await api(`/api/patients/${patientId}/medications`, {
         method: 'POST',
-        json: { product_id: productId },
+        json: { name: name.trim() },
       });
+      setName('');
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Erro');
@@ -82,25 +85,39 @@ export function MedicationsCard({
             )}
           </div>
         ))}
-        <form onSubmit={addMed} className="flex items-end gap-2">
-          <div className="flex-1">
-            <Label htmlFor="product">Adicionar medicação</Label>
-            <SimpleSelect
-              id="product"
-              value={productId}
-              onValueChange={setProductId}
-              options={products.map((p) => ({ value: p.id, label: p.name }))}
-              data-testid="product-select"
-            />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void addMed();
+          }}
+          className="space-y-1"
+        >
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Label htmlFor="product">Adicionar medicação</Label>
+              <ProductNameInput
+                id="product"
+                value={name}
+                onChange={setName}
+                suggestions={products.map((p) => p.name)}
+                onSubmit={() => void addMed()}
+                disabled={busy}
+              />
+            </div>
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={!podeAdicionar}
+              data-testid="add-medication"
+            >
+              Adicionar
+            </Button>
           </div>
-          <Button
-            type="submit"
-            variant="outline"
-            disabled={busy || !productId}
-            data-testid="add-medication"
-          >
-            Adicionar
-          </Button>
+          <p className="text-xs text-muted-foreground">
+            {products.length === 0
+              ? 'Escreva o nome do produto e toque em Adicionar. Ele fica salvo para os próximos pacientes.'
+              : 'Escreva o nome ou escolha um produto já usado na clínica.'}
+          </p>
         </form>
         {error && <p className="text-sm text-destructive">{error}</p>}
       </CardContent>

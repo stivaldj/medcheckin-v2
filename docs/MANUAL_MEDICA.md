@@ -150,7 +150,7 @@ Detalhes que evitam susto:
 
 **Medicações e dose vigente** — cada produto com a dose de hoje: _"Dose vigente: 4 gotas · 2×/dia (08:00, 20:00) desde 13/08"_ e o **Histórico** de ajustes.
 
-- **Adicionar medicação**: escolha o produto e toque em **Adicionar**. Ele nasce **sem dose vigente**.
+- **Adicionar medicação**: escreva o nome do produto do seu jeito (ex.: _Óleo CBD 50 mg/ml_) e toque em **Adicionar** ou dê Enter. Nomes que você já usou em outros pacientes aparecem como sugestão enquanto digita; escolher um evita duplicar. A medicação nasce **sem dose vigente**.
 - **Ajustar dose**: **Vigente a partir de**, **Dose**, **Unidade** (gotas, ml, mg, cápsulas), **Vezes por dia**, os **Horários** (um por tomada), **Motivo** (ex.: "dor persistente") e **Observação**. A caixa **abrir episódio de titulação (check-in diário) a partir deste ajuste** vem marcada: isso passa o paciente para check-in **diário** — desmarque se for só uma correção. Toque em **Registrar ajuste**.
 
 > A dose registrada aqui serve ao **gráfico**. O que o celular mostra no alarme é o **texto da rotina**. Mudou a dose? Faça as duas coisas: **Ajustar dose** e atualize a **Rotina de alarmes**.

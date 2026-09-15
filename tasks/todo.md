@@ -1,3 +1,24 @@
+# Medicação por nome — digitar, dar OK, produto nasce junto (14/09, `feat/medicacao-por-nome`)
+
+Causa: o select de "Adicionar medicação" só listava `products` da clínica, e nenhuma tela criava produto — clínica real ficava sem conseguir registrar medicação. Spec: `docs/superpowers/specs/2026-09-14-medicacao-por-nome-design.md`. Plano: `docs/superpowers/plans/2026-09-14-medicacao-por-nome.md`. Decisão D34. E12 (prontuário + importação agêntica) registrada no PLANO.
+
+- [x] 1. `productNameKey` puro + subpath `@medcheckin/core/name-key` (7cd4d2b)
+- [x] 2. Migration 012 `products.name_key` único por clínica, backfill que recusa colisão; seed/testes com `name_key` (fafd78e)
+- [x] 3. Core: `findOrCreateProduct` fora da transação (23505 abortaria), `addMedication` por `name` ou `product_id`, `createProduct` idempotente (4a53afb)
+- [x] 4. UI: `ProductNameInput` (combobox acessível, teclado) + card envia `{ name }`; verificado no browser (0c5354d)
+- [x] 5. E2E: cria no 1º paciente, sugere e reaproveita no 2º; `medica.spec.ts` adaptado (d909c6b)
+- [x] 6. Manual, D34, log do PLANO (b83cb32)
+- [x] 7. Verificação final: lint, typecheck, 262 testes (203 core + 59 web), 24 E2E; revisão da branch inteira → 2 correções (tipo de retorno de `addMedication`; `POST /api/products` 200 ao reaproveitar) commitadas e re-revisadas (60c3068, ef9f00b)
+- [ ] 8. PR para `main` — só quando o dono pedir
+
+## Revisão
+
+- Causa raiz era ausência de cadastro de produto exposto, não bug do componente. Corrigido na origem: find-or-create no core, chave `name_key` única por clínica (índice, não lock de aplicação), texto livre sempre vale.
+- Desvio da spec, documentado no código: find-or-create em autocommit (23505 dentro de transação Postgres a abortaria); a transação cobre só `medications` + `logAccess`.
+- Follow-ups deixados (não bloqueiam): `catch` trata qualquer 23505 como `name_key`; produto órfão se o insert da medicação falhar; sem `logAccess` em `products.create` (pré-existente); `maxLength` no input; `aria-controls` só com lista aberta; asserções de auditoria/rollback nos testes; rodar a 012 contra cópia do banco de produção antes do deploy (colisão de chave falha de propósito).
+
+---
+
 # Deploy em casa — PC Windows 10 + WSL Ubuntu, sem VPS e sem domínio (13/09)
 
 Piloto: 1 médica + 2 pacientes reais. Sem custo: Tailscale Funnel (HTTPS público em `*.ts.net`),

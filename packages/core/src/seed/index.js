@@ -3,6 +3,8 @@
  * Recusa rodar sobre banco populado, salvo { reset: true } (apaga tudo e recria).
  * Devolve contagens — a prova de E1.
  */
+import { productNameKey } from '../medications/nameKey.js';
+
 const TABLES_IN_DELETE_ORDER = [
   'access_audit',
   'patient_scores_daily',
@@ -125,6 +127,7 @@ export async function runSeed(db, { reset = false } = {}) {
       .insert({
         clinic_id: clinic.id,
         name: 'Óleo Full Spectrum CBD 50mg/ml',
+        name_key: productNameKey('Óleo Full Spectrum CBD 50mg/ml'),
         cbd_mg_ml: 50,
         thc_mg_ml: 0.5,
         form: 'oil',

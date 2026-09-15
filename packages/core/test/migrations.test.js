@@ -84,4 +84,38 @@ describe('migrations — latest → seed → rollback total → latest', () => {
     );
     expect(depoisAlta.anonymized_at).toBeNull();
   });
+
+  /**
+   * D34 — o backfill da 012 não funde produtos às cegas: duas linhas da mesma clínica que caem
+   * na mesma chave fazem a migration falhar nomeando os ids, para alguém decidir.
+   */
+  it('012 falha com mensagem clara quando dois produtos da clínica têm a mesma chave', async () => {
+    await db.raw('drop schema public cascade; create schema public');
+    // sobe até a 011 (tudo menos a última)
+    const [, pendentes] = await db.migrate.list(migrationConfig);
+    for (let i = 0; i < pendentes.length - 1; i += 1) await db.migrate.up(migrationConfig);
+    expect(await db.schema.hasColumn('products', 'name_key')).toBe(false);
+
+    const [clinic] = await db('clinics').insert({ name: 'Clínica colisão' }).returning('id');
+    await db('products').insert([
+      { clinic_id: clinic.id, name: 'Óleo CBD 50mg/ml', form: 'oil' },
+      { clinic_id: clinic.id, name: 'oleo cbd 50mg/ml', form: 'oil' },
+    ]);
+
+    await expect(db.migrate.up(migrationConfig)).rejects.toThrow(/mesma chave.*oleo cbd 50mg\/ml/);
+
+    // sem a colisão, a 012 sobe e o índice único vale
+    await db('products').where({ name: 'oleo cbd 50mg/ml' }).delete();
+    await db.migrate.up(migrationConfig);
+    const row = await db('products').where({ name: 'Óleo CBD 50mg/ml' }).first();
+    expect(row.name_key).toBe('oleo cbd 50mg/ml');
+    await expect(
+      db('products').insert({
+        clinic_id: clinic.id,
+        name: 'ÓLEO CBD 50MG/ML',
+        name_key: 'oleo cbd 50mg/ml',
+        form: 'oil',
+      }),
+    ).rejects.toMatchObject({ code: '23505' });
+  });
 });

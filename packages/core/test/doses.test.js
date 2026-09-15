@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { freshDb, seedClinic, seedPatient } from './helpers/db.js';
 import { currentDose } from '../src/doses/currentDose.js';
+import { productNameKey } from '../src/medications/nameKey.js';
 
 // D3: dose vigente = último dose_event com effective_from <= momento consultado.
 describe('dose vigente (dose_events)', () => {
@@ -13,6 +14,7 @@ describe('dose vigente (dose_events)', () => {
       .insert({
         clinic_id: ctx.clinicId,
         name: 'Óleo CBD 50',
+        name_key: productNameKey('Óleo CBD 50'),
         cbd_mg_ml: 50,
         thc_mg_ml: 0.5,
         form: 'oil',

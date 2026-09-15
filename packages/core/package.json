@@ -10,7 +10,11 @@
       "default": "./src/index.js"
     },
     "./config": "./src/config.js",
-    "./db": "./src/db.js"
+    "./db": "./src/db.js",
+    "./name-key": {
+      "types": "./src/medications/nameKey.d.ts",
+      "default": "./src/medications/nameKey.js"
+    }
   },
   "scripts": {
     "test": "vitest run",
