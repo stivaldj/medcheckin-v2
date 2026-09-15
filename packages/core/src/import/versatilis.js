@@ -6,6 +6,7 @@ import { ValidationError } from '../errors.js';
 import { catalogNameKey } from '../catalog/nameKey.js';
 import { findOrCreateCondition } from '../conditions/index.js';
 import { storeAttachment } from '../attachments/index.js';
+import { noteDay } from '../notes/index.js';
 
 const SOURCE = 'versatilis';
 
@@ -35,12 +36,12 @@ function splitList(raw, sep) {
 }
 
 // `existing.birth_date` chega do Postgres como Date (coluna `date`, sem type parser custom em
-// db.js): String(date) usa o fuso local do processo e desloca o dia. toISOString() preserva o
-// valor exato do Date, então fatiar a partir dela é a única forma correta de extrair AAAA-MM-DD.
+// db.js). `noteDay` (mesmo conversor canônico usado em notas: luxon fromJSDate().toISODate() no
+// fuso do processo — o mesmo fuso que o driver pg usou para montar o Date) evita o deslocamento
+// de dia que `toISOString()` (sempre UTC) causaria em hosts de fuso positivo.
 function dateStr(v) {
   if (v == null) return null;
-  if (v instanceof Date) return v.toISOString().slice(0, 10);
-  return String(v).slice(0, 10);
+  return noteDay(v);
 }
 
 function fileFor(mapa, item) {
@@ -137,11 +138,16 @@ export function planImport({ rows, mapa, pdfFiles = [], existing = [] }) {
  * find-or-create (autocommit, D34) e anexo via storeAttachment (idempotente por sha256) fora dela.
  * `readPdf(nomeArquivo) → Buffer | null`. Reexecutar não duplica: unique parcial em external_ref,
  * onConflict nos vínculos, sha256 nos anexos, e notas importadas checadas por (patient, source.ref).
- * `plan.colidir` não é gravado — resolver a colisão (editar o CSV/mapa) é responsabilidade de quem
- * pede o plano; a médica revê a lista antes de mandar executar, então aqui só criar/casar rodam.
+ * D39: recusa gravar se `plan.colidir` não está vazio — defesa em profundidade além da UI, que já
+ * deveria ter bloqueado o botão de executar com colisões pendentes.
  */
 export async function executeImport(db, session, plan, { readPdf }, now) {
   requireDoctor(session);
+  if (plan.colidir.length)
+    throw new ValidationError(
+      `Há ${plan.colidir.length} colisão(ões) não resolvida(s); ajuste o CSV ou o mapa antes de gravar.`,
+      'colidir',
+    );
   const nowJs = toDT(now).toJSDate();
   const out = { created: 0, matched: 0, attached: 0, notes: 0 };
 

@@ -85,11 +85,35 @@ describe('importação Versatilis', () => {
     expect(plan.criar.find((i) => i.ref === '103').birth_date).toBeNull();
   });
 
-  it('executeImport grava registered + condições + notas + anexo; casa sem duplicar; é idempotente', async () => {
+  it('executeImport recusa gravar quando o plano tem colisões pendentes', async () => {
     const existing = await db('patients')
       .where({ clinic_id: ctx.clinicId })
       .select('id', 'name_key', 'birth_date', 'external_ref');
-    const plan = planImport({ rows, mapa, pdfFiles: ['101.pdf', '102.pdf'], existing });
+    const planComColisao = planImport({
+      rows,
+      mapa,
+      pdfFiles: ['101.pdf', '102.pdf'],
+      existing,
+    });
+    expect(planComColisao.colidir.length).toBeGreaterThan(0);
+    await expect(
+      executeImport(db, session, planComColisao, { readPdf: async () => null }, NOW),
+    ).rejects.toMatchObject({ code: 'validation', field: 'colidir' });
+  });
+
+  it('executeImport grava registered + condições + notas + anexo; casa sem duplicar; é idempotente', async () => {
+    // 104/105 colidem entre si (mesmo nome no CSV) — fora do escopo desta prova; o plano de
+    // execução aqui só cobre linhas sem colisão pendente (a recusa é coberta no teste acima).
+    const rowsSemColisao = rows.filter((r) => !['104', '105'].includes(r.id));
+    const existing = await db('patients')
+      .where({ clinic_id: ctx.clinicId })
+      .select('id', 'name_key', 'birth_date', 'external_ref');
+    const plan = planImport({
+      rows: rowsSemColisao,
+      mapa,
+      pdfFiles: ['101.pdf', '102.pdf'],
+      existing,
+    });
     const readPdf = async (name) => (name === '101.pdf' || name === '102.pdf' ? PDF : null);
     const r1 = await executeImport(db, session, plan, { readPdf }, NOW);
     expect(r1).toMatchObject({ created: 2, matched: 1, attached: 2, notes: 3 });
@@ -123,7 +147,7 @@ describe('importação Versatilis', () => {
       db,
       session,
       planImport({
-        rows,
+        rows: rowsSemColisao,
         mapa,
         pdfFiles: ['101.pdf', '102.pdf'],
         existing: await db('patients')
