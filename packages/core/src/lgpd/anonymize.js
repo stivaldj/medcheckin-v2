@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { rm } from 'node:fs/promises';
 import { toDT } from '../time.js';
 import { AuthError, newToken } from '../auth/tokens.js';
 import { requirePatientInClinic, logAccess } from '../auth/access.js';
@@ -25,7 +26,7 @@ export async function anonymizePatient(db, session, patientId, { reason }, now) 
   const tag = createHash('sha256').update(patientId).digest('hex').slice(0, 8);
   const anonName = `Paciente anonimizado ${tag}`;
 
-  return db.transaction(async (trx) => {
+  const result = await db.transaction(async (trx) => {
     const [patient] = await trx('patients')
       .where({ id: patientId })
       .update({
@@ -108,14 +109,27 @@ export async function anonymizePatient(db, session, patientId, { reason }, now) 
     await trx('clinical_notes')
       .where({ patient_id: patientId })
       .update({ body: '[removido]', updated_at: trx.fn.now() });
-    // D38: os bytes dos anexos saem do disco; o nome original é substituído por um rótulo neutro.
-    await purgeAttachmentFiles(trx, patientId);
+    // D38: o nome original é substituído por um rótulo neutro AGORA; os bytes só saem do disco
+    // depois que esta transação der commit (rm dentro dela seria irreversível num rollback).
+    const { paths: attachmentPaths } = await purgeAttachmentFiles(trx, patientId);
     await logAccess(
       trx,
       { session, patientId, route: `patients.anonymize:${why.slice(0, 120)}`, action: 'anonymize' },
       now,
     );
     logger.info('lgpd.anonymized', { patient_id: patientId, respondents: respondents.length });
-    return { patient, respondents: respondents.length };
+    return { patient, respondents: respondents.length, attachmentPaths };
   });
+
+  for (const p of result.attachmentPaths) {
+    try {
+      await rm(p, { force: true });
+    } catch (err) {
+      // Metadados já anonimizados e transação já commitada — não lançar aqui só porque um
+      // arquivo não pôde ser removido (permissão, já ausente etc.); loga para investigação manual.
+      logger.warn('lgpd.anonymize.file_rm_failed', { path: p, error: String(err?.message ?? err) });
+    }
+  }
+  const { patient, respondents } = result;
+  return { patient, respondents };
 }

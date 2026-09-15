@@ -31,6 +31,22 @@ export function sniffKind(buf) {
   return f === 'pdf' ? 'pdf' : 'image';
 }
 
+/**
+ * Higieniza o nome original antes de guardar/exibir: ele vira parte do nome do arquivo no export
+ * (`anexos/<id>-<original_name>`) e do `Content-Disposition` na rota de download, então nunca pode
+ * carregar separador de caminho, `..`, aspas ou caracteres de controle (zip slip / header injection).
+ */
+function sanitizeOriginalName(name, ext) {
+  const cleaned = String(name ?? '')
+    .replace(/[\\/]+/g, '_')
+    .replace(/\.\.+/g, '_')
+    .replace(/["\x00-\x1f\x7f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+  return cleaned || `arquivo.${ext}`;
+}
+
 function uploadsDir() {
   return path.resolve(loadConfig(process.env).uploadsDir);
 }
@@ -59,13 +75,20 @@ export async function storeAttachment(db, session, patientId, input, now) {
     );
   if (buf.length > ATTACHMENT_MAX_BYTES)
     throw new ValidationError('Arquivo acima de 25 MB.', 'file');
-  const originalName =
-    String(input?.originalName ?? '')
-      .trim()
-      .slice(0, 200) || `arquivo.${EXT[format]}`;
+  const originalName = sanitizeOriginalName(input?.originalName, EXT[format]);
   const sha256 = createHash('sha256').update(buf).digest('hex');
   const existing = await db('attachments').where({ patient_id: patientId, sha256 }).first();
-  if (existing) return existing;
+  if (existing) {
+    if (!existing.deleted_at) return existing;
+    // Reenvio do mesmo arquivo depois de ocultado: reativa em vez de devolver a linha oculta
+    // silenciosamente (senão a médica reenviaria achando que subiu e o anexo continuaria escondido).
+    const [reactivated] = await db('attachments')
+      .where({ id: existing.id })
+      .update({ deleted_at: null, original_name: originalName })
+      .returning('*');
+    await logAccess(db, { session, patientId, route: 'attachments.create', action: 'create' }, now);
+    return reactivated;
+  }
 
   const rel = path.posix.join(session.clinicId, `${randomUUID()}.${EXT[format]}`);
   const abs = path.resolve(uploadsDir(), rel);
@@ -152,14 +175,19 @@ export async function hideAttachment(db, session, attachmentId, now) {
   return out;
 }
 
-/** Usado pela anonimização: remove os bytes do disco (ignora ausente) e anonimiza o nome. */
+/**
+ * Usado pela anonimização: anonimiza o nome dentro da transação e devolve os caminhos a apagar
+ * do disco. NÃO toca o filesystem aqui — `rm` fora da transação (que pode ser desfeita) apagaria
+ * bytes de forma irreversível mesmo se o `COMMIT` nunca acontecer. Quem chama apaga os arquivos
+ * depois que a transação resolver.
+ */
 export async function purgeAttachmentFiles(trx, patientId) {
   const rows = await trx('attachments').where({ patient_id: patientId }).orderBy('created_at');
+  const paths = rows.map(attachmentAbsolutePath);
   for (const [i, r] of rows.entries()) {
-    await rm(attachmentAbsolutePath(r), { force: true });
     await trx('attachments')
       .where({ id: r.id })
       .update({ original_name: `anexo ${i + 1}` });
   }
-  return rows.length;
+  return { count: rows.length, paths };
 }

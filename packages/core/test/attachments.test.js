@@ -189,4 +189,80 @@ describe('anexos', () => {
     expect(patient.name_key).toBe(catalogNameKey(patient.name));
     expect(patient.name_key).not.toContain(catalogNameKey('Paciente Teste'));
   });
+
+  // Fix round 1 — achado 1: nome de entrada do ZIP sem higienização (zip slip / header injection).
+  it('higieniza o nome original: sem barra, sem "..", sem aspas nem caractere de controle', async () => {
+    const outroPaciente = await seedPatient(db, ctx, 'Outro Paciente');
+    const a = await storeAttachment(
+      db,
+      session,
+      outroPaciente,
+      { buffer: PDF, originalName: '../../x/"evil".pdf\r\n', mime: 'application/pdf' },
+      NOW,
+    );
+    expect(a.original_name).not.toMatch(/[/\\]/);
+    expect(a.original_name).not.toMatch(/\.\./);
+    expect(a.original_name).not.toMatch(/["\r\n]/);
+    const { files } = await exportPatientData(db, session, outroPaciente, NOW);
+    const anexoKey = Object.keys(files).find((k) => k.startsWith('anexos/'));
+    expect(anexoKey).toBeDefined();
+    expect(anexoKey).not.toMatch(/\.\./);
+  });
+
+  // Fix round 1 — achado 3: reenvio do mesmo arquivo depois de ocultar reativa em vez de ficar
+  // escondido silenciosamente.
+  it('reenviar o mesmo arquivo depois de ocultar reativa o anexo (não cria outra linha)', async () => {
+    const outroPaciente = await seedPatient(db, ctx, 'Paciente Reativação');
+    const a = await storeAttachment(
+      db,
+      session,
+      outroPaciente,
+      { buffer: PNG, originalName: 'exame.png', mime: 'image/png' },
+      NOW,
+    );
+    await hideAttachment(db, session, a.id, NOW);
+    expect((await listAttachments(db, session, outroPaciente)).map((x) => x.id)).not.toContain(
+      a.id,
+    );
+    const reenviado = await storeAttachment(
+      db,
+      session,
+      outroPaciente,
+      { buffer: PNG, originalName: 'exame de novo.png', mime: 'image/png' },
+      NOW,
+    );
+    expect(reenviado.id).toBe(a.id);
+    expect(reenviado.deleted_at).toBeNull();
+    expect((await listAttachments(db, session, outroPaciente)).map((x) => x.id)).toContain(a.id);
+    expect(
+      await db('attachments').where({ patient_id: outroPaciente }).count().first(),
+    ).toMatchObject({
+      count: 1,
+    });
+    const audit = await db('access_audit').where({
+      patient_id: outroPaciente,
+      route: 'attachments.create',
+    });
+    expect(audit).toHaveLength(2); // upload original + reativação
+  });
+
+  // Fix round 1 — achado 2: anonimização não pode apagar bytes dentro da transação; e um arquivo
+  // já ausente no disco não pode derrubar a anonimização inteira.
+  it('anonimização conclui mesmo se um arquivo já não existe mais no disco', async () => {
+    const outroPaciente = await seedPatient(db, ctx, 'Paciente Arquivo Sumido');
+    const a = await storeAttachment(
+      db,
+      session,
+      outroPaciente,
+      { buffer: JPG, originalName: 'sumido.jpg', mime: 'image/jpeg' },
+      NOW,
+    );
+    await rm(attachmentAbsolutePath(a), { force: true });
+    expect(existsSync(attachmentAbsolutePath(a))).toBe(false);
+    await expect(
+      anonymizePatient(db, session, outroPaciente, { reason: 'pedido do titular' }, NOW),
+    ).resolves.toBeTruthy();
+    const rows = await db('attachments').where({ patient_id: outroPaciente });
+    expect(rows.map((r) => r.original_name)).toEqual(['anexo 1']);
+  });
 });
