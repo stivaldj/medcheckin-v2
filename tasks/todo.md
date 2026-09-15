@@ -17,6 +17,8 @@ Nota clínica livre datada, condições em catálogo da clínica com CID-10 opci
 
 ## Revisão
 
+- Onda de correções da revisão final da branch: 87c9ce1 (relatório lista as notas do período, spec §5), 5625d31 (fusão preserva CID-10 da origem), 7a20407 (um só normalizador de dia; teste da 013 sem assumir última migration), 7b5390f (filtro por condição valida UUID; rótulo "com esta condição"), 35bfc97 (manual + pré-requisito de janela da timeline na E12.2).
+
 **Desvios da spec:**
 
 - `TimelineDay.notes` (plural) em vez de `note?`
