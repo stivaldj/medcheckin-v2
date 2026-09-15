@@ -2,10 +2,13 @@ import type { Knex } from 'knex';
 
 export interface CoreConfig {
   readonly databaseUrl: string;
+  readonly uploadsDir: string;
 }
 
-/** Fail-closed: lança se DATABASE_URL ausente. */
-export function loadConfig(env?: Record<string, string | undefined>): CoreConfig;
+/** Fail-closed: lança se DATABASE_URL ausente; UPLOADS_DIR é obrigatório em produção (D38). */
+export function loadConfig(
+  env?: NodeJS.ProcessEnv,
+): Readonly<{ databaseUrl: string; uploadsDir: string }>;
 
 /** Conexão Knex com Postgres (PG-only). numeric/int8 já convertidos para number. */
 export function createDb(databaseUrl: string): Knex;
@@ -482,7 +485,7 @@ export interface PatientRow {
   name: string;
   birth_date: string | Date | null;
   timezone: string;
-  status: 'active' | 'paused' | 'discharged';
+  status: 'active' | 'paused' | 'discharged' | 'registered';
   /** D28 — preenchido só pela anonimização. Alta também grava `discharged`; não use o status. */
   anonymized_at: Date | string | null;
   checkin_time: string;
@@ -490,9 +493,28 @@ export interface PatientRow {
   quiet_end: string;
   consent_version: string | null;
   consent_at: Date | string | null;
+  name_key: string;
+  external_source: string | null;
+  external_ref: string | null;
+  imported_at: Date | string | null;
   created_by: string;
   created_at: Date | string;
   updated_at: Date | string;
+}
+export type AttachmentKind = 'pdf' | 'image';
+export interface AttachmentRow {
+  id: string;
+  patient_id: string;
+  kind: AttachmentKind;
+  original_name: string;
+  mime: string;
+  size_bytes: number;
+  sha256: string;
+  stored_path: string;
+  source: 'upload' | 'import';
+  uploaded_by: string | null;
+  deleted_at: Date | string | null;
+  created_at: Date | string;
 }
 export interface ConditionRow {
   id: string;

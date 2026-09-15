@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon';
+import { catalogNameKey } from '../catalog/nameKey.js';
 import { setupStatus, activeSubscriptionCounts } from '../onboarding/index.js';
 import { toDT } from '../time.js';
 import { newToken, AuthError } from '../auth/tokens.js';
@@ -20,7 +21,7 @@ import {
 
 export { ValidationError };
 
-const PATIENT_STATUS = new Set(['active', 'paused', 'discharged']);
+const PATIENT_STATUS = new Set(['active', 'paused', 'discharged', 'registered']);
 const RESP_KIND = new Set(['patient', 'caregiver']);
 
 function requireDoctor(session) {
@@ -55,6 +56,7 @@ function patientPatch(input, { partial }) {
     if (name.length < 2)
       throw new ValidationError('Nome do paciente é obrigatório (mín. 2 caracteres).', 'name');
     patch.name = name;
+    patch.name_key = catalogNameKey(name);
   }
   if (has('birth_date'))
     patch.birth_date = input.birth_date ? String(input.birth_date).slice(0, 10) : null;
@@ -67,6 +69,8 @@ function patientPatch(input, { partial }) {
     }
   }
   if (has('status')) {
+    if (input.status === 'registered')
+      throw new ValidationError('Cadastrado só nasce pela importação.', 'status');
     if (!PATIENT_STATUS.has(input.status)) throw new ValidationError('Status inválido.', 'status');
     patch.status = input.status;
   }

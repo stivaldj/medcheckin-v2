@@ -7,5 +7,11 @@ export function loadConfig(env = process.env) {
   if (!databaseUrl || databaseUrl.trim() === '') {
     throw new Error('DATABASE_URL ausente: o processo não sobe sem banco configurado.');
   }
-  return Object.freeze({ databaseUrl });
+  // D38: anexos vivem num volume próprio. Em produção o caminho tem que ser explícito (é o que o
+  // backup em duas partes tar-eia); fora dela, ./uploads relativo ao cwd serve para dev e testes.
+  const uploadsDir = (env.UPLOADS_DIR ?? '').trim();
+  if (!uploadsDir && env.NODE_ENV === 'production') {
+    throw new Error('UPLOADS_DIR ausente: em produção o volume de anexos é obrigatório.');
+  }
+  return Object.freeze({ databaseUrl, uploadsDir: uploadsDir || './uploads' });
 }

@@ -7,6 +7,7 @@ import {
   verifyMagicLink,
   acceptInvite,
   fakeMailer,
+  catalogNameKey,
 } from '@medcheckin/core';
 import type { Knex } from 'knex';
 
@@ -49,7 +50,13 @@ beforeAll(async () => {
     .insert({ clinic_id: c.id, role: 'doctor', email: 'outra@x.test', name: 'Outra' })
     .returning('id');
   const [op] = await db('patients')
-    .insert({ clinic_id: c.id, name: 'De Outra', timezone: 'America/Cuiaba', created_by: u.id })
+    .insert({
+      clinic_id: c.id,
+      name: 'De Outra',
+      name_key: catalogNameKey('De Outra'),
+      timezone: 'America/Cuiaba',
+      created_by: u.id,
+    })
     .returning('id');
   const cookies = await sessionCookies();
   fx = { clinicId: clinic.id, p1: p1.id, p2: p2.id, otherPatient: op.id, ...cookies };

@@ -1,5 +1,6 @@
 import { createDb } from '../../src/db.js';
 import { migrationConfig } from '../../src/migrate.js';
+import { catalogNameKey } from '../../src/catalog/nameKey.js';
 
 /**
  * Banco de teste: Postgres real (DATABASE_URL). Faz rollback total + latest
@@ -33,7 +34,13 @@ export async function seedClinic(db, suffix = 'a') {
 
 export async function seedPatient(db, { clinicId, userId }, name = 'Paciente Teste') {
   const [p] = await db('patients')
-    .insert({ clinic_id: clinicId, name, timezone: 'America/Cuiaba', created_by: userId })
+    .insert({
+      clinic_id: clinicId,
+      name,
+      name_key: catalogNameKey(name),
+      timezone: 'America/Cuiaba',
+      created_by: userId,
+    })
     .returning('id');
   return p.id;
 }

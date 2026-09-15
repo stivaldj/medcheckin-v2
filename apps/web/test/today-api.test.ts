@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createDb, migrationConfig, runSeed, createSession } from '@medcheckin/core';
+import {
+  createDb,
+  migrationConfig,
+  runSeed,
+  createSession,
+  catalogNameKey,
+} from '@medcheckin/core';
 import type { Knex } from 'knex';
 
 let db: Knex;
@@ -36,7 +42,13 @@ beforeAll(async () => {
     .insert({ clinic_id: c.id, role: 'doctor', email: 'o@x.test', name: 'O' })
     .returning('id');
   const [op] = await db('patients')
-    .insert({ clinic_id: c.id, name: 'Outro', timezone: 'America/Cuiaba', created_by: u.id })
+    .insert({
+      clinic_id: c.id,
+      name: 'Outro',
+      name_key: catalogNameKey('Outro'),
+      timezone: 'America/Cuiaba',
+      created_by: u.id,
+    })
     .returning('id');
   const [oa] = await db('alerts')
     .insert({ patient_id: op.id, code: 'x', severity: 'low', title: 'x', context: {} })

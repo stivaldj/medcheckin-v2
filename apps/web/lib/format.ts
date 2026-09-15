@@ -50,6 +50,7 @@ export const STATUS_LABEL: Record<string, string> = {
   active: 'Ativo',
   paused: 'Pausado',
   discharged: 'Alta',
+  registered: 'Cadastrado',
 };
 export const ALERT_STATUS_LABEL: Record<string, string> = {
   open: 'aberto',

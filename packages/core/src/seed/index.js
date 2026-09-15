@@ -158,6 +158,7 @@ export async function runSeed(db, { reset = false } = {}) {
       .insert({
         clinic_id: clinic.id,
         name: 'Paciente Sintético Um',
+        name_key: catalogNameKey('Paciente Sintético Um'),
         birth_date: '1980-01-01',
         timezone: 'America/Cuiaba',
         consent_version: 'v1',
@@ -228,6 +229,7 @@ export async function runSeed(db, { reset = false } = {}) {
       .insert({
         clinic_id: clinic.id,
         name: 'Paciente Sintético Dois',
+        name_key: catalogNameKey('Paciente Sintético Dois'),
         birth_date: '2018-06-15',
         timezone: 'America/Cuiaba',
         consent_version: 'v1',

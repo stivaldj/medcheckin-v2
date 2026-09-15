@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { createDb, dispatchDueRoutineAlarms } from '@medcheckin/core';
+import { createDb, dispatchDueRoutineAlarms, catalogNameKey } from '@medcheckin/core';
 import type { Knex } from 'knex';
 import { abrirConfiguracao, loginAsDoctor } from './helpers';
 
@@ -31,6 +31,7 @@ test.describe('rotina de alarmes por período', () => {
       .insert({
         clinic_id: clinic.id,
         name: 'Paciente Rotina E2E',
+        name_key: catalogNameKey('Paciente Rotina E2E'),
         timezone: TZ,
         created_by: doctor.id,
       })
@@ -135,6 +136,7 @@ test.describe('rotina de alarmes por período', () => {
       .insert({
         clinic_id: clinic.id,
         name: 'Paciente Rotina Errada',
+        name_key: catalogNameKey('Paciente Rotina Errada'),
         timezone: TZ,
         created_by: doctor.id,
       })
