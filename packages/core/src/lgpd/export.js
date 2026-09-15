@@ -123,6 +123,11 @@ export async function exportPatientData(db, session, patientId, now) {
       'created_at',
     );
   const audit = await db('access_audit').where({ patient_id: patientId }).orderBy('at');
+  const conditions = await db('patient_conditions as pc')
+    .join('conditions as c', 'c.id', 'pc.condition_id')
+    .where('pc.patient_id', patientId)
+    .orderBy('c.name')
+    .select('c.id', 'c.name', 'c.cid10', 'pc.noted_at', 'pc.created_at');
 
   const files = {
     'patient.json': patient,
@@ -143,6 +148,7 @@ export async function exportPatientData(db, session, patientId, now) {
     'scores.json': scores,
     'notifications.json': notifications,
     'access_audit.json': audit,
+    'conditions.json': conditions,
   };
   const manifest = {
     generated_at: toDT(now).toISO(),
@@ -165,6 +171,7 @@ export async function exportPatientData(db, session, patientId, now) {
       patient_scores_daily: scores.length,
       notifications: notifications.length,
       access_audit: audit.length,
+      conditions: conditions.length,
     },
     note:
       'notifications.json contém só metadados de entrega (sem conteúdo). ' +

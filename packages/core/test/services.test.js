@@ -53,7 +53,7 @@ describe('patients — cadastro, lista, detalhe, respondentes', () => {
       {
         name: 'Paciente Novo',
         birth_date: '2015-03-10',
-        condition_tags: ['epilepsia', 'tea'],
+        conditions: ['epilepsia', 'tea'],
         checkin_time: '10:30',
         consent_version: 'v1',
         respondents: [
@@ -150,12 +150,12 @@ describe('patients — cadastro, lista, detalhe, respondentes', () => {
       db,
       session,
       fx.p1.id,
-      { status: 'active', checkin_time: '08:15', condition_tags: ['dor'] },
+      { status: 'active', checkin_time: '08:15' },
       NOW,
     );
     expect(p.status).toBe('active');
     expect(String(p.checkin_time)).toMatch(/^08:15/);
-    expect(p.condition_tags).toEqual(['dor']);
+    expect(p.condition_tags).toBeUndefined();
     await expect(updatePatient(db, session, fx.p1.id, { status: 'zumbi' }, NOW)).rejects.toThrow(
       /status/i,
     );

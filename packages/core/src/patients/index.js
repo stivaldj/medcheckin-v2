@@ -12,6 +12,11 @@ import {
   listPatientQuestions,
   packHasAdherence,
 } from '../questions/patientQuestions.js';
+import {
+  findOrCreateCondition,
+  listPatientConditions,
+  conditionsByPatient,
+} from '../conditions/index.js';
 
 export { ValidationError };
 
@@ -21,12 +26,6 @@ const RESP_KIND = new Set(['patient', 'caregiver']);
 function requireDoctor(session) {
   if (!session || session.kind !== 'user')
     throw new AuthError('unauthenticated', 'Sessão da clínica necessária.');
-}
-
-function cleanTags(tags) {
-  if (tags == null) return [];
-  const arr = Array.isArray(tags) ? tags : String(tags).split(',');
-  return [...new Set(arr.map((t) => String(t).trim().toLowerCase()).filter(Boolean))].slice(0, 20);
 }
 
 function normalizeRespondentInput(r) {
@@ -59,7 +58,6 @@ function patientPatch(input, { partial }) {
   }
   if (has('birth_date'))
     patch.birth_date = input.birth_date ? String(input.birth_date).slice(0, 10) : null;
-  if (has('condition_tags')) patch.condition_tags = cleanTags(input.condition_tags);
   if (has('timezone')) patch.timezone = String(input.timezone || 'America/Cuiaba');
   for (const k of ['checkin_time', 'quiet_start', 'quiet_end']) {
     if (has(k)) {
@@ -116,6 +114,17 @@ export async function createPatient(db, session, input, now) {
   if (!respondents.some((r) => r.can_answer)) {
     throw new ValidationError('Pelo menos um respondente precisa poder responder.', 'respondents');
   }
+  const conditionNames = Array.isArray(input?.conditions)
+    ? input.conditions
+    : String(input?.conditions ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+  const conditionIds = [];
+  for (const name of conditionNames) {
+    const { condition } = await findOrCreateCondition(db, session, { name });
+    if (!conditionIds.includes(condition.id)) conditionIds.push(condition.id);
+  }
   return db.transaction(async (trx) => {
     const [patient] = await trx('patients')
       .insert({
@@ -128,6 +137,10 @@ export async function createPatient(db, session, input, now) {
     const rows = await trx('respondents')
       .insert(respondents.map((r) => ({ ...r, patient_id: patient.id, invite_token: newToken() })))
       .returning('*');
+    if (conditionIds.length)
+      await trx('patient_conditions').insert(
+        conditionIds.map((condition_id) => ({ patient_id: patient.id, condition_id })),
+      );
     await logAccess(
       trx,
       { session, patientId: patient.id, route: 'patients.create', action: 'create' },
@@ -181,8 +194,15 @@ async function medicationsWithDose(db, patientIds, now) {
 }
 
 /** Lista com resumo por paciente (fonte de cada número: consultas abaixo). */
-export async function listPatients(db, { clinicId }, now) {
-  const patients = await db('patients').where({ clinic_id: clinicId }).orderBy('name');
+export async function listPatients(db, { clinicId, condition = null }, now) {
+  let q = db('patients as p').where('p.clinic_id', clinicId).orderBy('p.name').select('p.*');
+  if (condition)
+    q = q.whereExists(
+      db('patient_conditions as pc')
+        .whereRaw('pc.patient_id = p.id')
+        .andWhere('pc.condition_id', condition),
+    );
+  const patients = await q;
   const ids = patients.map((p) => p.id);
   if (!ids.length) return [];
   const episodes = await db('episodes').whereIn('patient_id', ids).whereNull('ended_at');
@@ -199,6 +219,7 @@ export async function listPatients(db, { clinicId }, now) {
     .max('completed_at as at')
     .groupBy('patient_id');
   const meds = await medicationsWithDose(db, ids, now);
+  const conds = await conditionsByPatient(db, ids);
   const respCounts = await db('respondents')
     .whereIn('patient_id', ids)
     .select('patient_id')
@@ -223,6 +244,7 @@ export async function listPatients(db, { clinicId }, now) {
     last_checkin_at: lc[p.id]?.at ?? null,
     respondents_count: rc[p.id] ? Number(rc[p.id].n) : 0,
     medications: meds.get(p.id) ?? [],
+    conditions: conds.get(p.id) ?? [],
   }));
 }
 
@@ -367,6 +389,7 @@ export async function getPatientDetail(db, session, patientId, { baseUrl = '', n
   const routine = await listRoutine(db, session, patientId, { now });
   const patientQuestions = await listPatientQuestions(db, session, patientId);
   const packAdherence = await packHasAdherence(db, patientId);
+  const conditions = await listPatientConditions(db, patientId);
   await logAccess(db, { session, patientId, route: 'patients.detail', action: 'view' }, now);
   return {
     patient,
@@ -378,6 +401,7 @@ export async function getPatientDetail(db, session, patientId, { baseUrl = '', n
     episode: episode ? { ...episode, question_set_name: questionSet?.name ?? null } : null,
     alerts,
     grid,
+    conditions,
   };
 }
 

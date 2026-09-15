@@ -481,7 +481,6 @@ export interface PatientRow {
   clinic_id: string;
   name: string;
   birth_date: string | Date | null;
-  condition_tags: string[];
   timezone: string;
   status: 'active' | 'paused' | 'discharged';
   /** D28 — preenchido só pela anonimização. Alta também grava `discharged`; não use o status. */
@@ -495,6 +494,58 @@ export interface PatientRow {
   created_at: Date | string;
   updated_at: Date | string;
 }
+export interface ConditionRow {
+  id: string;
+  clinic_id: string;
+  name: string;
+  name_key: string;
+  cid10: string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+export interface PatientCondition {
+  id: string;
+  name: string;
+  cid10: string | null;
+  noted_at?: Date | string | null;
+}
+export function findOrCreateCondition(
+  db: Knex,
+  session: Session,
+  input: { name: string; cid10?: string | null },
+): Promise<{ condition: ConditionRow; created: boolean }>;
+export function listConditions(
+  db: Knex,
+  clinicId: string,
+): Promise<Array<ConditionRow & { patients: number }>>;
+export function updateCondition(
+  db: Knex,
+  session: Session,
+  conditionId: string,
+  input: { name?: string; cid10?: string | null },
+  now?: Instant,
+): Promise<ConditionRow>;
+export function mergeConditions(
+  db: Knex,
+  session: Session,
+  input: { from_id: string; into_id: string },
+  now?: Instant,
+): Promise<{ into: ConditionRow; moved: number }>;
+export function addPatientCondition(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  input: { name?: string; condition_id?: string; noted_at?: string | null },
+  now?: Instant,
+): Promise<ConditionRow>;
+export function removePatientCondition(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  conditionId: string,
+  now?: Instant,
+): Promise<void>;
+export function listPatientConditions(db: Knex, patientId: string): Promise<PatientCondition[]>;
 export interface RespondentRow {
   id: string;
   patient_id: string;
@@ -627,7 +678,7 @@ export interface RespondentInput {
 export interface PatientInput {
   name?: string;
   birth_date?: string | null;
-  condition_tags?: string[] | string;
+  conditions?: string[] | string;
   timezone?: string;
   checkin_time?: string;
   quiet_start?: string;
@@ -655,10 +706,11 @@ export interface PatientSummary extends PatientRow {
   last_checkin_at: Date | string | null;
   respondents_count: number;
   medications: MedicationRow[];
+  conditions: PatientCondition[];
 }
 export function listPatients(
   db: Knex,
-  input: { clinicId: string },
+  input: { clinicId: string; condition?: string | null },
   now?: Instant,
 ): Promise<PatientSummary[]>;
 export interface Grid {
@@ -698,6 +750,7 @@ export interface PatientDetail {
   episode: (EpisodeRow & { question_set_name: string | null }) | null;
   alerts: AlertRow[];
   grid: Grid;
+  conditions: PatientCondition[];
 }
 export function getPatientDetail(
   db: Knex,
@@ -1000,7 +1053,7 @@ export interface PatientReport {
     id: string;
     name: string;
     birth_date: string | Date | null;
-    condition_tags: string[];
+    conditions: string[];
     status: string;
   };
   period: { from: string; to: string; days: number; timezone: string; generated_at: string };

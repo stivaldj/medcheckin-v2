@@ -72,6 +72,15 @@ export {
 } from './medications/index.js';
 export { catalogNameKey, productNameKey } from './catalog/nameKey.js';
 export {
+  findOrCreateCondition,
+  listConditions,
+  updateCondition,
+  mergeConditions,
+  addPatientCondition,
+  removePatientCondition,
+  listPatientConditions,
+} from './conditions/index.js';
+export {
   listPatientQuestions,
   addPatientQuestion,
   updatePatientQuestion,
