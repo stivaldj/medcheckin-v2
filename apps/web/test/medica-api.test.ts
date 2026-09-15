@@ -597,6 +597,14 @@ describe('notas clínicas e linha do tempo (D35)', () => {
     const today2 = timeline2.find((d: { day: string }) => d.day === note.occurred_at.slice(0, 10));
     const ids2 = today2 ? today2.notes.map((n: { id: string }) => n.id) : [];
     expect(ids2).not.toContain(note.id);
+
+    const tlBad = await TIMELINE(
+      req(`/api/patients/${fx.p1}/timeline?before=2026-02-30`, { headers: { cookie: fx.cookie } }),
+      params({ id: fx.p1 }),
+    );
+    expect(tlBad.status).toBe(200);
+    const timelineBad = (await tlBad.json()).days;
+    expect(timelineBad).toEqual(timeline2);
   });
 });
 

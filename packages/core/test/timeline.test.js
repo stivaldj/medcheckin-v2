@@ -148,4 +148,13 @@ describe('patientTimeline', () => {
     expect(p2.hasMore).toBe(false);
     expect(p2.nextBefore).toBeNull();
   });
+
+  it('before com data-calendário inválida ou limitDays fora do intervalo → validation', async () => {
+    await expect(
+      patientTimeline(db, session, patientId, { now: NOW, before: '2026-02-30' }),
+    ).rejects.toMatchObject({ code: 'validation', field: 'before' });
+    await expect(
+      patientTimeline(db, session, patientId, { now: NOW, limitDays: 0 }),
+    ).rejects.toMatchObject({ code: 'validation', field: 'limitDays' });
+  });
 });

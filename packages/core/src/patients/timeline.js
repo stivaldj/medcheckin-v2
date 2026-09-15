@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 import { AuthError } from '../auth/tokens.js';
+import { ValidationError } from '../errors.js';
 import { requirePatientInClinic, logAccess } from '../auth/access.js';
 import { localDate } from '../time.js';
 import { noteDay } from '../notes/index.js';
@@ -28,6 +29,15 @@ export async function patientTimeline(
   { now, before = null, limitDays = 60 } = {},
 ) {
   requireDoctor(session);
+  if (
+    before != null &&
+    (!/^\d{4}-\d{2}-\d{2}$/.test(String(before)) || !DateTime.fromISO(String(before)).isValid)
+  ) {
+    throw new ValidationError('Data inválida (AAAA-MM-DD).', 'before');
+  }
+  if (!Number.isInteger(limitDays) || limitDays < 1 || limitDays > 3660) {
+    throw new ValidationError('limitDays inválido (1..3660).', 'limitDays');
+  }
   const patient = await requirePatientInClinic(db, session, patientId);
   const tz = patient.timezone || 'UTC';
 
