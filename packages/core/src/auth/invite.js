@@ -36,6 +36,11 @@ export async function acceptInvite(db, { inviteToken, consentVersion = null, ua 
       patient_id: r.patient_id,
       consent_version: v,
     });
+    // D37: paciente "Cadastrado" (importado) passa a ativo no primeiro aceite — é o consentimento
+    // v2 que autoriza o acompanhamento. Quem já era ativo/pausado não muda.
+    await db('patients')
+      .where({ id: r.patient_id, status: 'registered' })
+      .update({ status: 'active', consent_version: v, consent_at: nowJs, updated_at: db.fn.now() });
   }
   const out = await createSession(db, { respondentId: r.id, clinicId: r.clinic_id, ua }, now);
   logger.info('auth.login', { respondent_id: r.id, kind: 'respondent' });

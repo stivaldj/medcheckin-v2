@@ -788,11 +788,26 @@ export interface PatientSummary extends PatientRow {
   medications: MedicationRow[];
   conditions: PatientCondition[];
 }
+export type PatientListStatus =
+  'following' | 'active' | 'paused' | 'discharged' | 'registered' | 'all';
+export interface PatientPage {
+  rows: PatientSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
 export function listPatients(
   db: Knex,
-  input: { clinicId: string; condition?: string | null },
+  input: {
+    clinicId: string;
+    condition?: string | null;
+    q?: string;
+    status?: PatientListStatus;
+    page?: number;
+    pageSize?: number;
+  },
   now?: Instant,
-): Promise<PatientSummary[]>;
+): Promise<PatientPage>;
 export interface Grid {
   days: string[];
   questions: Array<{

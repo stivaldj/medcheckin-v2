@@ -33,7 +33,7 @@ export default async function PacientesPage({
   const condition = UUID_RE.test(rawCondition) ? rawCondition : '';
   const session = await requireUserPage();
   const db = getDb();
-  const [rows, conds] = await Promise.all([
+  const [{ rows }, conds] = await Promise.all([
     listPatients(db, { clinicId: session.clinicId, condition: condition || null }, new Date()),
     listConditions(db, session.clinicId),
   ]);
