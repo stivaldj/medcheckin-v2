@@ -81,6 +81,7 @@ export {
   listPatientConditions,
 } from './conditions/index.js';
 export { createNote, updateNote, deleteNote, listNotes, noteDay } from './notes/index.js';
+export { patientTimeline } from './patients/timeline.js';
 export {
   listPatientQuestions,
   addPatientQuestion,

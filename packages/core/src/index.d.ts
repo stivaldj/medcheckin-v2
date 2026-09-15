@@ -586,6 +586,24 @@ export function listNotes(
   opts?: { includeDeleted?: boolean },
 ): Promise<ClinicalNoteRow[]>;
 export function noteDay(value: Date | string): string;
+export interface TimelineEvent {
+  kind: 'dose' | 'conduct';
+  at: Date | string;
+  ref_id: string;
+  summary: string;
+  by: string | null;
+}
+export interface TimelineDay {
+  day: string;
+  notes: ClinicalNoteRow[];
+  events: TimelineEvent[];
+}
+export function patientTimeline(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  opts?: { now?: Instant },
+): Promise<TimelineDay[]>;
 export interface RespondentRow {
   id: string;
   patient_id: string;
