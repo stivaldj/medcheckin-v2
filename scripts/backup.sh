@@ -28,7 +28,7 @@ if [ -n "${UPLOADS_DIR:-}" ] && [ -d "$UPLOADS_DIR" ]; then
   rm -f "$UP_TMP"
   sha256sum "$UP_OUT" | awk '{print $1}' > "$UP_OUT.sha256"
   echo "{\"ts\":\"$(date -u +%FT%TZ)\",\"msg\":\"backup.uploads_ok\",\"file\":\"$(basename "$UP_OUT")\",\"bytes\":$(wc -c < "$UP_OUT")}"
-  find "$DIR" -name 'uploads-*.tar.enc' -mtime +"$KEEP" -delete
+  find "$DIR" -name 'uploads-*.tar.enc' -mtime +"$KEEP" -print -delete | sed 's/^/{"msg":"backup.pruned","file":"/;s/$/"}/'
   find "$DIR" -name 'uploads-*.tar.enc.sha256' -mtime +"$KEEP" -delete
 fi
 # off-site (opcional). Configurado = obrigatório: se BACKUP_RCLONE_REMOTE está definido e a cópia não
