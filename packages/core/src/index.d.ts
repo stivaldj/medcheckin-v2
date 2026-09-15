@@ -1140,6 +1140,7 @@ export interface PatientReport {
     max: number | null;
     last: number | null;
   }>;
+  notes: Array<{ id: string; kind: string; occurred_at: string; body: string }>;
   scores: {
     n: number;
     mean: number | null;

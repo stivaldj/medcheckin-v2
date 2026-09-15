@@ -14,6 +14,12 @@ import { PrintButton } from '@/components/medica/PrintButton';
 
 export const dynamic = 'force-dynamic';
 const pct = (v: number | null) => (v === null ? '—' : `${Math.round(v * 100)}%`);
+const NOTE_KIND_LABEL: Record<string, string> = {
+  consulta: 'Consulta',
+  evolucao: 'Evolução',
+  contato: 'Contato',
+  importada: 'Importada',
+};
 
 export default async function RelatorioPage({
   params,
@@ -149,6 +155,23 @@ export default async function RelatorioPage({
                       ↳ {fmtDateTime(x.at)} {x.user_name ?? '—'}: {x.note}
                     </div>
                   ))}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-lg font-medium">Notas clínicas do período</h2>
+        {r.notes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhuma nota no período.</p>
+        ) : (
+          <ul className="space-y-2 text-sm">
+            {r.notes.map((n) => (
+              <li key={n.id} className="border-t pt-1">
+                <span className="font-medium">{n.occurred_at.split('-').reverse().join('/')}</span>{' '}
+                · {NOTE_KIND_LABEL[n.kind] ?? n.kind}
+                <div className="whitespace-pre-wrap">{n.body}</div>
               </li>
             ))}
           </ul>
