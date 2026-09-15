@@ -1,0 +1,15 @@
+{
+  "delimitador": ";",
+  "colunas": {
+    "ref": "id",
+    "nome": "Nome do Paciente",
+    "nascimento": "Nascimento",
+    "telefone": "Telefone",
+    "condicoes": "Diagnósticos",
+    "consultas": "Consultas"
+  },
+  "formatoData": "DD/MM/AAAA",
+  "separadorCondicoes": ";",
+  "separadorConsultas": "|",
+  "pdf": { "padrao": "{ref}.pdf" }
+}
