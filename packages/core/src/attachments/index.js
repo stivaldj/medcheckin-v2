@@ -75,9 +75,10 @@ export async function storeAttachment(db, session, patientId, input, now) {
     throw new ValidationError(
       'Arquivo não aceito: só PDF, JPG ou PNG (conferido pelo conteúdo).',
       'file',
+      { status: 415 },
     );
   if (buf.length > ATTACHMENT_MAX_BYTES)
-    throw new ValidationError('Arquivo acima de 25 MB.', 'file');
+    throw new ValidationError('Arquivo acima de 25 MB.', 'file', { status: 413 });
   const originalName = sanitizeOriginalName(input?.originalName, EXT[format]);
   const sha256 = createHash('sha256').update(buf).digest('hex');
   const existing = await db('attachments').where({ patient_id: patientId, sha256 }).first();

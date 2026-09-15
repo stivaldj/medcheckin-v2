@@ -2,7 +2,13 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createDb, migrationConfig, runSeed, createSession } from '@medcheckin/core';
+import {
+  createDb,
+  migrationConfig,
+  runSeed,
+  createSession,
+  ATTACHMENT_MAX_BYTES,
+} from '@medcheckin/core';
 import type { Knex } from 'knex';
 
 let db: Knex;
@@ -259,6 +265,22 @@ describe('anexos (D39)', () => {
       params({ id: fx.p1 }),
     );
     expect(fake.status).toBe(415);
+
+    const oversizedForm = new FormData();
+    const oversized = Buffer.concat([
+      Buffer.from('%PDF-1.4\n'),
+      Buffer.alloc(ATTACHMENT_MAX_BYTES + 1 - Buffer.from('%PDF-1.4\n').length, 'a'),
+    ]);
+    oversizedForm.set('file', new File([oversized], 'grande.pdf', { type: 'application/pdf' }));
+    const tooBig = await POST(
+      new Request(`http://localhost:3000/api/patients/${fx.p1}/attachments`, {
+        method: 'POST',
+        headers: { cookie: fx.cookie, origin: 'http://localhost:3000' },
+        body: oversizedForm,
+      }),
+      params({ id: fx.p1 }),
+    );
+    expect(tooBig.status).toBe(413);
   });
 
   it('arquivo apagado do disco (ex.: anonimização) → GET do stream devolve 404, não 200 quebrado', async () => {

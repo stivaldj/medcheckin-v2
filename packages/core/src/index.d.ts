@@ -6,9 +6,7 @@ export interface CoreConfig {
 }
 
 /** Fail-closed: lança se DATABASE_URL ausente; UPLOADS_DIR é obrigatório em produção (D38). */
-export function loadConfig(
-  env?: NodeJS.ProcessEnv,
-): Readonly<{ databaseUrl: string; uploadsDir: string }>;
+export function loadConfig(env?: NodeJS.ProcessEnv): CoreConfig;
 
 /** Conexão Knex com Postgres (PG-only). numeric/int8 já convertidos para number. */
 export function createDb(databaseUrl: string): Knex;
@@ -475,9 +473,10 @@ export function logAccess(
 
 /* ---- E4: serviços da médica ------------------------------------------- */
 export class ValidationError extends Error {
-  constructor(message: string, field?: string | null);
+  constructor(message: string, field?: string | null, opts?: { status?: number });
   code: 'validation';
   field: string | null;
+  status: number | undefined;
 }
 export interface PatientRow {
   id: string;
@@ -1297,6 +1296,7 @@ export interface PilotReport {
     active: number;
     paused: number;
     discharged: number;
+    registered: number;
     still_engaged: number;
     still_engaged_rate: number | null;
   };
@@ -1356,22 +1356,6 @@ export function renderPilotReportMarkdown(
   criteria?: readonly PilotCriterion[],
 ): string;
 
-export type AttachmentKind = 'pdf' | 'image';
-export interface AttachmentRow {
-  id: string;
-  patient_id: string;
-  kind: AttachmentKind;
-  original_name: string;
-  mime: string;
-  size_bytes: number;
-  sha256: string;
-  stored_path: string;
-  source: 'upload' | 'import';
-  uploaded_by: string | null;
-  deleted_at: Date | null;
-  created_at: Date;
-}
-
 export const ATTACHMENT_MAX_BYTES: number;
 export function sniffKind(buf: Buffer): AttachmentKind | null;
 export function storeAttachment(
@@ -1391,12 +1375,14 @@ export function openAttachment(
   session: Session,
   attachmentId: string,
   now?: Instant,
+  opts?: { patientId?: string },
 ): Promise<{ row: AttachmentRow; path: string }>;
 export function hideAttachment(
   db: Knex,
   session: Session,
   attachmentId: string,
   now?: Instant,
+  opts?: { patientId?: string },
 ): Promise<AttachmentRow>;
 export function attachmentAbsolutePath(row: Pick<AttachmentRow, 'stored_path'>): string;
 
