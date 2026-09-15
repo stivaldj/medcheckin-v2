@@ -726,6 +726,7 @@ export function createProduct(
   input: Record<string, unknown>,
 ): Promise<ProductRow>;
 export function productNameKey(name: unknown): string;
+export function catalogNameKey(name: unknown): string;
 export function findOrCreateProduct(
   db: Knex,
   session: Session,

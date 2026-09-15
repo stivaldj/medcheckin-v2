@@ -70,7 +70,7 @@ export {
   adjustDose,
   setEpisode,
 } from './medications/index.js';
-export { productNameKey } from './medications/nameKey.js';
+export { catalogNameKey, productNameKey } from './catalog/nameKey.js';
 export {
   listPatientQuestions,
   addPatientQuestion,

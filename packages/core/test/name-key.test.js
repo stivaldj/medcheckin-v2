@@ -18,4 +18,10 @@ describe('productNameKey', () => {
     expect(productNameKey(null)).toBe('');
     expect(productNameKey(undefined)).toBe('');
   });
+  it('catalogNameKey é a mesma função, exportada do módulo genérico e pelo alias antigo', async () => {
+    const { catalogNameKey, productNameKey: alias } = await import('../src/catalog/nameKey.js');
+    expect(catalogNameKey('  Epilepsia  Refratária ')).toBe('epilepsia refrataria');
+    expect(alias).toBe(catalogNameKey);
+    expect(productNameKey).toBe(catalogNameKey);
+  });
 });
