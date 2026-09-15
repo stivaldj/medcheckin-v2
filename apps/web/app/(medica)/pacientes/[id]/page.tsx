@@ -59,7 +59,7 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
       'u.name as user_name',
       'a.title as alert_title',
     );
-  const [products, questionSets, catalog, perguntas, timelineRaw] = await Promise.all([
+  const [products, questionSets, catalog, perguntas, timelinePage] = await Promise.all([
     listProducts(db, session.clinicId),
     listQuestionSets(db, session.clinicId),
     listConditions(db, session.clinicId),
@@ -72,7 +72,7 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
   // Postgres devolve colunas `date` como objeto Date; o RSC serializa esse Date para o client
   // como Date, e ali `String(...)` não dá AAAA-MM-DD. Normaliza aqui, no fuso do servidor
   // (o mesmo que o pg usou para interpretar a data), com o mesmo conversor canônico das notas.
-  const timeline = timelineRaw.map((d) => ({
+  const timeline = timelinePage.days.map((d) => ({
     ...d,
     notes: d.notes.map((n) => ({ ...n, occurred_at: noteDay(n.occurred_at) })),
   }));

@@ -620,12 +620,17 @@ export interface TimelineDay {
   notes: ClinicalNoteRow[];
   events: TimelineEvent[];
 }
+export interface TimelinePage {
+  days: TimelineDay[];
+  hasMore: boolean;
+  nextBefore: string | null;
+}
 export function patientTimeline(
   db: Knex,
   session: Session,
   patientId: string,
-  opts?: { now?: Instant },
-): Promise<TimelineDay[]>;
+  opts?: { now?: Instant; before?: string | null; limitDays?: number },
+): Promise<TimelinePage>;
 export interface RespondentRow {
   id: string;
   patient_id: string;

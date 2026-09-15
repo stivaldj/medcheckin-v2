@@ -578,7 +578,7 @@ describe('notas clínicas e linha do tempo (D35)', () => {
       params({ id: fx.p1 }),
     );
     expect(tl.status).toBe(200);
-    const timeline = await tl.json();
+    const timeline = (await tl.json()).days;
     const today = timeline.find((d: { day: string }) => d.day === note.occurred_at.slice(0, 10));
     expect(today.notes.map((n: { id: string }) => n.id)).toContain(note.id);
 
@@ -593,7 +593,7 @@ describe('notas clínicas e linha do tempo (D35)', () => {
       req(`/api/patients/${fx.p1}/timeline`, { headers: { cookie: fx.cookie } }),
       params({ id: fx.p1 }),
     );
-    const timeline2 = await tl2.json();
+    const timeline2 = (await tl2.json()).days;
     const today2 = timeline2.find((d: { day: string }) => d.day === note.occurred_at.slice(0, 10));
     const ids2 = today2 ? today2.notes.map((n: { id: string }) => n.id) : [];
     expect(ids2).not.toContain(note.id);
