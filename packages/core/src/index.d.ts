@@ -1421,6 +1421,7 @@ export interface ImportPlan {
   colidir: Array<{ ref: string; name: string; birth_date: string | null; motivo: string }>;
   pdfSemPaciente: string[];
   pacienteSemPdf: string[];
+  ignoradas: Array<{ linha: number; motivo: string }>;
 }
 export function planImport(input: {
   rows: Array<Record<string, string>>;
