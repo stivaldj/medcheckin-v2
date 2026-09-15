@@ -16,6 +16,9 @@ Migration 014 `attachments` + volume `uploads` (backup two-part + restore drill)
 
 ## Revisão
 
+- Onda de correções da revisão final da branch: e06bd1b (UPLOADS_DIR em migrate e scheduler — sem isso o deploy não subia), 882d017 (tipos de anexo sem duplicata; ValidationError carrega status 413/415), 3678590 (piloto exclui Cadastrados; anonimização oculta anexos; rota confere o paciente), 8df5eb6 ("Iniciar acompanhamento" abre a aba via URL; manual alinhado), 71cd29b e o ajuste do manual 4.2.
+- Pré-requisito antes da importação real: isolamento de erro por item em `executeImport` com seção "Falhas" no relatório (hoje uma linha ruim aborta o lote no meio; o rerun idempotente atenua).
+
 **Desvios da spec:**
 
 - `executeImport` recusa colisões (guard restaurado, não fusão)
