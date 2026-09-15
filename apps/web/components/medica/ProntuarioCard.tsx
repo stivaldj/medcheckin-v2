@@ -55,7 +55,8 @@ export function ProntuarioCard({
     setDraft({
       id: n.id,
       kind: n.kind,
-      occurred_at: String(n.occurred_at).slice(0, 10),
+      // occurred_at chega já normalizado como 'AAAA-MM-DD' (noteDay aplicado no servidor).
+      occurred_at: n.occurred_at as string,
       body: n.body,
     });
   }

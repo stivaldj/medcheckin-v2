@@ -7,6 +7,7 @@ import {
   questionsForPatient,
   patientTimeline,
   localDate,
+  noteDay,
   AuthError,
 } from '@medcheckin/core';
 import { getDb } from '@/lib/db';
@@ -58,7 +59,7 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
       'u.name as user_name',
       'a.title as alert_title',
     );
-  const [products, questionSets, catalog, perguntas, timeline] = await Promise.all([
+  const [products, questionSets, catalog, perguntas, timelineRaw] = await Promise.all([
     listProducts(db, session.clinicId),
     listQuestionSets(db, session.clinicId),
     listConditions(db, session.clinicId),
@@ -68,6 +69,13 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
   ]);
   const direcoes = Object.fromEntries(perguntas.map((q) => [q.key, q.score_direction]));
   const p = detail.patient;
+  // Postgres devolve colunas `date` como objeto Date; o RSC serializa esse Date para o client
+  // como Date, e ali `String(...)` não dá AAAA-MM-DD. Normaliza aqui, no fuso do servidor
+  // (o mesmo que o pg usou para interpretar a data), com o mesmo conversor canônico das notas.
+  const timeline = timelineRaw.map((d) => ({
+    ...d,
+    notes: d.notes.map((n) => ({ ...n, occurred_at: noteDay(n.occurred_at) })),
+  }));
   const today = localDate(new Date(), p.timezone);
   return (
     <div className="space-y-6">
