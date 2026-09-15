@@ -575,7 +575,7 @@ export interface ClinicalNoteRow {
   kind: NoteKind;
   occurred_at: Date | string;
   body: string;
-  source: { file?: string; page?: number; excerpt?: string } | null;
+  source: { file?: string; page?: number; excerpt?: string; system?: string; ref?: string } | null;
   created_by: string;
   deleted_at: Date | string | null;
   created_at: Date | string;
