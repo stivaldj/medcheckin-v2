@@ -88,7 +88,7 @@ No canto superior direito há uma faixa **"Scheduler ativo · último ciclo há 
 
 Uma linha por paciente: **Nome**, **Status** (Ativo / Pausado / Alta / Cadastrado), **Episódio** (ex.: Titulação · diário), **Dose vigente** de cada medicação (ou _"sem dose vigente"_), **Último check-in** respondido e quantos **Alertas** abertos. Toque no nome para abrir.
 
-**Buscar por nome** — campo no topo da lista, busca enquanto digita. **Em acompanhamento · Cadastrados · Alta · Todos** — seletor ao lado; muda a lista e reseta a paginação. A lista mostra **50 por página**, com botões **Anterior / Próxima** ao fim da tabela (50 por página).
+**Buscar por nome** — campo no topo da lista, busca enquanto digita. **Em acompanhamento · Cadastrados · Alta · Todos** — seletor ao lado; muda a lista e reseta a paginação. A lista mostra **50 por página**, com botões **Anterior / Próxima** ao fim da tabela.
 
 Filtro **Condição** ao lado do botão Novo paciente: mostra só quem tem aquela condição, com a contagem.
 
