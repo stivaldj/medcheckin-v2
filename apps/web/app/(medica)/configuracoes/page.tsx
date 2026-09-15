@@ -83,6 +83,15 @@ export default async function ConfiguracoesPage() {
                 Guia da médica (passo a passo, imprimível)
               </Link>
             </p>
+            <p className="mt-2">
+              <Link
+                href="/configuracoes/condicoes"
+                className="font-medium underline underline-offset-4"
+                data-testid="conditions-link"
+              >
+                Condições da clínica (CID-10, fundir duplicadas)
+              </Link>
+            </p>
           </CardContent>
         </Card>
         <Card data-testid="system-card">
