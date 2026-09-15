@@ -48,7 +48,7 @@ export default async function RelatorioPage({
           {r.period.to.split('-').reverse().join('/')} ({r.period.days} dias) · gerado em{' '}
           {fmtDateTime(r.period.generated_at)} · nasc.{' '}
           {fmtDate(r.patient.birth_date, { day: '2-digit', month: '2-digit', year: 'numeric' })}
-          {r.patient.condition_tags?.length ? ` · ${r.patient.condition_tags.join(', ')}` : ''}
+          {r.patient.conditions?.length ? ` · ${r.patient.conditions.join(', ')}` : ''}
         </p>
       </header>
 

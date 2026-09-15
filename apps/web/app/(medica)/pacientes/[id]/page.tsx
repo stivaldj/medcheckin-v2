@@ -61,7 +61,7 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
   ]);
   const direcoes = Object.fromEntries(perguntas.map((q) => [q.key, q.score_direction]));
   const p = detail.patient;
-  const tags = (p.condition_tags as string[]) ?? [];
+  const tags = detail.conditions.map((c) => c.name);
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
