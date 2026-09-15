@@ -38,6 +38,7 @@ const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 
 const cfg = loadConfig(process.env);
 const db = createDb(cfg.databaseUrl);
+let exitCode = 0;
 try {
   const user = await db('users')
     .where({ email: String(args.clinica).trim().toLowerCase() })
@@ -94,14 +95,13 @@ try {
       : ['- nenhuma']),
   ];
 
-  if (gravar) {
-    if (plan.colidir.length) {
-      console.error(
-        `Há ${plan.colidir.length} colisão(ões). Resolva no CSV/mapa e rode o ensaio de novo.`,
-      );
-      await writeFile(path.join(saida, `import-ensaio-${stamp}.md`), linhas.join('\n') + '\n');
-      process.exit(2);
-    }
+  if (gravar && plan.colidir.length) {
+    console.error(
+      `Há ${plan.colidir.length} colisão(ões). Resolva no CSV/mapa e rode o ensaio de novo.`,
+    );
+    await writeFile(path.join(saida, `import-ensaio-${stamp}.md`), linhas.join('\n') + '\n');
+    exitCode = 2;
+  } else if (gravar) {
     const t0 = Date.now();
     const readPdf = async (f) => readFile(path.join(args.pdfs, f)).catch(() => null);
     const r = await executeImport(db, session, plan, { readPdf }, new Date());
@@ -121,8 +121,9 @@ try {
   } else {
     await writeFile(path.join(saida, `import-ensaio-${stamp}.md`), linhas.join('\n') + '\n');
     console.log(linhas.slice(0, 10).join('\n'));
-    if (plan.colidir.length) process.exit(2);
+    if (plan.colidir.length) exitCode = 2;
   }
 } finally {
   await db.destroy();
 }
+process.exit(exitCode);
