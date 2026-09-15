@@ -68,8 +68,22 @@ test.describe('anexos', () => {
       const audit = await db('access_audit')
         .where({ patient_id: patient.id })
         .whereIn('route', ['attachments.create', 'attachments.read', 'attachments.delete']);
-      expect(audit.length).toBeGreaterThanOrEqual(3);
+      const routes = new Set(audit.map((a) => a.route));
+      expect([...routes].sort()).toEqual([
+        'attachments.create',
+        'attachments.delete',
+        'attachments.read',
+      ]);
     } finally {
+      // Banco compartilhado por toda a suíte (um único global-setup) — sem apagar este paciente
+      // fixture, ele fica poluindo a lista/contagens de specs que rodam depois (mesmo problema já
+      // corrigido em lista-pacientes.spec.ts). O cascade cuida de respondents/attachments; os
+      // bytes em UPLOADS_DIR (pasta temporária) podem ficar, sem custo real.
+      try {
+        await db('patients').where({ name: 'Paciente Anexo E2E' }).del();
+      } catch {
+        // não deixa um erro de limpeza mascarar o resultado real do teste
+      }
       await db.destroy();
     }
   });
