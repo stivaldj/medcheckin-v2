@@ -4,6 +4,8 @@ import {
   listProducts,
   listQuestionSets,
   questionsForPatient,
+  patientTimeline,
+  localDate,
   AuthError,
 } from '@medcheckin/core';
 import { getDb } from '@/lib/db';
@@ -22,6 +24,7 @@ import { GridCard } from '@/components/medica/GridCard';
 import { AlertsCard } from '@/components/medica/AlertsCard';
 import { SymptomDoseChart } from '@/components/medica/SymptomDoseChart';
 import { SetupChecklist } from '@/components/medica/SetupChecklist';
+import { ProntuarioCard } from '@/components/medica/ProntuarioCard';
 
 export default async function PacientePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -53,14 +56,16 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
       'u.name as user_name',
       'a.title as alert_title',
     );
-  const [products, questionSets, perguntas] = await Promise.all([
+  const [products, questionSets, perguntas, timeline] = await Promise.all([
     listProducts(db, session.clinicId),
     listQuestionSets(db, session.clinicId),
     // Direção do score por pergunta: a grade só pinta o que sabe interpretar (pack + extras).
     questionsForPatient(db, { patientId: id, includeInactive: true }),
+    patientTimeline(db, session, id, { now: new Date() }),
   ]);
   const direcoes = Object.fromEntries(perguntas.map((q) => [q.key, q.score_direction]));
   const p = detail.patient;
+  const today = localDate(new Date(), p.timezone);
   const tags = detail.conditions.map((c) => c.name);
   return (
     <div className="space-y-6">
@@ -104,6 +109,7 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
 
         {/* Ler o caso e configurar o plano são trabalhos diferentes; antes disputavam o mesmo scroll. */}
         <TabsContent value="caso" className="space-y-6">
+          <ProntuarioCard patientId={p.id} timeline={timeline} today={today} />
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <SymptomDoseChart patientId={p.id} questions={detail.grid.questions} />
