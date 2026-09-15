@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createDb, migrationConfig, runSeed, createSession } from '@medcheckin/core';
 import type { Knex } from 'knex';
 
@@ -22,6 +25,7 @@ const req = (path: string, init: RequestInit = {}) =>
 const params = <P>(p: P) => ({ params: Promise.resolve(p) });
 
 beforeAll(async () => {
+  process.env.UPLOADS_DIR = await mkdtemp(join(tmpdir(), 'mc-uploads-'));
   db = createDb(process.env.DATABASE_URL_TEST || process.env.DATABASE_URL!);
   await db.migrate.rollback(migrationConfig, true);
   await db.migrate.latest(migrationConfig);
@@ -86,7 +90,7 @@ describe('pacientes', () => {
     const { GET, POST } = await import('../app/api/patients/route');
     const list = await GET(req('/api/patients', { headers: { cookie: fx.cookie } }), params({}));
     expect(list.status).toBe(200);
-    const rows = await list.json();
+    const { rows } = await list.json();
     expect(
       rows.find((r: { name: string }) => r.name === 'Paciente Sintético Um').medications[0]
         .current_dose.dose_amount,
@@ -182,6 +186,100 @@ describe('pacientes', () => {
     );
     expect(rot.status).toBe(200);
     expect((await rot.json()).invite_url).not.toBe(r.invite_url);
+  });
+});
+
+describe('anexos (D39)', () => {
+  it('POST envia PDF (201); GET lista; GET stream; DELETE oculta; .exe disfarçado → 415', async () => {
+    const { GET: LIST, POST } = await import('../app/api/patients/[id]/attachments/route');
+    const form = new FormData();
+    form.set(
+      'file',
+      new File([Buffer.from('%PDF-1.4\n%%EOF\n')], 'x.pdf', { type: 'application/pdf' }),
+    );
+    const uploaded = await POST(
+      new Request(`http://localhost:3000/api/patients/${fx.p1}/attachments`, {
+        method: 'POST',
+        headers: { cookie: fx.cookie, origin: 'http://localhost:3000' },
+        body: form,
+      }),
+      params({ id: fx.p1 }),
+    );
+    expect(uploaded.status).toBe(201);
+    const attachment = await uploaded.json();
+    expect(attachment.kind).toBe('pdf');
+
+    const list = await LIST(
+      req(`/api/patients/${fx.p1}/attachments`, { headers: { cookie: fx.cookie } }),
+      params({ id: fx.p1 }),
+    );
+    expect(list.status).toBe(200);
+    expect(await list.json()).toHaveLength(1);
+
+    const { GET: STREAM, DELETE } =
+      await import('../app/api/patients/[id]/attachments/[attachmentId]/route');
+    const streamed = await STREAM(
+      req(`/api/patients/${fx.p1}/attachments/${attachment.id}`, {
+        headers: { cookie: fx.cookie },
+      }),
+      params({ id: fx.p1, attachmentId: attachment.id }),
+    );
+    expect(streamed.status).toBe(200);
+    expect(streamed.headers.get('content-type')).toBe('application/pdf');
+    const streamedBody = Buffer.from(await streamed.arrayBuffer()).toString('utf-8');
+    expect(streamedBody.startsWith('%PDF')).toBe(true);
+
+    const deleted = await DELETE(
+      req(`/api/patients/${fx.p1}/attachments/${attachment.id}`, {
+        method: 'DELETE',
+        headers: H(),
+      }),
+      params({ id: fx.p1, attachmentId: attachment.id }),
+    );
+    expect(deleted.status).toBe(204);
+    const listAfter = await LIST(
+      req(`/api/patients/${fx.p1}/attachments`, { headers: { cookie: fx.cookie } }),
+      params({ id: fx.p1 }),
+    );
+    expect(await listAfter.json()).toHaveLength(0);
+
+    const fakeForm = new FormData();
+    fakeForm.set(
+      'file',
+      new File([Buffer.from('MZ\x90\x00\x03\x00\x00\x00')], 'virus.exe', {
+        type: 'application/pdf',
+      }),
+    );
+    const fake = await POST(
+      new Request(`http://localhost:3000/api/patients/${fx.p1}/attachments`, {
+        method: 'POST',
+        headers: { cookie: fx.cookie, origin: 'http://localhost:3000' },
+        body: fakeForm,
+      }),
+      params({ id: fx.p1 }),
+    );
+    expect(fake.status).toBe(415);
+  });
+});
+
+describe('lista de pacientes: status e busca (D39)', () => {
+  it('?status=registered devolve vazia; ?q=sint traz os dois pacientes sintéticos', async () => {
+    const { GET } = await import('../app/api/patients/route');
+    const registered = await GET(
+      req('/api/patients?status=registered', { headers: { cookie: fx.cookie } }),
+      params({}),
+    );
+    expect(registered.status).toBe(200);
+    expect(await registered.json()).toEqual(expect.objectContaining({ rows: [], total: 0 }));
+
+    const bySearch = await GET(
+      req('/api/patients?q=sint', { headers: { cookie: fx.cookie } }),
+      params({}),
+    );
+    expect(bySearch.status).toBe(200);
+    const found = await bySearch.json();
+    expect(found.total).toBe(2);
+    expect(found.rows).toHaveLength(2);
   });
 });
 
@@ -637,7 +735,7 @@ describe('condições em catálogo (D36)', () => {
       params({}),
     );
     expect(filtered.status).toBe(200);
-    const filteredRows = await filtered.json();
+    const { rows: filteredRows } = await filtered.json();
     expect(filteredRows).toHaveLength(1);
     expect(filteredRows[0].id).toBe(fx.p1);
 

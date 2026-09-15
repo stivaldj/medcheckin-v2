@@ -47,6 +47,33 @@ export function doctorRoute<P = Record<string, never>>(handler: Handler<P>) {
   };
 }
 
+type UploadHandler<P> = (args: {
+  req: Request;
+  db: Knex;
+  session: UserSession;
+  params: P;
+  baseUrl: string;
+}) => Promise<Response>;
+
+/**
+ * Envelope para rotas com corpo binário/multipart: mesma sessão e checagem de Origin do
+ * doctorRoute, mas o corpo fica intocado para o handler ler com `req.formData()` — o
+ * `readBody` genérico faria `req.text()` + JSON.parse e corromperia o arquivo.
+ */
+export function doctorUploadRoute<P = Record<string, never>>(handler: UploadHandler<P>) {
+  return async (req: Request, ctx: Ctx<P>): Promise<Response> => {
+    try {
+      const session = await requireUser(req);
+      assertSameOrigin(req);
+      const params = (ctx?.params ? await ctx.params : {}) as P;
+      const baseUrl = process.env.APP_BASE_URL ?? new URL(req.url).origin;
+      return await handler({ req, db: getDb(), session, params, baseUrl });
+    } catch (err) {
+      return errorResponse(err);
+    }
+  };
+}
+
 export const json = (data: unknown, status = 200) => NextResponse.json(data, { status });
 
 type RHandler<P> = (args: {
