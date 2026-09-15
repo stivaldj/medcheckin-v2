@@ -556,3 +556,110 @@ describe('questionário por paciente (E9.2)', () => {
     expect(String((await ok.json()).checkin_time).slice(0, 5)).toBe('20:00');
   });
 });
+
+describe('notas clínicas e linha do tempo (D35)', () => {
+  it('POST cria nota; GET timeline traz hoje; DELETE oculta e some da timeline', async () => {
+    const { POST } = await import('../app/api/patients/[id]/notes/route');
+    const created = await POST(
+      req(`/api/patients/${fx.p1}/notes`, {
+        method: 'POST',
+        headers: H(),
+        body: JSON.stringify({ body: 'Paciente relata melhora do sono.' }),
+      }),
+      params({ id: fx.p1 }),
+    );
+    expect(created.status).toBe(201);
+    const note = await created.json();
+    expect(note.kind).toBe('consulta');
+
+    const { GET: TIMELINE } = await import('../app/api/patients/[id]/timeline/route');
+    const tl = await TIMELINE(
+      req(`/api/patients/${fx.p1}/timeline`, { headers: { cookie: fx.cookie } }),
+      params({ id: fx.p1 }),
+    );
+    expect(tl.status).toBe(200);
+    const timeline = await tl.json();
+    const today = timeline.find((d: { day: string }) => d.day === note.occurred_at.slice(0, 10));
+    expect(today.notes.map((n: { id: string }) => n.id)).toContain(note.id);
+
+    const { DELETE } = await import('../app/api/patients/[id]/notes/[noteId]/route');
+    const del = await DELETE(
+      req(`/api/patients/${fx.p1}/notes/${note.id}`, { method: 'DELETE', headers: H() }),
+      params({ id: fx.p1, noteId: note.id }),
+    );
+    expect(del.status).toBe(204);
+
+    const tl2 = await TIMELINE(
+      req(`/api/patients/${fx.p1}/timeline`, { headers: { cookie: fx.cookie } }),
+      params({ id: fx.p1 }),
+    );
+    const timeline2 = await tl2.json();
+    const today2 = timeline2.find((d: { day: string }) => d.day === note.occurred_at.slice(0, 10));
+    const ids2 = today2 ? today2.notes.map((n: { id: string }) => n.id) : [];
+    expect(ids2).not.toContain(note.id);
+  });
+});
+
+describe('condições em catálogo (D36)', () => {
+  it('POST vincula condição; GET /api/conditions conta paciente; filtro da lista; merge funde', async () => {
+    const { POST } = await import('../app/api/patients/[id]/conditions/route');
+    const added = await POST(
+      req(`/api/patients/${fx.p1}/conditions`, {
+        method: 'POST',
+        headers: H(),
+        body: JSON.stringify({ name: 'Enxaqueca Crônica Teste' }),
+      }),
+      params({ id: fx.p1 }),
+    );
+    expect(added.status).toBe(201);
+    const condition = await added.json();
+
+    const { GET: LISTCOND } = await import('../app/api/conditions/route');
+    const list = await LISTCOND(
+      req('/api/conditions', { headers: { cookie: fx.cookie } }),
+      params({}),
+    );
+    expect(list.status).toBe(200);
+    const catalog = await list.json();
+    expect(catalog.find((c: { id: string }) => c.id === condition.id).patients).toBe(1);
+
+    const { GET: LISTPATIENTS } = await import('../app/api/patients/route');
+    const filtered = await LISTPATIENTS(
+      req(`/api/patients?condition=${condition.id}`, { headers: { cookie: fx.cookie } }),
+      params({}),
+    );
+    expect(filtered.status).toBe(200);
+    const filteredRows = await filtered.json();
+    expect(filteredRows).toHaveLength(1);
+    expect(filteredRows[0].id).toBe(fx.p1);
+
+    const secondAdded = await POST(
+      req(`/api/patients/${fx.p1}/conditions`, {
+        method: 'POST',
+        headers: H(),
+        body: JSON.stringify({ name: 'Convulsão Focal Teste' }),
+      }),
+      params({ id: fx.p1 }),
+    );
+    const second = await secondAdded.json();
+
+    const { POST: MERGE } = await import('../app/api/conditions/merge/route');
+    const merged = await MERGE(
+      req('/api/conditions/merge', {
+        method: 'POST',
+        headers: H(),
+        body: JSON.stringify({ from_id: second.id, into_id: condition.id }),
+      }),
+      params({}),
+    );
+    expect(merged.status).toBe(200);
+
+    const listAfter = await LISTCOND(
+      req('/api/conditions', { headers: { cookie: fx.cookie } }),
+      params({}),
+    );
+    const catalogAfter = await listAfter.json();
+    expect(catalogAfter.find((c: { id: string }) => c.id === second.id)).toBeUndefined();
+    expect(catalogAfter.find((c: { id: string }) => c.id === condition.id).patients).toBe(1);
+  });
+});
