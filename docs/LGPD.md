@@ -47,6 +47,13 @@ Mantém (sem identificação): respostas numéricas e de escolha, scores diário
 - **Auditoria**: `notes.create`, `notes.update`, `notes.delete`, `notes.read` (cada abertura da linha do tempo), `conditions.add`, `conditions.remove`, `conditions.merge`.
 - Nada de texto clínico sai da máquina nesta etapa. A E12.3 (importação por agente) exigirá termo de consentimento próprio e pseudonimização antes de qualquer envio.
 
+## Anexos e pacientes importados — E12.2
+
+- **Anexos** (`attachments` + arquivos em `UPLOADS_DIR`) são dado de saúde do titular (exames, prontuários antigos): base legal = tutela da saúde e guarda do prontuário. Só PDF, JPG e PNG, tipo conferido pelo conteúdo, até 25 MB. Servidos só à médica da clínica, com auditoria `attachments.read` a cada abertura. **Ocultar** grava `deleted_at`; o arquivo fica.
+- **Export** (`export.zip`): `attachments.json` com metadados de todos (inclusive ocultos) e os arquivos em `anexos/`. **Anonimização**: os arquivos são apagados do disco e `original_name` vira `anexo N`.
+- **Backup**: o volume de anexos entra no backup diário como segunda parte (`uploads-*.tar.enc`), cifrada com a mesma frase; o restore drill confere que cada anexo do banco existe no tar.
+- **Pacientes importados** (status **Cadastrado**) vêm do sistema anterior da clínica (Versatilis), com cadastro, condições, datas de consulta e o PDF do prontuário. Não têm consentimento v2 e **não recebem nada**; a base legal é a continuidade do cuidado e a guarda do prontuário. O termo v2 é pedido em **Iniciar acompanhamento**, e só então o paciente passa a ativo. A importação registra `patients.import` na auditoria.
+
 ## Retenção automática (`applyRetention`, 1×/dia no scheduler)
 
 | Dado                                                     | Prazo                      | Motivo                        |
