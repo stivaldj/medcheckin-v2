@@ -32,8 +32,15 @@ import { ProntuarioCard } from '@/components/medica/ProntuarioCard';
 import { AttachmentsCard } from '@/components/medica/AttachmentsCard';
 import { PatientConditions } from '@/components/medica/PatientConditions';
 
-export default async function PacientePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PacientePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { id } = await params;
+  const { tab } = await searchParams;
   const session = await requireUserPage();
   const db = getDb();
   let detail;
@@ -114,12 +121,12 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
       </div>
 
       {p.status === 'registered' ? (
-        <RegisteredBanner importedAt={p.imported_at} source={p.external_source} />
+        <RegisteredBanner patientId={p.id} importedAt={p.imported_at} source={p.external_source} />
       ) : (
         <SetupChecklist detail={detail} />
       )}
 
-      <Tabs defaultValue="caso">
+      <Tabs defaultValue={tab === 'configuracao' ? 'configuracao' : 'caso'}>
         <TabsList>
           <TabsTrigger value="caso" data-testid="tab-caso">
             O caso

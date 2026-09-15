@@ -3,9 +3,11 @@ import { fmtDate } from '@/lib/format';
 /** D37 — paciente importado: tem histórico, não está no acompanhamento. O convite (aba
  *  Configuração → Respondentes) é o que o torna ativo, no aceite do consentimento. */
 export function RegisteredBanner({
+  patientId,
   importedAt,
   source,
 }: {
+  patientId: string;
   importedAt: Date | string | null;
   source: string | null;
 }) {
@@ -21,7 +23,7 @@ export function RegisteredBanner({
         : ''}
       . Sem acompanhamento no app: nenhum lembrete ou check-in é enviado.{' '}
       <a
-        href="#respondents-card"
+        href={`/pacientes/${patientId}?tab=configuracao#respondents-card`}
         className="font-medium underline underline-offset-4"
         data-testid="start-followup"
       >

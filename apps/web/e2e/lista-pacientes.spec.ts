@@ -71,6 +71,11 @@ test.describe('lista de pacientes', () => {
       await page.getByRole('link', { name: 'Zélia Importada E2E' }).click();
       await expect(page.getByTestId('registered-banner')).toContainText('Cadastrado');
       await expect(page.getByTestId('setup-checklist')).toHaveCount(0);
+
+      // F3: "Iniciar acompanhamento" não pode ser link morto — precisa abrir a aba A configuração.
+      await page.getByTestId('start-followup').click();
+      await expect(page).toHaveURL(/tab=configuracao/);
+      await expect(page.getByTestId('respondents-card')).toBeVisible();
     } finally {
       // Os 55 "Lote E2E" + a Zélia só existem para forçar a paginação; sem limpar, ficam no banco
       // (compartilhado por toda a suíte, workers=1, um único global-setup) e empurram pacientes de

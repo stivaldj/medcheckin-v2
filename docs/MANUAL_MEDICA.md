@@ -88,7 +88,7 @@ No canto superior direito há uma faixa **"Scheduler ativo · último ciclo há 
 
 Uma linha por paciente: **Nome**, **Status** (Ativo / Pausado / Alta / Cadastrado), **Episódio** (ex.: Titulação · diário), **Dose vigente** de cada medicação (ou _"sem dose vigente"_), **Último check-in** respondido e quantos **Alertas** abertos. Toque no nome para abrir.
 
-**Buscar por nome** — campo no topo da lista, busca enquanto digita. **Em acompanhamento · Cadastrados · Alta · Todos** — seletor ao lado; muda a lista e reseta a paginação. A lista mostra **50 por página**, com botão "Carregar mais" ao fim.
+**Buscar por nome** — campo no topo da lista, busca enquanto digita. **Em acompanhamento · Cadastrados · Alta · Todos** — seletor ao lado; muda a lista e reseta a paginação. A lista mostra **50 por página**, com botões **Anterior / Próxima** ao fim da tabela (50 por página).
 
 Filtro **Condição** ao lado do botão Novo paciente: mostra só quem tem aquela condição, com a contagem.
 
@@ -113,7 +113,7 @@ Toque em **Cadastrar paciente**. Você cai na página do paciente.
 
 **Cabeçalho** — nome, status, nascimento, _"check-in às 09:00"_ e as condições. À direita: **Pausar envios** (viagem, internação — nada é enviado até você tocar em **Retomar envios**) e **Dar alta** (encerra os envios e o convite do respondente para de funcionar; o sistema pede confirmação).
 
-**Paciente Cadastrado** — faixa amarela. Significa que ele vem do sistema anterior (Versatilis) e está esperando começar o acompanhamento. Você vê o histórico e os anexos, mas ele não recebe avisos nem responde check-ins enquanto não aceita o consentimento. Toque em **Iniciar acompanhamento** (no lugar de **Pausar envios**) para mudar para "Ativo" quando ele aceitar o termo pelo celular.
+**Paciente Cadastrado** — faixa amarela no topo da página. Significa que ele vem do sistema anterior (Versatilis) e está esperando começar o acompanhamento. Você vê o histórico e os anexos, mas ele não recebe avisos nem responde check-ins enquanto não aceita o consentimento. Toque em **Iniciar acompanhamento**, na faixa amarela no topo da página, para mudar para "Ativo" quando ele aceitar o termo pelo celular.
 
 As **condições** do paciente aparecem como etiquetas ao lado do nome. **Editar condições** abre um campo: escreva (ex.: _epilepsia_), Enter adiciona; o **×** remove. Nomes já usados em outros pacientes aparecem como sugestão, para não virar duas grafias da mesma coisa.
 
