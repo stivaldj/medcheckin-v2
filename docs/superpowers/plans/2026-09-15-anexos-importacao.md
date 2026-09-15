@@ -2653,13 +2653,11 @@ test.describe('anexos', () => {
       expect(res.headers()['content-type']).toContain('application/pdf');
       expect((await res.body()).subarray(0, 4).toString()).toBe('%PDF');
       // tipo errado recusado
-      await card
-        .getByTestId('attachment-upload')
-        .setInputFiles({
-          name: 'falso.pdf',
-          mimeType: 'application/pdf',
-          buffer: Buffer.from('MZ nao sou pdf'),
-        });
+      await card.getByTestId('attachment-upload').setInputFiles({
+        name: 'falso.pdf',
+        mimeType: 'application/pdf',
+        buffer: Buffer.from('MZ nao sou pdf'),
+      });
       await expect(card).toContainText('não aceito');
       await expect(item).toHaveCount(1);
       // ocultar
