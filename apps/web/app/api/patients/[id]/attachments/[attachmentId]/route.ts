@@ -14,7 +14,9 @@ export const dynamic = 'force-dynamic';
  */
 export const GET = doctorRoute<{ id: string; attachmentId: string }>(
   async ({ db, session, params }) => {
-    const { row, path } = await openAttachment(db, session, params.attachmentId, new Date());
+    const { row, path } = await openAttachment(db, session, params.attachmentId, new Date(), {
+      patientId: params.id,
+    });
     try {
       await stat(path);
     } catch (err) {
@@ -42,7 +44,7 @@ export const GET = doctorRoute<{ id: string; attachmentId: string }>(
 
 export const DELETE = doctorRoute<{ id: string; attachmentId: string }>(
   async ({ db, session, params }) => {
-    await hideAttachment(db, session, params.attachmentId, new Date());
+    await hideAttachment(db, session, params.attachmentId, new Date(), { patientId: params.id });
     return new Response(null, { status: 204 });
   },
 );

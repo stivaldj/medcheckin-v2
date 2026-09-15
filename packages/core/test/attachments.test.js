@@ -185,6 +185,8 @@ describe('anexos', () => {
     for (const p of paths) expect(existsSync(p)).toBe(false);
     const rows = await db('attachments').where({ patient_id: patientId }).orderBy('created_at');
     expect(rows.map((r) => r.original_name)).toEqual(['anexo 1', 'anexo 2']);
+    // F6: anonimização também oculta os anexos (deleted_at) — lista, rota e drill concordam.
+    expect(rows.every((r) => r.deleted_at !== null)).toBe(true);
     const patient = await db('patients').where({ id: patientId }).first();
     expect(patient.name_key).toBe(catalogNameKey(patient.name));
     expect(patient.name_key).not.toContain(catalogNameKey('Paciente Teste'));

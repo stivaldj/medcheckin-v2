@@ -139,22 +139,24 @@ export async function listAttachments(db, session, patientId) {
     .orderBy('created_at', 'desc');
 }
 
-async function attachmentInClinic(db, session, attachmentId) {
-  const row = await db('attachments as a')
+async function attachmentInClinic(db, session, attachmentId, patientId) {
+  const q = db('attachments as a')
     .join('patients as p', 'p.id', 'a.patient_id')
     .where('a.id', attachmentId)
     .andWhere('p.clinic_id', session.clinicId)
     .whereNull('a.deleted_at')
     .select('a.*')
     .first();
+  if (patientId) q.andWhere('a.patient_id', patientId);
+  const row = await q;
   if (!row) throw new AuthError('not_found', 'Anexo não encontrado.');
   return row;
 }
 
 /** Devolve a linha e o caminho absoluto; quem chama faz o stream. Audita a leitura. */
-export async function openAttachment(db, session, attachmentId, now) {
+export async function openAttachment(db, session, attachmentId, now, opts = {}) {
   requireDoctor(session);
-  const row = await attachmentInClinic(db, session, attachmentId);
+  const row = await attachmentInClinic(db, session, attachmentId, opts.patientId);
   await logAccess(
     db,
     { session, patientId: row.patient_id, route: 'attachments.read', action: 'view' },
@@ -164,9 +166,9 @@ export async function openAttachment(db, session, attachmentId, now) {
 }
 
 /** Ocultar (D38): some da lista, fica no disco e no export. */
-export async function hideAttachment(db, session, attachmentId, now) {
+export async function hideAttachment(db, session, attachmentId, now, opts = {}) {
   requireDoctor(session);
-  const row = await attachmentInClinic(db, session, attachmentId);
+  const row = await attachmentInClinic(db, session, attachmentId, opts.patientId);
   const [out] = await db('attachments')
     .where({ id: row.id })
     .update({ deleted_at: db.fn.now() })
@@ -191,7 +193,10 @@ export async function purgeAttachmentFiles(trx, patientId) {
   for (const [i, r] of rows.entries()) {
     await trx('attachments')
       .where({ id: r.id })
-      .update({ original_name: `anexo ${i + 1}` });
+      .update({
+        original_name: `anexo ${i + 1}`,
+        deleted_at: r.deleted_at ?? trx.fn.now(),
+      });
   }
   return { count: rows.length, paths };
 }
