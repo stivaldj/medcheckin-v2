@@ -4,9 +4,12 @@
  * Devolve contagens — a prova de E1.
  */
 import { productNameKey } from '../medications/nameKey.js';
+import { catalogNameKey } from '../catalog/nameKey.js';
 
 const TABLES_IN_DELETE_ORDER = [
   'access_audit',
+  'clinical_notes',
+  'patient_conditions',
   'patient_scores_daily',
   'alert_silences',
   'alert_actions',
@@ -25,6 +28,7 @@ const TABLES_IN_DELETE_ORDER = [
   'routine_alarms',
   'routine_periods',
   'respondents',
+  'conditions',
   'patients',
   'users',
   'clinics',
@@ -155,13 +159,13 @@ export async function runSeed(db, { reset = false } = {}) {
         clinic_id: clinic.id,
         name: 'Paciente Sintético Um',
         birth_date: '1980-01-01',
-        condition_tags: ['dor_cronica'],
         timezone: 'America/Cuiaba',
         consent_version: 'v1',
         consent_at: trx.fn.now(),
         created_by: doctor.id,
       })
       .returning('id');
+    await seedCondition(trx, clinic.id, p1.id, 'dor_cronica');
     await trx('respondents').insert({
       patient_id: p1.id,
       kind: 'patient',
@@ -225,13 +229,13 @@ export async function runSeed(db, { reset = false } = {}) {
         clinic_id: clinic.id,
         name: 'Paciente Sintético Dois',
         birth_date: '2018-06-15',
-        condition_tags: ['epilepsia'],
         timezone: 'America/Cuiaba',
         consent_version: 'v1',
         consent_at: trx.fn.now(),
         created_by: doctor.id,
       })
       .returning('id');
+    await seedCondition(trx, clinic.id, p2.id, 'epilepsia');
     await trx('respondents').insert([
       {
         patient_id: p2.id,
@@ -300,6 +304,19 @@ function daysAhead(n) {
   return daysAgo(-n);
 }
 
+/** D36: condição no catálogo da clínica + vínculo com o paciente. */
+async function seedCondition(trx, clinicId, patientId, name) {
+  const [c] = await trx('conditions')
+    .insert({ clinic_id: clinicId, name, name_key: catalogNameKey(name) })
+    .onConflict(['clinic_id', 'name_key'])
+    .merge({ updated_at: trx.fn.now() })
+    .returning('id');
+  await trx('patient_conditions')
+    .insert({ patient_id: patientId, condition_id: c.id })
+    .onConflict(['patient_id', 'condition_id'])
+    .ignore();
+}
+
 async function counts(trx) {
   const out = {};
   for (const t of [
@@ -315,6 +332,8 @@ async function counts(trx) {
     'episodes',
     'routine_periods',
     'routine_alarms',
+    'conditions',
+    'clinical_notes',
   ]) {
     const [{ count }] = await trx(t).count();
     out[t] = Number(count);
