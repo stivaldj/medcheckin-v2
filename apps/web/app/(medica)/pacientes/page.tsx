@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { UsersIcon } from 'lucide-react';
-import { listPatients } from '@medcheckin/core';
+import { listPatients, listConditions } from '@medcheckin/core';
 
 import { getDb } from '@/lib/db';
 import { requireUserPage } from '@/lib/session';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ConditionsFilter } from '@/components/medica/ConditionsFilter';
 import {
   Empty,
   EmptyDescription,
@@ -23,9 +24,18 @@ import {
 } from '@/components/ui/table';
 import { fmt, fmtDateTime, EPISODE_LABEL, FREQ_LABEL, STATUS_LABEL } from '@/lib/format';
 
-export default async function PacientesPage() {
+export default async function PacientesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ condition?: string }>;
+}) {
+  const { condition = '' } = await searchParams;
   const session = await requireUserPage();
-  const rows = await listPatients(getDb(), { clinicId: session.clinicId }, new Date());
+  const db = getDb();
+  const [rows, conds] = await Promise.all([
+    listPatients(db, { clinicId: session.clinicId, condition: condition || null }, new Date()),
+    listConditions(db, session.clinicId),
+  ]);
   const ativos = rows.filter((p) => p.status === 'active').length;
   const comAlerta = rows.filter((p) => p.open_alerts > 0).length;
   return (
@@ -47,9 +57,12 @@ export default async function PacientesPage() {
             </p>
           )}
         </div>
-        <Button nativeButton={false} render={<Link href="/pacientes/novo" />}>
-          Novo paciente
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {conds.length > 0 && <ConditionsFilter options={conds} value={condition} />}
+          <Button nativeButton={false} render={<Link href="/pacientes/novo" />}>
+            Novo paciente
+          </Button>
+        </div>
       </div>
       {rows.length === 0 ? (
         <Empty className="rounded-xl border bg-card py-12">
@@ -57,11 +70,15 @@ export default async function PacientesPage() {
             <EmptyMedia variant="icon">
               <UsersIcon />
             </EmptyMedia>
-            <EmptyTitle>Nenhum paciente cadastrado</EmptyTitle>
-            <EmptyDescription>
-              O acompanhamento começa aqui: cadastre o paciente, convide quem responde e defina a
-              rotina de alarmes.
-            </EmptyDescription>
+            <EmptyTitle>
+              {condition ? 'Nenhum paciente com essa condição.' : 'Nenhum paciente cadastrado'}
+            </EmptyTitle>
+            {!condition && (
+              <EmptyDescription>
+                O acompanhamento começa aqui: cadastre o paciente, convide quem responde e defina a
+                rotina de alarmes.
+              </EmptyDescription>
+            )}
           </EmptyHeader>
         </Empty>
       ) : (
@@ -72,6 +89,7 @@ export default async function PacientesPage() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Condições</TableHead>
                   <TableHead>Episódio</TableHead>
                   <TableHead>Dose vigente</TableHead>
                   <TableHead>Último check-in</TableHead>
@@ -93,6 +111,9 @@ export default async function PacientesPage() {
                       <Badge variant={p.status === 'active' ? 'default' : 'secondary'}>
                         {STATUS_LABEL[p.status] ?? p.status}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-[13px]">
+                      {p.conditions.map((c) => c.name).join(', ') || '—'}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {p.episode

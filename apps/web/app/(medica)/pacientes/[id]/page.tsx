@@ -3,6 +3,7 @@ import {
   getPatientDetail,
   listProducts,
   listQuestionSets,
+  listConditions,
   questionsForPatient,
   patientTimeline,
   localDate,
@@ -25,6 +26,7 @@ import { AlertsCard } from '@/components/medica/AlertsCard';
 import { SymptomDoseChart } from '@/components/medica/SymptomDoseChart';
 import { SetupChecklist } from '@/components/medica/SetupChecklist';
 import { ProntuarioCard } from '@/components/medica/ProntuarioCard';
+import { PatientConditions } from '@/components/medica/PatientConditions';
 
 export default async function PacientePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -56,9 +58,10 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
       'u.name as user_name',
       'a.title as alert_title',
     );
-  const [products, questionSets, perguntas, timeline] = await Promise.all([
+  const [products, questionSets, catalog, perguntas, timeline] = await Promise.all([
     listProducts(db, session.clinicId),
     listQuestionSets(db, session.clinicId),
+    listConditions(db, session.clinicId),
     // Direção do score por pergunta: a grade só pinta o que sabe interpretar (pack + extras).
     questionsForPatient(db, { patientId: id, includeInactive: true }),
     patientTimeline(db, session, id, { now: new Date() }),
@@ -66,7 +69,6 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
   const direcoes = Object.fromEntries(perguntas.map((q) => [q.key, q.score_direction]));
   const p = detail.patient;
   const today = localDate(new Date(), p.timezone);
-  const tags = detail.conditions.map((c) => c.name);
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -85,11 +87,13 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
             <span className="font-mono text-xs">
               check-in às {String(p.checkin_time ?? '').slice(0, 5) || '—'}
             </span>
-            {tags.map((t) => (
-              <Badge key={t} variant="outline">
-                {t}
-              </Badge>
-            ))}
+          </div>
+          <div className="mt-2">
+            <PatientConditions
+              patientId={p.id}
+              conditions={detail.conditions}
+              catalog={catalog.map((c) => c.name)}
+            />
           </div>
         </div>
         <PatientHeaderActions patientId={p.id} status={p.status} />
