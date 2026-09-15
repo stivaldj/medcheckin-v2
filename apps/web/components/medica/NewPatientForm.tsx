@@ -2,12 +2,15 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/client';
+import { catalogNameKey } from '@medcheckin/core/name-key';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CatalogNameInput } from './CatalogNameInput';
 
 type Resp = {
   kind: 'patient' | 'caregiver';
@@ -30,11 +33,19 @@ const emptyResp = (kind: Resp['kind']): Resp => ({
 
 export const CONSENT_VERSION = 'v1';
 
-export function NewPatientForm() {
+export function NewPatientForm({ conditionNames }: { conditionNames: string[] }) {
   const router = useRouter();
   const [name, setName] = useState('');
   const [birth, setBirth] = useState('');
-  const [tags, setTags] = useState('');
+  const [conditions, setConditions] = useState<string[]>([]);
+  const [conditionDraft, setConditionDraft] = useState('');
+  function addCondition() {
+    const v = conditionDraft.trim();
+    if (v.length < 2) return;
+    if (!conditions.some((c) => catalogNameKey(c) === catalogNameKey(v)))
+      setConditions((cs) => [...cs, v]);
+    setConditionDraft('');
+  }
   const [checkinTime, setCheckinTime] = useState('09:00');
   const [resps, setResps] = useState<Resp[]>([emptyResp('patient')]);
   const [consent, setConsent] = useState(false);
@@ -59,7 +70,7 @@ export function NewPatientForm() {
         json: {
           name,
           birth_date: birth || null,
-          condition_tags: tags,
+          conditions,
           checkin_time: checkinTime,
           consent_version: CONSENT_VERSION,
           respondents: resps.map((r) => ({
@@ -114,13 +125,33 @@ export function NewPatientForm() {
             />
           </div>
           <div className="sm:col-span-2">
-            <Label htmlFor="tags">Condições (separadas por vírgula)</Label>
-            <Input
-              id="tags"
-              placeholder="epilepsia, dor crônica"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
+            <Label htmlFor="condition">Condições</Label>
+            <CatalogNameInput
+              id="condition"
+              value={conditionDraft}
+              onChange={setConditionDraft}
+              suggestions={conditionNames}
+              onSubmit={addCondition}
+              placeholder="Ex.: epilepsia — Enter adiciona"
+              testId="condition"
             />
+            {conditions.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5" data-testid="new-patient-conditions">
+                {conditions.map((c) => (
+                  <Badge key={c} variant="outline" className="gap-1 pr-1">
+                    {c}
+                    <button
+                      type="button"
+                      aria-label={`Remover ${c}`}
+                      className="rounded-full px-1 hover:bg-muted"
+                      onClick={() => setConditions((cs) => cs.filter((x) => x !== c))}
+                    >
+                      ×
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -7,11 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { fmt, fmtDate, isoDay } from '@/lib/format';
 import { DoseDialog, type Med } from './DoseDialog';
-import { ProductNameInput } from './ProductNameInput';
+import { CatalogNameInput } from './CatalogNameInput';
 
 import type { ProductRow, QuestionSetRow } from '@medcheckin/core';
 
-type Product = Pick<ProductRow, 'id' | 'name'>;
+type Product = Pick<ProductRow, 'name'>;
 type QSet = Pick<QuestionSetRow, 'id' | 'name'>;
 
 export function MedicationsCard({
@@ -95,13 +95,15 @@ export function MedicationsCard({
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <Label htmlFor="product">Adicionar medicação</Label>
-              <ProductNameInput
+              <CatalogNameInput
                 id="product"
                 value={name}
                 onChange={setName}
                 suggestions={products.map((p) => p.name)}
                 onSubmit={() => void addMed()}
                 disabled={busy}
+                placeholder="Ex.: Óleo CBD 50 mg/ml"
+                testId="product"
               />
             </div>
             <Button

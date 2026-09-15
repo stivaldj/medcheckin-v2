@@ -11,7 +11,9 @@ import {
 import type { Knex } from 'knex';
 
 // Rotas do Next são funções puras: testáveis sem servidor (como health.test.ts).
-const NOW = new Date('2026-08-16T15:00:00Z');
+// Relógio real: a rota lê o cookie com `new Date()` (apps/web/lib/auth.ts:46),
+// então a sessão precisa ser criada "agora" para não expirar por data fixa.
+const NOW = new Date();
 let db: Knex;
 let fx: {
   clinicId: string;

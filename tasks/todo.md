@@ -1,3 +1,44 @@
+# E12.1 Prontuário mínimo (15/09, `feat/prontuario-minimo`)
+
+Nota clínica livre datada, condições em catálogo da clínica com CID-10 opcional e fusão, linha do tempo agrupada por dia civil; filtro por condição; export/anonimização/auditoria cobrindo notas. Spec: `docs/superpowers/specs/2026-09-15-prontuario-minimo-design.md`.
+
+- [x] 1. `catalogNameKey` genérica (subpath + puro) — reutilizável por products/conditions/etc (4495b54)
+- [x] 2. Migration 013: `clinical_notes`, `conditions`, `patient_conditions` (backfill determinístico), `condition_tags` migrado e removido (23a8b54)
+- [x] 3. Core: módulo `conditions` (findOrCreate, get, list, merge com backfill), módulo `notes` (create/read/update/delete/anonymize) (e4b4c20)
+- [x] 4. Core: módulo `notes` com tipos, `noteDay`, linha do tempo agrupada (f9c33a0)
+- [x] 5. Core: `patients/timeline` agrupa dia civil do paciente (0ec8b76)
+- [x] 6. Rotas: `/api/patients/[id]/notes`, `/api/patients/[id]/conditions`, merge/anonimização, auditoria (db433f6)
+- [x] 7. UI: `ConditionNameInput` (combobox com sugestões, teclado) — padrão D34 para conditions (9e331ac)
+- [x] 8. UI: card **Prontuário** na aba "O caso" (lista, nova nota, editar, ocultar, PDF) — ProntuarioCard (c30f37e); fix: data da nota normalizada no servidor (f55e68a)
+- [x] 9. UI: **condições** no cabeçalho, editar condições inline com Condition UI, **filtro de condição** na lista Pacientes (76cd3ab)
+- [x] 10. UI: **Configurações → Condições da clínica** (catálogo, CID-10 inline, fundir) (60dc555); fix: saveCid guarda busy pra não duplicar PATCH no blur+Enter (c838b97)
+- [x] 11. E2E: prontuário (nota + dose agrupados, editar, ocultar), condições (cabeçalho, filtro, CID-10, fundir) (dee1b4e)
+- [x] Extra fix: auth-routes.test.ts usava data fixa que expirou em 15/09 — problema só em 15/09+ (c434a29)
+
+## Revisão
+
+- Onda de correções da revisão final da branch: 87c9ce1 (relatório lista as notas do período, spec §5), 5625d31 (fusão preserva CID-10 da origem), 7a20407 (um só normalizador de dia; teste da 013 sem assumir última migration), 7b5390f (filtro por condição valida UUID; rótulo "com esta condição"), 35bfc97 (manual + pré-requisito de janela da timeline na E12.2).
+
+**Desvios da spec:**
+
+- `TimelineDay.notes` (plural) em vez de `note?`
+- rota de auditoria da fusão é `conditions.merge` exato
+- migration 013 tem desempate determinístico de grafia no backfill
+
+**Follow-ups deixados (não bloqueiam):**
+
+- `updateCondition` UPDATE sem repetir `clinic_id`
+- fusão descarta `noted_at` da origem quando o destino já existe
+- condições órfãs se `createPatient` falhar após find-or-create
+- `PatientCondition.noted_at` opcional (tipo frouxo)
+- rótulo "N no total" com filtro ativo
+- `busy` compartilhado no `ProntuarioCard`
+- flicker do CID entre limpar draft e refresh
+- helper de `Session` para os E2E
+- `noteDay` depende do fuso do processo casar com parser de date do pg
+
+---
+
 # Medicação por nome — digitar, dar OK, produto nasce junto (14/09, `feat/medicacao-por-nome`)
 
 Causa: o select de "Adicionar medicação" só listava `products` da clínica, e nenhuma tela criava produto — clínica real ficava sem conseguir registrar medicação. Spec: `docs/superpowers/specs/2026-09-14-medicacao-por-nome-design.md`. Plano: `docs/superpowers/plans/2026-09-14-medicacao-por-nome.md`. Decisão D34. E12 (prontuário + importação agêntica) registrada no PLANO.

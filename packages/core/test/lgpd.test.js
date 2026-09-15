@@ -155,6 +155,8 @@ describe('LGPD — export, anonimização, retenção', () => {
       'access_audit.json',
       'alerts.json',
       'checkins.json',
+      'clinical_notes.json',
+      'conditions.json',
       'episodes.json',
       'medication_intakes.json',
       'medications.json',

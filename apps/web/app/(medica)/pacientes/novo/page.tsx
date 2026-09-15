@@ -1,9 +1,14 @@
 import Link from 'next/link';
 import { ChevronLeftIcon } from 'lucide-react';
+import { listConditions } from '@medcheckin/core';
 
+import { getDb } from '@/lib/db';
+import { requireUserPage } from '@/lib/session';
 import { NewPatientForm } from '@/components/medica/NewPatientForm';
 
-export default function NovoPacientePage() {
+export default async function NovoPacientePage() {
+  const session = await requireUserPage();
+  const conds = await listConditions(getDb(), session.clinicId);
   return (
     <div className="max-w-2xl space-y-5">
       <div>
@@ -19,7 +24,7 @@ export default function NovoPacientePage() {
           caixinha de formalidade.
         </p>
       </div>
-      <NewPatientForm />
+      <NewPatientForm conditionNames={conds.map((c) => c.name)} />
     </div>
   );
 }

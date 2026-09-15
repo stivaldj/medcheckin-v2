@@ -70,7 +70,18 @@ export {
   adjustDose,
   setEpisode,
 } from './medications/index.js';
-export { productNameKey } from './medications/nameKey.js';
+export { catalogNameKey, productNameKey } from './catalog/nameKey.js';
+export {
+  findOrCreateCondition,
+  listConditions,
+  updateCondition,
+  mergeConditions,
+  addPatientCondition,
+  removePatientCondition,
+  listPatientConditions,
+} from './conditions/index.js';
+export { createNote, updateNote, deleteNote, listNotes, noteDay } from './notes/index.js';
+export { patientTimeline } from './patients/timeline.js';
 export {
   listPatientQuestions,
   addPatientQuestion,

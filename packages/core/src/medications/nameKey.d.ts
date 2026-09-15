@@ -1,1 +1,1 @@
-export function productNameKey(name: unknown): string;
+export { catalogNameKey, productNameKey } from '../catalog/nameKey.js';

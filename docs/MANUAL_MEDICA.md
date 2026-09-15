@@ -86,13 +86,15 @@ No canto superior direito há uma faixa **"Scheduler ativo · último ciclo há 
 
 Uma linha por paciente: **Nome**, **Status** (Ativo / Pausado / Alta), **Episódio** (ex.: Titulação · diário), **Dose vigente** de cada medicação (ou _"sem dose vigente"_), **Último check-in** respondido e quantos **Alertas** abertos. Toque no nome para abrir.
 
+Filtro **Condição** ao lado do botão Novo paciente: mostra só quem tem aquela condição, com a contagem.
+
 Botão **Novo paciente** no alto à direita.
 
 ### 4.3 Novo paciente — o cadastro
 
 Três partes:
 
-1. **Dados do paciente**: nome, data de nascimento, **Horário do check-in** (vem 09:00) e condições separadas por vírgula (ex.: `epilepsia, dor crônica`).
+1. **Dados do paciente**: nome, data de nascimento, **Horário do check-in** (vem 09:00) e **Condições**: escreva e dê Enter para cada uma; sugestões vêm do que a clínica já usa.
 2. **Quem responde e recebe alarmes**: já vem o próprio paciente. Toque em **Adicionar cuidador** para incluir mãe, filha etc. Para cada pessoa você marca **pode responder check-ins** e/ou **recebe alarmes de dose**. Vale a pena preencher o **telefone**: ele é usado depois pelo botão **Enviar por WhatsApp**.
    - Criança pequena: deixe tudo com a cuidadora.
    - Adulto independente: só ele mesmo.
@@ -107,6 +109,8 @@ Toque em **Cadastrar paciente**. Você cai na página do paciente.
 
 **Cabeçalho** — nome, status, nascimento, _"check-in às 09:00"_ e as condições. À direita: **Pausar envios** (viagem, internação — nada é enviado até você tocar em **Retomar envios**) e **Dar alta** (encerra os envios e o convite do respondente para de funcionar; o sistema pede confirmação).
 
+As **condições** do paciente aparecem como etiquetas ao lado do nome. **Editar condições** abre um campo: escreva (ex.: _epilepsia_), Enter adiciona; o **×** remove. Nomes já usados em outros pacientes aparecem como sugestão, para não virar duas grafias da mesma coisa.
+
 **Para começar o acompanhamento** — enquanto faltar algo, aparece no topo uma lista com quatro itens, que se marcam sozinhos conforme você e o paciente avançam:
 
 - Quem responde tem celular próprio
@@ -119,6 +123,8 @@ Quando os quatro estão feitos, a lista some. Ao lado há o link **ver o guia pa
 Abaixo, a página tem duas abas: **O caso** (para ler) e **A configuração** (para montar o plano).
 
 #### Aba "O caso"
+
+**Prontuário** — o primeiro card. Toque em **Nova nota**, escreva como você escreve (tipo: consulta, evolução ou contato; a data vem hoje e pode ser mudada) e salve com o botão ou **Ctrl+Enter**. Abaixo fica a **linha do tempo**: por dia, a sua nota e, logo embaixo, o **ajuste de dose** e a **conduta** daquele dia, sem você repetir nada no texto. **Editar** corrige; **Ocultar** tira da lista, mas a nota fica guardada (prontuário não se apaga). **Imprimir / salvar PDF** imprime a página do paciente, com a linha do tempo.
 
 **Sintoma × dose** — o gráfico. Escolha a pergunta (dor, sono, humor…) e o período (**14**, **30**, **60** ou **90 dias**). A área mostra a resposta do dia; a linha tracejada, o score; **as linhas verticais tracejadas em cobre marcam cada ajuste de dose**, com o valor. Dia sem resposta aparece como **lacuna** — o gráfico não liga os pontos por cima do vazio. Abaixo, uma tabelinha compara a média dos 7 dias **antes** e **depois** de cada ajuste (**Ajuste · Antes (7 d) · Depois (7 d) · Δ**), com quantas respostas entraram na conta. Onde não há dado suficiente, aparece "—".
 
@@ -203,6 +209,7 @@ Dica: mantenha o check-in **curto** (5 a 8 perguntas, um minuto de resposta). A 
 - **Perfil**: seu nome, e-mail, clínica e fuso. Aqui está o link **Guia da médica (passo a passo, imprimível)**.
 - **Sistema**: se o scheduler está ativo ou parado, quando rodou pela última vez, quando os alertas foram avaliados e as regras de retenção de dados.
 - **Respondentes convidados**: todos os respondentes da clínica, com o **Convite** (aceito em tal data ou pendente), a versão do **Consentimento** aceita e o **Push** (em quantos aparelhos os avisos estão ativos). Útil para checar, de uma vez, quem ainda não configurou o celular.
+- **Condições da clínica** — tudo que você já digitou como condição, com o **CID-10** opcional (ex.: _F84.0_) e **Fundir em…** para juntar duas grafias que viraram duas linhas: os pacientes passam para a escolhida e a outra some.
 
 ---
 

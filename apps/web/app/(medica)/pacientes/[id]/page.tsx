@@ -3,7 +3,11 @@ import {
   getPatientDetail,
   listProducts,
   listQuestionSets,
+  listConditions,
   questionsForPatient,
+  patientTimeline,
+  localDate,
+  noteDay,
   AuthError,
 } from '@medcheckin/core';
 import { getDb } from '@/lib/db';
@@ -22,6 +26,8 @@ import { GridCard } from '@/components/medica/GridCard';
 import { AlertsCard } from '@/components/medica/AlertsCard';
 import { SymptomDoseChart } from '@/components/medica/SymptomDoseChart';
 import { SetupChecklist } from '@/components/medica/SetupChecklist';
+import { ProntuarioCard } from '@/components/medica/ProntuarioCard';
+import { PatientConditions } from '@/components/medica/PatientConditions';
 
 export default async function PacientePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -53,15 +59,24 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
       'u.name as user_name',
       'a.title as alert_title',
     );
-  const [products, questionSets, perguntas] = await Promise.all([
+  const [products, questionSets, catalog, perguntas, timelineRaw] = await Promise.all([
     listProducts(db, session.clinicId),
     listQuestionSets(db, session.clinicId),
+    listConditions(db, session.clinicId),
     // Direção do score por pergunta: a grade só pinta o que sabe interpretar (pack + extras).
     questionsForPatient(db, { patientId: id, includeInactive: true }),
+    patientTimeline(db, session, id, { now: new Date() }),
   ]);
   const direcoes = Object.fromEntries(perguntas.map((q) => [q.key, q.score_direction]));
   const p = detail.patient;
-  const tags = (p.condition_tags as string[]) ?? [];
+  // Postgres devolve colunas `date` como objeto Date; o RSC serializa esse Date para o client
+  // como Date, e ali `String(...)` não dá AAAA-MM-DD. Normaliza aqui, no fuso do servidor
+  // (o mesmo que o pg usou para interpretar a data), com o mesmo conversor canônico das notas.
+  const timeline = timelineRaw.map((d) => ({
+    ...d,
+    notes: d.notes.map((n) => ({ ...n, occurred_at: noteDay(n.occurred_at) })),
+  }));
+  const today = localDate(new Date(), p.timezone);
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -80,11 +95,13 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
             <span className="font-mono text-xs">
               check-in às {String(p.checkin_time ?? '').slice(0, 5) || '—'}
             </span>
-            {tags.map((t) => (
-              <Badge key={t} variant="outline">
-                {t}
-              </Badge>
-            ))}
+          </div>
+          <div className="mt-2">
+            <PatientConditions
+              patientId={p.id}
+              conditions={detail.conditions}
+              catalog={catalog.map((c) => c.name)}
+            />
           </div>
         </div>
         <PatientHeaderActions patientId={p.id} status={p.status} />
@@ -104,6 +121,7 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
 
         {/* Ler o caso e configurar o plano são trabalhos diferentes; antes disputavam o mesmo scroll. */}
         <TabsContent value="caso" className="space-y-6">
+          <ProntuarioCard patientId={p.id} timeline={timeline} today={today} />
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <SymptomDoseChart patientId={p.id} questions={detail.grid.questions} />

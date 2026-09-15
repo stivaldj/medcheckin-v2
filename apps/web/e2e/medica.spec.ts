@@ -22,7 +22,8 @@ test.describe('PROVA E4 — médica: cadastrar paciente → convidar cuidador �
     await page.getByText('Novo paciente', { exact: true }).click();
     await page.getByLabel('Nome', { exact: true }).first().fill('Paciente E2E');
     await page.getByLabel('Data de nascimento').fill('2016-05-20');
-    await page.getByLabel('Condições (separadas por vírgula)').fill('epilepsia');
+    await page.getByTestId('condition-input').fill('epilepsia');
+    await page.getByTestId('condition-input').press('Enter');
     await page.getByRole('button', { name: 'Adicionar cuidador' }).click();
     const cg = page.getByTestId('respondent-1');
     await cg.getByLabel('Nome').fill('Cuidadora E2E');

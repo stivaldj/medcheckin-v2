@@ -1,22 +1,25 @@
 'use client';
 import { useId, useMemo, useState } from 'react';
-import { productNameKey } from '@medcheckin/core/name-key';
+import { catalogNameKey } from '@medcheckin/core/name-key';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 /**
- * Campo "digite ou escolha" (D34). A médica escreve o nome do produto como quiser; enquanto
- * digita, aparecem os produtos que a clínica já cadastrou. Escolher uma sugestão só preenche
- * o campo — quem decide entre reaproveitar e criar é o servidor, pela chave normalizada.
- * Enter confirma (chama `onSubmit`) quando nenhuma sugestão está realçada.
+ * Campo "digite ou escolha" para itens de catálogo da clínica (produtos D34, condições D36).
+ * A médica escreve o nome como quiser; enquanto digita, aparecem os itens que a clínica já
+ * cadastrou. Escolher uma sugestão só preenche o campo — quem decide entre reaproveitar e
+ * criar é o servidor, pela chave normalizada. Enter confirma (chama `onSubmit`) quando nenhuma
+ * sugestão está realçada.
  */
-export function ProductNameInput({
+export function CatalogNameInput({
   id,
   value,
   onChange,
   suggestions,
   onSubmit,
   disabled,
+  placeholder,
+  testId,
 }: {
   id: string;
   value: string;
@@ -24,17 +27,19 @@ export function ProductNameInput({
   suggestions: string[];
   onSubmit: () => void;
   disabled?: boolean;
+  placeholder?: string;
+  testId?: string;
 }) {
   const listId = useId();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
 
   const filtered = useMemo(() => {
-    const key = productNameKey(value);
+    const key = catalogNameKey(value);
     if (!key) return [];
     return suggestions
       .filter((s) => {
-        const k = productNameKey(s);
+        const k = catalogNameKey(s);
         return k !== key && k.includes(key);
       })
       .slice(0, 8);
@@ -76,10 +81,10 @@ export function ProductNameInput({
         autoComplete="off"
         role="combobox"
         aria-expanded={visible}
-        aria-controls={listId}
+        aria-controls={visible ? listId : undefined}
         aria-autocomplete="list"
         aria-activedescendant={visible && active >= 0 ? `${listId}-${active}` : undefined}
-        placeholder="Ex.: Óleo CBD 50 mg/ml"
+        placeholder={placeholder ?? 'Digite para buscar ou criar'}
         onChange={(e) => {
           onChange(e.target.value);
           setOpen(true);
@@ -88,7 +93,7 @@ export function ProductNameInput({
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 120)}
         onKeyDown={onKeyDown}
-        data-testid="product-input"
+        data-testid={testId ? `${testId}-input` : 'catalog-input'}
       />
       {visible && (
         <ul
@@ -109,7 +114,7 @@ export function ProductNameInput({
               onMouseDown={(e) => e.preventDefault()}
               onMouseEnter={() => setActive(i)}
               onClick={() => pick(s)}
-              data-testid="product-suggestion"
+              data-testid={testId ? `${testId}-suggestion` : 'catalog-suggestion'}
             >
               {s}
             </li>

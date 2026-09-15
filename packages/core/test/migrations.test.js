@@ -91,9 +91,11 @@ describe('migrations — latest → seed → rollback total → latest', () => {
    */
   it('012 falha com mensagem clara quando dois produtos da clínica têm a mesma chave', async () => {
     await db.raw('drop schema public cascade; create schema public');
-    // sobe até a 011 (tudo menos a última)
+    // sobe até a 011 (tudo antes da 012 — não mais "tudo menos a última", pois a 013 (D36)
+    // passou a ser a mais nova e quebraria essa suposição).
     const [, pendentes] = await db.migrate.list(migrationConfig);
-    for (let i = 0; i < pendentes.length - 1; i += 1) await db.migrate.up(migrationConfig);
+    const ate012 = pendentes.findIndex((m) => m.file.startsWith('012_'));
+    for (let i = 0; i < ate012; i += 1) await db.migrate.up(migrationConfig);
     expect(await db.schema.hasColumn('products', 'name_key')).toBe(false);
 
     const [clinic] = await db('clinics').insert({ name: 'Clínica colisão' }).returning('id');
@@ -117,5 +119,56 @@ describe('migrations — latest → seed → rollback total → latest', () => {
         form: 'oil',
       }),
     ).rejects.toMatchObject({ code: '23505' });
+  });
+  /**
+   * D36 — a 013 leva `patients.condition_tags` para o catálogo da clínica sem perder nada, e o
+   * `down` reconstrói a lista a partir dos vínculos.
+   */
+  it('013: condition_tags vira conditions + patient_conditions; down reconstrói a coluna', async () => {
+    await db.raw('drop schema public cascade; create schema public');
+    const [, pendentes] = await db.migrate.list(migrationConfig);
+    const ate013 = pendentes.findIndex((m) => m.file.startsWith('013_'));
+    for (let i = 0; i < ate013; i += 1) await db.migrate.up(migrationConfig);
+    expect(await db.schema.hasColumn('patients', 'condition_tags')).toBe(true);
+    expect(await db.schema.hasTable('conditions')).toBe(false);
+
+    const [clinic] = await db('clinics').insert({ name: 'Clínica 013' }).returning('id');
+    const [user] = await db('users')
+      .insert({ clinic_id: clinic.id, role: 'doctor', email: 'dra-013@example.test', name: 'Dra.' })
+      .returning('id');
+    const [a] = await db('patients')
+      .insert({
+        clinic_id: clinic.id,
+        name: 'A',
+        timezone: 'America/Cuiaba',
+        created_by: user.id,
+        condition_tags: ['epilepsia', 'Ansiedade'],
+      })
+      .returning('id');
+    const [b] = await db('patients')
+      .insert({
+        clinic_id: clinic.id,
+        name: 'B',
+        timezone: 'America/Cuiaba',
+        created_by: user.id,
+        condition_tags: ['ansiedade'],
+      })
+      .returning('id');
+
+    await db.migrate.up(migrationConfig);
+    expect(await db.schema.hasColumn('patients', 'condition_tags')).toBe(false);
+    const conds = await db('conditions').where({ clinic_id: clinic.id }).orderBy('name_key');
+    // "Ansiedade" e "ansiedade" caem na MESMA chave → uma condição só, dois vínculos
+    expect(conds.map((c) => c.name_key)).toEqual(['ansiedade', 'epilepsia']);
+    const links = await db('patient_conditions').whereIn('patient_id', [a.id, b.id]);
+    expect(links).toHaveLength(3);
+
+    await db.migrate.down(migrationConfig);
+    expect(await db.schema.hasTable('conditions')).toBe(false);
+    const pa = await db('patients').where({ id: a.id }).first();
+    const pb = await db('patients').where({ id: b.id }).first();
+    expect([...pa.condition_tags].sort()).toEqual(['ansiedade', 'epilepsia']);
+    expect(pb.condition_tags).toEqual(['ansiedade']);
+    await db.migrate.up(migrationConfig);
   });
 });

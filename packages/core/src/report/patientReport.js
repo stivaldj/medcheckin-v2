@@ -5,6 +5,8 @@ import { requirePatientInClinic, logAccess } from '../auth/access.js';
 import { mean } from '../analytics/rolling.js';
 import { ADHERENCE_QUESTION_KEY } from '../routine/index.js';
 import { questionsForPatient } from '../questions/patientQuestions.js';
+import { listPatientConditions } from '../conditions/index.js';
+import { noteDay } from '../notes/index.js';
 
 function requireDoctor(session) {
   if (!session || session.kind !== 'user')
@@ -155,13 +157,25 @@ export async function patientReport(db, session, patientId, { days = 30, now } =
     .orderBy('c.scheduled_for')
     .select('c.scheduled_for', 'a.value_choice');
 
+  const conditions = await listPatientConditions(db, patientId);
+
+  const noteRows = await db('clinical_notes')
+    .where({ patient_id: patientId })
+    .whereNull('deleted_at')
+    .andWhere('occurred_at', '>=', start.toISODate())
+    .andWhere('occurred_at', '<=', end.toISODate())
+    .orderBy('occurred_at')
+    .orderBy('created_at')
+    .select('id', 'kind', 'occurred_at', 'body');
+  const notes = noteRows.map((n) => ({ ...n, occurred_at: noteDay(n.occurred_at) }));
+
   await logAccess(db, { session, patientId, route: 'patients.report', action: 'view' }, now);
   return {
     patient: {
       id: patient.id,
       name: patient.name,
       birth_date: patient.birth_date,
-      condition_tags: patient.condition_tags,
+      conditions: conditions.map((c) => (c.cid10 ? `${c.name} (${c.cid10})` : c.name)),
       status: patient.status,
     },
     period: {
@@ -189,6 +203,7 @@ export async function patientReport(db, session, patientId, { days = 30, now } =
       })),
     },
     symptoms,
+    notes,
     scores,
     doses: doses.map((d) => ({ ...d, effective_from: isoDate(d.effective_from) })),
     alerts,
