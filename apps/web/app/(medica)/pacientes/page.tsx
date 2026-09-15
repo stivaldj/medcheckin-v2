@@ -22,14 +22,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { fmt, fmtDateTime, EPISODE_LABEL, FREQ_LABEL, STATUS_LABEL } from '@/lib/format';
+import { fmt, fmtDateTime, EPISODE_LABEL, FREQ_LABEL, STATUS_LABEL, UUID_RE } from '@/lib/format';
 
 export default async function PacientesPage({
   searchParams,
 }: {
   searchParams: Promise<{ condition?: string }>;
 }) {
-  const { condition = '' } = await searchParams;
+  const { condition: rawCondition = '' } = await searchParams;
+  const condition = UUID_RE.test(rawCondition) ? rawCondition : '';
   const session = await requireUserPage();
   const db = getDb();
   const [rows, conds] = await Promise.all([
@@ -45,7 +46,8 @@ export default async function PacientesPage({
           <h1 className="text-2xl font-semibold tracking-tight">Pacientes</h1>
           {rows.length > 0 && (
             <p className="mt-1 text-sm text-muted-foreground">
-              <span className="font-mono">{rows.length}</span> no total ·{' '}
+              <span className="font-mono">{rows.length}</span>{' '}
+              {condition ? 'com esta condição' : 'no total'} ·{' '}
               <span className="font-mono">{ativos}</span> em acompanhamento
               {comAlerta > 0 && (
                 <>

@@ -1,3 +1,6 @@
+/** Formato de UUID (v4 ou não) — usado para validar `?condition=` antes de repassar ao filtro. */
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Sem dado → "—" (regra: nenhum número sem fonte). */
 export function fmt(value: unknown, suffix = ''): string {
   if (value === null || value === undefined || value === '') return '—';
