@@ -209,6 +209,7 @@ Dica: mantenha o check-in **curto** (5 a 8 perguntas, um minuto de resposta). A 
 - **Perfil**: seu nome, e-mail, clínica e fuso. Aqui está o link **Guia da médica (passo a passo, imprimível)**.
 - **Sistema**: se o scheduler está ativo ou parado, quando rodou pela última vez, quando os alertas foram avaliados e as regras de retenção de dados.
 - **Respondentes convidados**: todos os respondentes da clínica, com o **Convite** (aceito em tal data ou pendente), a versão do **Consentimento** aceita e o **Push** (em quantos aparelhos os avisos estão ativos). Útil para checar, de uma vez, quem ainda não configurou o celular.
+- **Condições da clínica** — tudo que você já digitou como condição, com o **CID-10** opcional (ex.: _F84.0_) e **Fundir em…** para juntar duas grafias que viraram duas linhas: os pacientes passam para a escolhida e a outra some.
 
 ---
 
