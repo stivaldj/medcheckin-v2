@@ -681,9 +681,21 @@ $ cd packages/core && node ../../scripts/pilot-report.mjs --from 2026-08-18 --to
 
 ### E11 — WhatsApp "responda no app" (opcional, após E10) `[ ]`
 
-### E12 — Prontuário da consulta + importação agêntica do histórico `[ ]`
+### E12 — Prontuário da consulta + importação agêntica do histórico
 
-Intenção registrada em 2026-09-14, ainda sem spec. A médica escreve o prontuário da consulta na página do paciente e pode **subir o histórico** (prontuários, pacientes, consultas antigas); um **agente** lê o material e já insere pacientes, medicações, doses e condutas no sistema, para revisão da médica antes de valer. Depende de decisões próprias: formato de entrada, LGPD do material subido, revisão humana obrigatória do que o agente inseriu. Pré-requisito já atendido pela feature "medicação por nome" (spec em `docs/superpowers/specs/2026-09-14-medicacao-por-nome-design.md`): find-or-create de produto no core, com dedupe por `name_key`, que o agente reaproveita.
+Decomposta em 2026-09-15 em três etapas com dependência entre si. Regras fixas de toda a E12 (herdadas da v1 e decididas com o dono): agente nunca no caminho crítico do check-in; nunca sugere dose; texto clínico só sai da máquina **pseudonimizado** (nome, CPF, telefone, endereço e nascimento trocados por tokens, remontados localmente); toda ação do agente passa por **revisão humana por paciente**, um OK por ficha, nada vale antes.
+
+#### E12.1 — Prontuário mínimo `[~]`
+
+Nota clínica livre datada (D35), condições em catálogo da clínica pelo padrão D34 com CID-10 opcional e fusão (D36), linha do tempo que agrupa nota, ajuste de dose e conduta por dia civil; filtro por condição na lista; export/anonimização/auditoria cobrindo notas. Sem arquivos, sem agente. Spec: `docs/superpowers/specs/2026-09-15-prontuario-minimo-design.md`.
+
+#### E12.2 — Anexos e importação estruturada `[ ]`
+
+Upload de PDF/imagem por paciente guardado em volume com backup; importação por script do cadastro estruturado do Versatilis (CSV/XML/JSON, quando vier) e do `cbd.anon.sqlite`/`cbd.sqlite` da v1 (910+ pacientes, condições), com relatório do que entrou e do que colidiu (nome + nascimento). Pacientes importados nascem sem consentimento v2 e sem check-in, só com histórico. Sem modelo de linguagem.
+
+#### E12.3 — Agente de extração com revisão `[ ]`
+
+Worker (no scheduler) lê cada PDF, pseudonimiza, envia ao modelo, recebe ficha proposta (cadastro, condições, medicações, dose vigente, notas por consulta, condutas) com confiança por campo e trecho de origem (`source`), grava em tabelas de proposta; fila de revisão por paciente com o PDF ao lado; um OK converte em `clinical_notes` (kind `importada`), `patient_conditions`, `medications`/`dose_events` reais. Depende de: extrato do Versatilis em mãos, termo de consentimento v2 e `docs/LGPD.md` cobrindo o envio pseudonimizado, chave de API no ambiente do scheduler. Ordem de grandeza: > 1.000 pacientes × 2–5 páginas.
 
 ## Log de progresso
 
