@@ -64,7 +64,7 @@ export function doctorUploadRoute<P = Record<string, never>>(handler: UploadHand
   return async (req: Request, ctx: Ctx<P>): Promise<Response> => {
     try {
       const session = await requireUser(req);
-      assertSameOrigin(req);
+      if (req.method !== 'GET' && req.method !== 'HEAD') assertSameOrigin(req);
       const params = (ctx?.params ? await ctx.params : {}) as P;
       const baseUrl = process.env.APP_BASE_URL ?? new URL(req.url).origin;
       return await handler({ req, db: getDb(), session, params, baseUrl });

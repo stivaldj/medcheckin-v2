@@ -36,11 +36,14 @@ export function sniffKind(buf) {
  * (`anexos/<id>-<original_name>`) e do `Content-Disposition` na rota de download, então nunca pode
  * carregar separador de caminho, `..`, aspas ou caracteres de controle (zip slip / header injection).
  */
+// eslint-disable-next-line no-control-regex -- remover caracteres de controle é o propósito daqui.
+const CONTROL_CHARS_RE = /["\x00-\x1f\x7f]/g;
+
 function sanitizeOriginalName(name, ext) {
   const cleaned = String(name ?? '')
     .replace(/[\\/]+/g, '_')
     .replace(/\.\.+/g, '_')
-    .replace(/["\x00-\x1f\x7f]/g, '')
+    .replace(CONTROL_CHARS_RE, '')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 200);

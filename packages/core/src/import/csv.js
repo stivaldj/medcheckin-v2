@@ -3,7 +3,7 @@
  * dentro de campo, delimitador configurável. Sem dependência: o extrato do Versatilis é uma vez só.
  */
 export function parseCsv(text, { delimiter = ';' } = {}) {
-  const src = String(text ?? '').replace(/^﻿/, '');
+  const src = String(text ?? '').replace(/^\uFEFF/, '');
   const records = [];
   let row = [];
   let field = '';

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createDb, migrationConfig, runSeed, createSession } from '@medcheckin/core';
@@ -259,6 +259,39 @@ describe('anexos (D39)', () => {
       params({ id: fx.p1 }),
     );
     expect(fake.status).toBe(415);
+  });
+
+  it('arquivo apagado do disco (ex.: anonimização) → GET do stream devolve 404, não 200 quebrado', async () => {
+    const { attachmentAbsolutePath } = await import('@medcheckin/core');
+    const { POST } = await import('../app/api/patients/[id]/attachments/route');
+    const { GET: STREAM } =
+      await import('../app/api/patients/[id]/attachments/[attachmentId]/route');
+    const form = new FormData();
+    form.set(
+      'file',
+      new File([Buffer.from('%PDF-1.4\n%%EOF\n')], 'y.pdf', { type: 'application/pdf' }),
+    );
+    const uploaded = await POST(
+      new Request(`http://localhost:3000/api/patients/${fx.p1}/attachments`, {
+        method: 'POST',
+        headers: { cookie: fx.cookie, origin: 'http://localhost:3000' },
+        body: form,
+      }),
+      params({ id: fx.p1 }),
+    );
+    expect(uploaded.status).toBe(201);
+    const attachment = await uploaded.json();
+
+    await rm(attachmentAbsolutePath(attachment));
+
+    const streamed = await STREAM(
+      req(`/api/patients/${fx.p1}/attachments/${attachment.id}`, {
+        headers: { cookie: fx.cookie },
+      }),
+      params({ id: fx.p1, attachmentId: attachment.id }),
+    );
+    expect(streamed.status).toBe(404);
+    expect((await streamed.json()).error).toBe('not_found');
   });
 });
 
