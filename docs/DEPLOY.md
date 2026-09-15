@@ -20,6 +20,7 @@
    Gerar VAPID: `docker run --rm node:22-alpine sh -c "npm i -g web-push >/dev/null && web-push generate-vapid-keys"`.
 4. **Subir**: `docker compose -p medcheckin -f docker-compose.prod.yml --env-file .env.prod up -d --build`
    (`migrate` roda uma vez e o `web`/`scheduler` só sobem depois dele terminar bem).
+   Entre o `migrate` aplicar a 014 e o web novo subir, o web antigo falha ao cadastrar paciente (`name_key` obrigatório); faça migrate e deploy em sequência imediata, sem janela.
 5. **Verificar**:
    - `curl -s https://DOMAIN/api/health` → `{"ok":true,"db":"up","scheduler":{"stale":false}}` (200)
    - `docker compose -p medcheckin -f docker-compose.prod.yml --env-file .env.prod ps` → todos `healthy`

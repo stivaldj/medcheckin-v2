@@ -24,6 +24,7 @@ services:
     command: ['node', 'packages/core/scripts/migrate.js']
     environment:
       DATABASE_URL: 'postgres://${POSTGRES_USER:-medcheckin}:${POSTGRES_PASSWORD:?}@db:5432/${POSTGRES_DB:-medcheckin}'
+      UPLOADS_DIR: /data/uploads
     depends_on:
       db: { condition: service_healthy }
     restart: 'no'
@@ -67,6 +68,7 @@ services:
       SCHEDULER_INTERVAL_MS: ${SCHEDULER_INTERVAL_MS:-60000}
       SCHEDULER_PORT: '3001'
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      UPLOADS_DIR: /data/uploads
     depends_on:
       db: { condition: service_healthy }
       migrate: { condition: service_completed_successfully }
