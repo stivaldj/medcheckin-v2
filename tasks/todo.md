@@ -3,14 +3,14 @@
 Migration 014 `attachments` + volume `uploads` (backup two-part + restore drill); status **Cadastrado** e lista paginada com busca/status; timeline com janela + "Carregar mais"; CSV parser + `planImport`/`executeImport` (ensaio obrigatório, colisão recusada); script `import-versatilis`; rotas upload/stream com auditoria; card Anexos; faixa Cadastrado; toolbar da lista. Spec: `docs/superpowers/specs/2026-09-15-anexos-importacao-design.md`.
 
 - [x] 1. Migration 014 `attachments` (id, patient_id, original_name, sha256, size_bytes, mime_type, uploaded_by, uploaded_at, deleted_at), índice único (patient_id, sha256); UPLOADS_DIR (0441db0)
-- [x] 2. Core: módulo `attachments` (attach, stream, hide, anonymize); `patients/import` (parseCsv, planImport, executeImport); módulo `respondent` com field-safe phone (8100820, fix 84d8538)
-- [x] 3. Rotas: POST/GET `/api/patients/[id]/attachments`, `GET /api/attachments/[id]/stream`, DELETE (ed618a9, fix a99d2ac)
+- [x] 2. Módulo `attachments` no core: tipo pelos bytes (PDF/JPG/PNG), sha256, escrita atômica no volume com limpeza em falha, listar/abrir/ocultar, export com os arquivos no zip, anonimização apaga do disco após o commit e recalcula `name_key`; nome de arquivo higienizado; reenvio reativa anexo oculto. (8100820, fix 84d8538)
+- [x] 3. `listPatients` paginada com busca sem acento (`name_key`) e filtro de status (`following` por padrão); `acceptInvite` promove Cadastrado a Ativo e grava consentimento no paciente, tudo na mesma transação. (ed618a9, fix a99d2ac)
 - [x] 4. Timeline com janela (Carregar mais no UI) e `visible_from` na query (57e3038, fix 8ab7a57)
 - [x] 5. Core: `planImport` + `executeImport` logic com colisão guard, `external_ref` matchpoint (e5aa9b3, ajustes 30b042e, fix bc82b3c)
 - [x] 6. Script `import-versatilis` com ensaio obrigatório + `--gravar` (4b19ea6, fix 8b88f5c)
-- [x] 7. Rotas da importação: audit, colisão report (f2bd8d2, fix f2af8b3)
+- [x] 7. Rotas: `doctorUploadRoute` (não lê o corpo), `POST/GET /api/patients/:id/attachments`, `GET/DELETE .../:attachmentId` (stream com headers seguros; 404 quando o arquivo foi apagado pela anonimização), `GET /api/patients` com `q`/`status`/`page`; `errorResponse` mapeia 413/415; origem checada só em mutações; lint do core. (f2bd8d2, fix f2af8b3)
 - [x] 8. ListPatients paginada (50 × página) + busca por nome + seletor status + faixa Cadastrado (e6d8c0a, fix 07fabf3)
-- [x] 9. Página do paciente: anexos vinculados (d878bf2)
+- [x] 9. Página do paciente: card **Anexos** com visualizador embutido (PDF/imagem) e Ocultar com confirmação, faixa **Cadastrado** com orientação para convidar respondente, **Carregar mais** na linha do tempo, notas importadas rotuladas 'Versatilis'. (d878bf2)
 - [x] 10. Deploy: volume uploads, backup + restore drill (a1cb2ea, fix 2bd8bc7)
 - [x] 11. E2E: anexos (enviar, abrir, recusar tipo, ocultar), lista de pacientes (status, busca, paginação, faixa), importação (ensaio + gravar) (f3bd23b, fix e510c3c)
 
