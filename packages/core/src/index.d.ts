@@ -546,6 +546,46 @@ export function removePatientCondition(
   now?: Instant,
 ): Promise<void>;
 export function listPatientConditions(db: Knex, patientId: string): Promise<PatientCondition[]>;
+export type NoteKind = 'consulta' | 'evolucao' | 'contato' | 'importada';
+export interface ClinicalNoteRow {
+  id: string;
+  patient_id: string;
+  kind: NoteKind;
+  occurred_at: Date | string;
+  body: string;
+  source: { file?: string; page?: number; excerpt?: string } | null;
+  created_by: string;
+  deleted_at: Date | string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+export function createNote(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  input: { kind?: NoteKind; occurred_at?: string; body: string },
+  now?: Instant,
+): Promise<ClinicalNoteRow>;
+export function updateNote(
+  db: Knex,
+  session: Session,
+  noteId: string,
+  input: { kind?: NoteKind; occurred_at?: string; body?: string },
+  now?: Instant,
+): Promise<ClinicalNoteRow>;
+export function deleteNote(
+  db: Knex,
+  session: Session,
+  noteId: string,
+  now?: Instant,
+): Promise<ClinicalNoteRow>;
+export function listNotes(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  opts?: { includeDeleted?: boolean },
+): Promise<ClinicalNoteRow[]>;
+export function noteDay(value: Date | string): string;
 export interface RespondentRow {
   id: string;
   patient_id: string;

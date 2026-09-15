@@ -128,6 +128,11 @@ export async function exportPatientData(db, session, patientId, now) {
     .where('pc.patient_id', patientId)
     .orderBy('c.name')
     .select('c.id', 'c.name', 'c.cid10', 'pc.noted_at', 'pc.created_at');
+  // D35: notas ocultas também são dado do titular.
+  const clinicalNotes = await db('clinical_notes')
+    .where({ patient_id: patientId })
+    .orderBy('occurred_at')
+    .orderBy('created_at');
 
   const files = {
     'patient.json': patient,
@@ -149,6 +154,7 @@ export async function exportPatientData(db, session, patientId, now) {
     'notifications.json': notifications,
     'access_audit.json': audit,
     'conditions.json': conditions,
+    'clinical_notes.json': clinicalNotes,
   };
   const manifest = {
     generated_at: toDT(now).toISO(),
@@ -172,6 +178,7 @@ export async function exportPatientData(db, session, patientId, now) {
       notifications: notifications.length,
       access_audit: audit.length,
       conditions: conditions.length,
+      clinical_notes: clinicalNotes.length,
     },
     note:
       'notifications.json contém só metadados de entrega (sem conteúdo). ' +

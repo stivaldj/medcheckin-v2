@@ -80,6 +80,7 @@ export {
   removePatientCondition,
   listPatientConditions,
 } from './conditions/index.js';
+export { createNote, updateNote, deleteNote, listNotes, noteDay } from './notes/index.js';
 export {
   listPatientQuestions,
   addPatientQuestion,

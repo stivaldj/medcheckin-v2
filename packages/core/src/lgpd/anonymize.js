@@ -101,6 +101,10 @@ export async function anonymizePatient(db, session, patientId, { reason }, now) 
     // D36: condição é dado clínico, mas ligada a uma identidade que o titular pediu para apagar;
     // o vínculo sai, o catálogo da clínica fica.
     await trx('patient_conditions').where({ patient_id: patientId }).del();
+    // D35: o corpo da nota é texto livre e pode identificar; tipo e data ficam (série clínica).
+    await trx('clinical_notes')
+      .where({ patient_id: patientId })
+      .update({ body: '[removido]', updated_at: trx.fn.now() });
     await logAccess(
       trx,
       { session, patientId, route: `patients.anonymize:${why.slice(0, 120)}`, action: 'anonymize' },
