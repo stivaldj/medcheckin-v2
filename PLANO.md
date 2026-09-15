@@ -689,9 +689,9 @@ Decomposta em 2026-09-15 em três etapas com dependência entre si. Regras fixas
 
 Nota clínica livre datada (D35), condições em catálogo da clínica pelo padrão D34 com CID-10 opcional e fusão (D36), linha do tempo que agrupa nota, ajuste de dose e conduta por dia civil; filtro por condição na lista; export/anonimização/auditoria cobrindo notas. Sem arquivos, sem agente. Spec: `docs/superpowers/specs/2026-09-15-prontuario-minimo-design.md`.
 
-#### E12.2 — Anexos e importação estruturada `[ ]`
+#### E12.2 — Anexos e importação estruturada `[~]`
 
-Upload de PDF/imagem por paciente guardado em volume com backup; importação por script do cadastro estruturado do Versatilis (CSV/XML/JSON, quando vier) e do `cbd.anon.sqlite`/`cbd.sqlite` da v1 (910+ pacientes, condições), com relatório do que entrou e do que colidiu (nome + nascimento). Pacientes importados nascem sem consentimento v2 e sem check-in, só com histórico. Sem modelo de linguagem. Pré-requisito: `patientTimeline` ganha janela (`days`/`limit` ou "carregar mais") antes da importação despejar 2–5 páginas por paciente na página inicial de trabalho da médica.
+Upload de PDF/JPG/PNG por paciente (até 25 MB, tipo por bytes) guardado em volume `uploads` com backup em duas partes (dump + tar cifrado) e restore drill; status novo **Cadastrado** (`registered`, D37) para paciente com histórico e sem acompanhamento, invisível ao scheduler e à tela Hoje; lista de pacientes com busca por nome, seletor de status e paginação; importação do **Versatilis** por script com ensaio obrigatório e casamento conservador (`external_ref`, senão nome + nascimento; nome igual com nascimento diferente é colisão) — D39; consultas do CSV viram notas `importada`; `patientTimeline` ganha janela e "carregar mais" (pré-requisito herdado da E12.1). O SQLite da v1 fica de fora: Versatilis é a fonte de verdade. Sem modelo de linguagem. Spec: `docs/superpowers/specs/2026-09-15-anexos-importacao-design.md`.
 
 #### E12.3 — Agente de extração com revisão `[ ]`
 
