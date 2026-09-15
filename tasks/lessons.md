@@ -1,3 +1,9 @@
+## 2026-09-14 — plano de verificação sem o gate que o repo já tem
+
+- Erro: o plano da feature "medicação por nome" listou lint, typecheck, vitest e E2E como verificação final, mas o repositório tem `npm run check` (que inclui `prettier --check .`) como hook de pre-push. O push falhou na primeira tentativa por formatação em 6 arquivos meus.
+- Regra: ao escrever a task de verificação de um plano, começar por `grep '"check"\|pre-push' package.json .husky/*` e usar **o mesmo comando do hook**, não uma lista minha. Se o repo tem um gate, o plano herda o gate.
+- Regra: `prettier --check .` avalia a árvore inteira, inclusive untracked de outra sessão. Antes de culpar meu diff, `git status --short` para separar o que é meu.
+
 ## 2026-09-13 — afirmei um defeito a partir de screenshot, sem abrir o código
 
 - Erro: no sync do design system, disse que `InviteAccept` usava `<input type="checkbox">` cru. Ele sempre usou o `Checkbox` do DS — o estado _desmarcado_ é uma caixa cinza neutra que parece a nativa no screenshot. A afirmação foi para o PR #26, para as notas e virou tarefa para outra sessão.
