@@ -39,6 +39,14 @@ Documento de referência para a operação do piloto. Não substitui parecer jur
 Remove: nome do paciente, data de nascimento, nomes/e-mails/telefones/relação dos respondentes, tokens de convite (rotacionados), sessões e inscrições push (revogadas), textos livres (`answers.value_text` → "[removido]", `notes` de dose/tomada), conteúdo de notificações.
 Mantém (sem identificação): respostas numéricas e de escolha, scores diários, histórico de doses, episódios, alertas e condutas, auditoria. Motivo: obrigação de guarda do prontuário (CFM Res. 1.821/2007 — 20 anos) e utilidade estatística anonimizada. O paciente vira `Paciente anonimizado <hash>` e status `discharged`.
 
+## Prontuário (notas clínicas e condições) — E12.1
+
+- **Nota clínica** (`clinical_notes`) é texto livre da médica sobre a consulta: dado de saúde do titular, base legal = tutela da saúde e obrigação de guarda do prontuário (CFM 1.821/2007). Nunca é apagada pelo botão: **Ocultar** grava `deleted_at`; a nota segue no banco, entra no `export.zip` (`clinical_notes.json`, inclusive ocultas) e na auditoria.
+- **Anonimização** troca o corpo de toda nota por `[removido]` e mantém tipo e data (série clínica sem identidade). Os vínculos com condições (`patient_conditions`) são removidos; o catálogo de condições da clínica fica.
+- **Condições** (`conditions`, `patient_conditions`) são catálogo da clínica; entram no export como `conditions.json`.
+- **Auditoria**: `notes.create`, `notes.update`, `notes.delete`, `notes.read` (cada abertura da linha do tempo), `conditions.add`, `conditions.remove`, `conditions.merge`.
+- Nada de texto clínico sai da máquina nesta etapa. A E12.3 (importação por agente) exigirá termo de consentimento próprio e pseudonimização antes de qualquer envio.
+
 ## Retenção automática (`applyRetention`, 1×/dia no scheduler)
 
 | Dado                                                     | Prazo                      | Motivo                        |
