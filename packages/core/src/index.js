@@ -140,3 +140,5 @@ export {
   hideAttachment,
   attachmentAbsolutePath,
 } from './attachments/index.js';
+export { parseCsv } from './import/csv.js';
+export { planImport, executeImport } from './import/versatilis.js';

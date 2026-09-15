@@ -1399,3 +1399,44 @@ export function hideAttachment(
   now?: Instant,
 ): Promise<AttachmentRow>;
 export function attachmentAbsolutePath(row: Pick<AttachmentRow, 'stored_path'>): string;
+
+export function parseCsv(
+  text: string,
+  opts?: { delimiter?: string },
+): { header: string[]; rows: Array<Record<string, string>> };
+export interface ImportItem {
+  ref: string;
+  name: string;
+  name_key: string;
+  birth_date: string | null;
+  phone: string | null;
+  conditions: string[];
+  consultas: string[];
+  pdf: string | null;
+  existingId?: string;
+}
+export interface ImportPlan {
+  criar: ImportItem[];
+  casar: ImportItem[];
+  colidir: Array<{ ref: string; name: string; birth_date: string | null; motivo: string }>;
+  pdfSemPaciente: string[];
+  pacienteSemPdf: string[];
+}
+export function planImport(input: {
+  rows: Array<Record<string, string>>;
+  mapa: Record<string, unknown>;
+  pdfFiles?: string[];
+  existing?: Array<{
+    id: string;
+    name_key: string;
+    birth_date: string | Date | null;
+    external_ref: string | null;
+  }>;
+}): ImportPlan;
+export function executeImport(
+  db: Knex,
+  session: Session,
+  plan: ImportPlan,
+  deps: { readPdf: (file: string) => Promise<Buffer | null> },
+  now?: Instant,
+): Promise<{ created: number; matched: number; attached: number; notes: number }>;
