@@ -27,12 +27,18 @@ export function ConditionsTable({ rows }: { rows: Row[] }) {
   const [error, setError] = useState<string | null>(null);
 
   async function saveCid(row: Row) {
+    if (busy) return;
     const value = cid[row.id];
     if (value === undefined || value === (row.cid10 ?? '')) return;
     setBusy(true);
     setError(null);
     try {
       await api(`/api/conditions/${row.id}`, { method: 'PATCH', json: { cid10: value || null } });
+      setCid((prev) => {
+        const next = { ...prev };
+        delete next[row.id];
+        return next;
+      });
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Erro');
