@@ -318,6 +318,54 @@ mc logs migrate | tail -3
 As migrations rodam sozinhas a cada atualização. Antes de atualizar, confira que o backup da
 madrugada chegou ao Mac.
 
+## Parte 13 — Acesso SSH pelo Tailscale (atualizar sem AnyDesk)
+
+O contêiner `tailscale` do compose só publica o site; o WSL em si não está na tailnet. Esta parte
+coloca o WSL na tailnet como `medcheckin-wsl` e abre um SSH que só aceita chave pública vinda de
+endereços da tailnet (`100.64.0.0/10`). Sem senha, sem porta exposta na rede local: em WSL2 o
+modo NAT não deixa a porta 22 visível para fora do PC.
+
+1. No Mac, gere uma chave só para isso e copie o conteúdo do `.pub`:
+
+   ```bash
+   ssh-keygen -t ed25519 -N "" -C "medcheckin-wsl" -f ~/.ssh/id_ed25519_medcheckin && cat ~/.ssh/id_ed25519_medcheckin.pub
+   ```
+
+2. No WSL, com o repositório atualizado (`git pull`):
+
+   ```bash
+   cd ~/medcheckin && sudo sh scripts/wsl-ssh-setup.sh "ssh-ed25519 AAAA... medcheckin-wsl"
+   ```
+
+   O script instala o Tailscale pelo instalador oficial, roda `tailscale up`, instala o
+   `openssh-server`, grava a configuração em `/etc/ssh/sshd_config.d/60-medcheckin-tailscale.conf`
+   e a chave em `~/.ssh/authorized_keys`. Se aparecer um link `login.tailscale.com/...`, abra no
+   navegador e autorize; com `TS_AUTHKEY=... sudo -E sh scripts/wsl-ssh-setup.sh ...` ele entra sem
+   link. Pode rodar de novo à vontade (para trocar a chave, por exemplo).
+
+3. No admin do Tailscale, em Machines → `medcheckin-wsl`, marque **Disable key expiry**, como na
+   parte 4.5, senão o acesso cai depois de meses.
+
+4. No Mac, em `~/.ssh/config` (o script imprime o IP no final):
+
+   ```
+   Host medcheckin-wsl
+     HostName 100.x.y.z
+     User xbr
+     IdentityFile ~/.ssh/id_ed25519_medcheckin
+   ```
+
+   Teste: `ssh medcheckin-wsl 'cd ~/medcheckin && git log --oneline -1'`.
+
+Com isso a parte 12 inteira roda do Mac:
+
+```bash
+ssh medcheckin-wsl 'cd ~/medcheckin && git pull && sed -i "/APP_VERSION=/s/=.*/=$(git rev-parse --short HEAD)/" .env.prod && docker compose -p medcheckin -f docker-compose.prod.yml -f docker-compose.casa.yml --env-file .env.prod up -d --build && docker compose -p medcheckin logs migrate | tail -3'
+```
+
+O SSH depende do WSL estar de pé, o que a parte 3 já garante. Se `ssh` der `Connection refused`,
+o WSL não subiu ou o `tailscaled` não iniciou: `wsl -d Ubuntu` no PowerShell e `sudo systemctl status tailscaled ssh`.
+
 ## Problemas comuns
 
 | Sintoma                                                            | Causa provável e o que fazer                                                                                                                                                                                                                                                                                                    |
