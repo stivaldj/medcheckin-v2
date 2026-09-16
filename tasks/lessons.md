@@ -4,6 +4,13 @@
 - Regra: **nunca** rodar vitest (core ou web) e E2E ao mesmo tempo no mesmo banco. Um de cada vez, ou bancos separados (`DATABASE_URL_TEST` distinto para o E2E).
 - Regra: falha em massa e súbita (dezenas de arquivos) depois de uma suíte que estava verde é sinal de interferência externa, não de regressão — checar o que mais estava rodando antes de investigar código.
 
+## 2026-09-16 — operar o PC de casa pelo AnyDesk custou 1h; o SSH levou 10 min
+
+- Erro: fiz o deploy da E12.2 digitando comandos na janela do AnyDesk. Perdi três prompts de `sudo` (a sessão gratuita cai a cada ~40 min e o `sudo -v` expira em 5), o console do Windows entrou em "modo seleção" a cada clique e engoliu os comandos, a tecla `^` não chegou ao WSL (o `grep ^APP_VERSION` não casava) e `Escape` comia a letra seguinte (`clear` virou `lear`).
+- Regra: se a operação vai passar de dois comandos, o primeiro passo é criar um canal de texto (SSH pela tailnet, `scripts/wsl-ssh-setup.sh`), não digitar em tela remota. Tela remota é só para ler a primeira senha do `sudo`.
+- Regra: em console remoto, nunca clicar dentro do terminal (liga seleção); usar o ícone da barra para focar. Evitar `^` e `\` em comandos digitados; preferir `sed '/X=/s/...'` a `s/^X=/`. Nunca canalizar um instalador para `| tail`: o link de login do Tailscale ficou escondido e o script pareceu travado.
+- Regra: prompt de `sudo` para o dono digitar só depois de tudo o mais estar pronto (script commitado, `git pull` feito), e o pedido de senha vai na mesma mensagem que o comando que vai usá-la.
+
 ## 2026-09-14 — plano de verificação sem o gate que o repo já tem
 
 - Erro: o plano da feature "medicação por nome" listou lint, typecheck, vitest e E2E como verificação final, mas o repositório tem `npm run check` (que inclui `prettier --check .`) como hook de pre-push. O push falhou na primeira tentativa por formatação em 6 arquivos meus.
