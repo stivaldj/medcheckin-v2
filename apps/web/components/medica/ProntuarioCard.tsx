@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/client';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -35,16 +36,39 @@ export function ProntuarioCard({
   patientId,
   timeline,
   today,
+  hasMore,
+  nextBefore,
 }: {
   patientId: string;
   timeline: TimelineDay[];
   today: string;
+  hasMore: boolean;
+  nextBefore: string | null;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [hiding, setHiding] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [extra, setExtra] = useState<TimelineDay[]>([]);
+  const [more, setMore] = useState({ hasMore, nextBefore });
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  async function carregarMais() {
+    if (!more.nextBefore || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await api<{ days: TimelineDay[]; hasMore: boolean; nextBefore: string | null }>(
+        `/api/patients/${patientId}/timeline?before=${more.nextBefore}`,
+      );
+      setExtra((x) => [...x, ...page.days]);
+      setMore({ hasMore: page.hasMore, nextBefore: page.nextBefore });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Erro');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   function novaNota() {
     setError(null);
@@ -77,6 +101,8 @@ export function ProntuarioCard({
         });
       setDraft(null);
       router.refresh();
+      setExtra([]);
+      setMore({ hasMore, nextBefore });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Erro');
     } finally {
@@ -90,6 +116,8 @@ export function ProntuarioCard({
       await api(`/api/patients/${patientId}/notes/${id}`, { method: 'DELETE' });
       setHiding(null);
       router.refresh();
+      setExtra([]);
+      setMore({ hasMore, nextBefore });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Erro');
     } finally {
@@ -186,7 +214,7 @@ export function ProntuarioCard({
         )}
 
         <ol className="space-y-4">
-          {timeline.map((d) => (
+          {[...timeline, ...extra].map((d) => (
             <li key={d.day} data-testid="timeline-day" data-day={d.day}>
               <div className="mb-1 font-mono text-xs text-muted-foreground">
                 {fmtDate(d.day + 'T12:00:00Z', {
@@ -203,8 +231,14 @@ export function ProntuarioCard({
                         <Badge variant="outline">{KIND_LABEL[n.kind]}</Badge>
                         {n.source ? (
                           <span className="text-muted-foreground">
-                            importada de {n.source.file ?? 'arquivo'}
-                            {n.source.page ? `, p. ${n.source.page}` : ''}
+                            {n.source.system === 'versatilis' ? (
+                              'importada · Versatilis'
+                            ) : (
+                              <>
+                                importada de {n.source.file ?? 'arquivo'}
+                                {n.source.page ? `, p. ${n.source.page}` : ''}
+                              </>
+                            )}
                           </span>
                         ) : null}
                       </span>
@@ -275,6 +309,18 @@ export function ProntuarioCard({
             </li>
           ))}
         </ol>
+        {more.hasMore && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="print:hidden"
+            disabled={loadingMore}
+            onClick={() => void carregarMais()}
+            data-testid="timeline-more"
+          >
+            {loadingMore ? 'Carregando…' : 'Carregar mais'}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

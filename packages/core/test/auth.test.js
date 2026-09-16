@@ -7,6 +7,7 @@ import { acceptInvite, rotateInviteToken } from '../src/auth/invite.js';
 import { getSession, revokeSession } from '../src/auth/session.js';
 import { requirePatientInClinic, logAccess } from '../src/auth/access.js';
 import { fakeMailer } from '../src/auth/mailer.js';
+import { catalogNameKey } from '../src/catalog/nameKey.js';
 
 // P2-6 — data dinâmica: o seed cria respostas e doses relativas a HOJE. Com data fixa, a
 // distância entre as duas cresce a cada dia e regras que olham "os últimos N dias" passam a
@@ -225,6 +226,7 @@ describe('auth — tenancy e audit', () => {
       .insert({
         clinic_id: c.id,
         name: 'Paciente de Outra Clínica',
+        name_key: catalogNameKey('Paciente de Outra Clínica'),
         timezone: 'America/Cuiaba',
         created_by: u.id,
       })

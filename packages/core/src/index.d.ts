@@ -2,10 +2,11 @@ import type { Knex } from 'knex';
 
 export interface CoreConfig {
   readonly databaseUrl: string;
+  readonly uploadsDir: string;
 }
 
-/** Fail-closed: lança se DATABASE_URL ausente. */
-export function loadConfig(env?: Record<string, string | undefined>): CoreConfig;
+/** Fail-closed: lança se DATABASE_URL ausente; UPLOADS_DIR é obrigatório em produção (D38). */
+export function loadConfig(env?: NodeJS.ProcessEnv): CoreConfig;
 
 /** Conexão Knex com Postgres (PG-only). numeric/int8 já convertidos para number. */
 export function createDb(databaseUrl: string): Knex;
@@ -472,9 +473,10 @@ export function logAccess(
 
 /* ---- E4: serviços da médica ------------------------------------------- */
 export class ValidationError extends Error {
-  constructor(message: string, field?: string | null);
+  constructor(message: string, field?: string | null, opts?: { status?: number });
   code: 'validation';
   field: string | null;
+  status: number | undefined;
 }
 export interface PatientRow {
   id: string;
@@ -482,7 +484,7 @@ export interface PatientRow {
   name: string;
   birth_date: string | Date | null;
   timezone: string;
-  status: 'active' | 'paused' | 'discharged';
+  status: 'active' | 'paused' | 'discharged' | 'registered';
   /** D28 — preenchido só pela anonimização. Alta também grava `discharged`; não use o status. */
   anonymized_at: Date | string | null;
   checkin_time: string;
@@ -490,9 +492,28 @@ export interface PatientRow {
   quiet_end: string;
   consent_version: string | null;
   consent_at: Date | string | null;
+  name_key: string;
+  external_source: string | null;
+  external_ref: string | null;
+  imported_at: Date | string | null;
   created_by: string;
   created_at: Date | string;
   updated_at: Date | string;
+}
+export type AttachmentKind = 'pdf' | 'image';
+export interface AttachmentRow {
+  id: string;
+  patient_id: string;
+  kind: AttachmentKind;
+  original_name: string;
+  mime: string;
+  size_bytes: number;
+  sha256: string;
+  stored_path: string;
+  source: 'upload' | 'import';
+  uploaded_by: string | null;
+  deleted_at: Date | string | null;
+  created_at: Date | string;
 }
 export interface ConditionRow {
   id: string;
@@ -553,7 +574,7 @@ export interface ClinicalNoteRow {
   kind: NoteKind;
   occurred_at: Date | string;
   body: string;
-  source: { file?: string; page?: number; excerpt?: string } | null;
+  source: { file?: string; page?: number; excerpt?: string; system?: string; ref?: string } | null;
   created_by: string;
   deleted_at: Date | string | null;
   created_at: Date | string;
@@ -598,12 +619,17 @@ export interface TimelineDay {
   notes: ClinicalNoteRow[];
   events: TimelineEvent[];
 }
+export interface TimelinePage {
+  days: TimelineDay[];
+  hasMore: boolean;
+  nextBefore: string | null;
+}
 export function patientTimeline(
   db: Knex,
   session: Session,
   patientId: string,
-  opts?: { now?: Instant },
-): Promise<TimelineDay[]>;
+  opts?: { now?: Instant; before?: string | null; limitDays?: number },
+): Promise<TimelinePage>;
 export interface RespondentRow {
   id: string;
   patient_id: string;
@@ -766,11 +792,26 @@ export interface PatientSummary extends PatientRow {
   medications: MedicationRow[];
   conditions: PatientCondition[];
 }
+export type PatientListStatus =
+  'following' | 'active' | 'paused' | 'discharged' | 'registered' | 'all';
+export interface PatientPage {
+  rows: PatientSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
 export function listPatients(
   db: Knex,
-  input: { clinicId: string; condition?: string | null },
+  input: {
+    clinicId: string;
+    condition?: string | null;
+    q?: string;
+    status?: PatientListStatus;
+    page?: number;
+    pageSize?: number;
+  },
   now?: Instant,
-): Promise<PatientSummary[]>;
+): Promise<PatientPage>;
 export interface Grid {
   days: string[];
   questions: Array<{
@@ -1255,6 +1296,7 @@ export interface PilotReport {
     active: number;
     paused: number;
     discharged: number;
+    registered: number;
     still_engaged: number;
     still_engaged_rate: number | null;
   };
@@ -1313,3 +1355,75 @@ export function renderPilotReportMarkdown(
   report: PilotReport,
   criteria?: readonly PilotCriterion[],
 ): string;
+
+export const ATTACHMENT_MAX_BYTES: number;
+export function sniffKind(buf: Buffer): AttachmentKind | null;
+export function storeAttachment(
+  db: Knex,
+  session: Session,
+  patientId: string,
+  input: { buffer: Buffer; originalName: string; mime?: string; source?: 'upload' | 'import' },
+  now?: Instant,
+): Promise<AttachmentRow>;
+export function listAttachments(
+  db: Knex,
+  session: Session,
+  patientId: string,
+): Promise<AttachmentRow[]>;
+export function openAttachment(
+  db: Knex,
+  session: Session,
+  attachmentId: string,
+  now?: Instant,
+  opts?: { patientId?: string },
+): Promise<{ row: AttachmentRow; path: string }>;
+export function hideAttachment(
+  db: Knex,
+  session: Session,
+  attachmentId: string,
+  now?: Instant,
+  opts?: { patientId?: string },
+): Promise<AttachmentRow>;
+export function attachmentAbsolutePath(row: Pick<AttachmentRow, 'stored_path'>): string;
+
+export function parseCsv(
+  text: string,
+  opts?: { delimiter?: string },
+): { header: string[]; rows: Array<Record<string, string>> };
+export interface ImportItem {
+  ref: string;
+  name: string;
+  name_key: string;
+  birth_date: string | null;
+  phone: string | null;
+  conditions: string[];
+  consultas: string[];
+  pdf: string | null;
+  existingId?: string;
+}
+export interface ImportPlan {
+  criar: ImportItem[];
+  casar: ImportItem[];
+  colidir: Array<{ ref: string; name: string; birth_date: string | null; motivo: string }>;
+  pdfSemPaciente: string[];
+  pacienteSemPdf: string[];
+  ignoradas: Array<{ linha: number; motivo: string }>;
+}
+export function planImport(input: {
+  rows: Array<Record<string, string>>;
+  mapa: Record<string, unknown>;
+  pdfFiles?: string[];
+  existing?: Array<{
+    id: string;
+    name_key: string;
+    birth_date: string | Date | null;
+    external_ref: string | null;
+  }>;
+}): ImportPlan;
+export function executeImport(
+  db: Knex,
+  session: Session,
+  plan: ImportPlan,
+  deps: { readPdf: (file: string) => Promise<Buffer | null> },
+  now?: Instant,
+): Promise<{ created: number; matched: number; attached: number; notes: number }>;

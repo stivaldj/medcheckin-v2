@@ -6,6 +6,7 @@ import {
   listConditions,
   questionsForPatient,
   patientTimeline,
+  listAttachments,
   localDate,
   noteDay,
   AuthError,
@@ -26,11 +27,20 @@ import { GridCard } from '@/components/medica/GridCard';
 import { AlertsCard } from '@/components/medica/AlertsCard';
 import { SymptomDoseChart } from '@/components/medica/SymptomDoseChart';
 import { SetupChecklist } from '@/components/medica/SetupChecklist';
+import { RegisteredBanner } from '@/components/medica/RegisteredBanner';
 import { ProntuarioCard } from '@/components/medica/ProntuarioCard';
+import { AttachmentsCard } from '@/components/medica/AttachmentsCard';
 import { PatientConditions } from '@/components/medica/PatientConditions';
 
-export default async function PacientePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PacientePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { id } = await params;
+  const { tab } = await searchParams;
   const session = await requireUserPage();
   const db = getDb();
   let detail;
@@ -59,20 +69,23 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
       'u.name as user_name',
       'a.title as alert_title',
     );
-  const [products, questionSets, catalog, perguntas, timelineRaw] = await Promise.all([
-    listProducts(db, session.clinicId),
-    listQuestionSets(db, session.clinicId),
-    listConditions(db, session.clinicId),
-    // Direção do score por pergunta: a grade só pinta o que sabe interpretar (pack + extras).
-    questionsForPatient(db, { patientId: id, includeInactive: true }),
-    patientTimeline(db, session, id, { now: new Date() }),
-  ]);
+  const [products, questionSets, catalog, perguntas, timelinePage, attachments] = await Promise.all(
+    [
+      listProducts(db, session.clinicId),
+      listQuestionSets(db, session.clinicId),
+      listConditions(db, session.clinicId),
+      // Direção do score por pergunta: a grade só pinta o que sabe interpretar (pack + extras).
+      questionsForPatient(db, { patientId: id, includeInactive: true }),
+      patientTimeline(db, session, id, { now: new Date() }),
+      listAttachments(db, session, id),
+    ],
+  );
   const direcoes = Object.fromEntries(perguntas.map((q) => [q.key, q.score_direction]));
   const p = detail.patient;
   // Postgres devolve colunas `date` como objeto Date; o RSC serializa esse Date para o client
   // como Date, e ali `String(...)` não dá AAAA-MM-DD. Normaliza aqui, no fuso do servidor
   // (o mesmo que o pg usou para interpretar a data), com o mesmo conversor canônico das notas.
-  const timeline = timelineRaw.map((d) => ({
+  const timeline = timelinePage.days.map((d) => ({
     ...d,
     notes: d.notes.map((n) => ({ ...n, occurred_at: noteDay(n.occurred_at) })),
   }));
@@ -107,9 +120,13 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
         <PatientHeaderActions patientId={p.id} status={p.status} />
       </div>
 
-      <SetupChecklist detail={detail} />
+      {p.status === 'registered' ? (
+        <RegisteredBanner patientId={p.id} importedAt={p.imported_at} source={p.external_source} />
+      ) : (
+        <SetupChecklist detail={detail} />
+      )}
 
-      <Tabs defaultValue="caso">
+      <Tabs defaultValue={tab === 'configuracao' ? 'configuracao' : 'caso'}>
         <TabsList>
           <TabsTrigger value="caso" data-testid="tab-caso">
             O caso
@@ -121,7 +138,14 @@ export default async function PacientePage({ params }: { params: Promise<{ id: s
 
         {/* Ler o caso e configurar o plano são trabalhos diferentes; antes disputavam o mesmo scroll. */}
         <TabsContent value="caso" className="space-y-6">
-          <ProntuarioCard patientId={p.id} timeline={timeline} today={today} />
+          <ProntuarioCard
+            patientId={p.id}
+            timeline={timeline}
+            today={today}
+            hasMore={timelinePage.hasMore}
+            nextBefore={timelinePage.nextBefore}
+          />
+          <AttachmentsCard patientId={p.id} attachments={attachments} />
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <SymptomDoseChart patientId={p.id} questions={detail.grid.questions} />

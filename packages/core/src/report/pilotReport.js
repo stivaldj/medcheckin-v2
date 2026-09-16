@@ -146,8 +146,14 @@ export async function pilotReport(
   const patientRows = await db('patients')
     .where({ clinic_id: clinicId })
     .andWhere('created_at', '<=', toJs)
+    .whereNot('status', 'registered')
     .select('id', 'status');
   const patientIds = patientRows.map((p) => p.id);
+  const registeredCount = await db('patients')
+    .where({ clinic_id: clinicId, status: 'registered' })
+    .andWhere('created_at', '<=', toJs)
+    .count({ n: '*' })
+    .first();
 
   /* --- engajamento ------------------------------------------------------ */
   const cks = patientIds.length
@@ -205,6 +211,7 @@ export async function pilotReport(
     active: patientRows.filter((p) => p.status === 'active').length,
     paused: patientRows.filter((p) => p.status === 'paused').length,
     discharged: patientRows.filter((p) => p.status === 'discharged').length,
+    registered: Number(registeredCount?.n ?? 0),
     still_engaged: stillEngagedIds.size,
     still_engaged_rate: ratio(stillEngagedIds.size, patientsWithSend.length),
   };
@@ -400,7 +407,7 @@ export function renderPilotReportMarkdown(report, criteria = PILOT_CRITERIA) {
     `# Piloto real — relatório critério × resultado`,
     ``,
     `Período ${report.period.from} → ${report.period.to} (${report.period.days} dias, ${report.period.timezone}) · gerado ${report.period.generated_at}`,
-    `Pacientes: ${report.patients.enrolled} inscritos · ${report.patients.active} ativos · ${report.patients.discharged} com alta`,
+    `Pacientes: ${report.patients.enrolled} inscritos · ${report.patients.active} ativos · ${report.patients.discharged} com alta · ${report.patients.registered} cadastrados (importados, fora do piloto)`,
     ``,
     `| Critério | Limiar | Resultado | Veredito |`,
     `|---|---|---|---|`,

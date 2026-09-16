@@ -88,7 +88,8 @@ export function errorResponse(err: unknown): NextResponse {
   if (code === 'not_sent') return NextResponse.json({ error: code, message }, { status: 409 });
   if (code === 'validation') {
     const field = (err as { field?: string | null }).field ?? null;
-    return NextResponse.json({ error: 'validation', message, field }, { status: 400 });
+    const status = (err as { status?: number }).status ?? 400;
+    return NextResponse.json({ error: 'validation', message, field }, { status });
   }
   // Auditoria P1-4: qualquer outro code é infraestrutura (ex.: '23505' do driver do Postgres)
   // ou código desconhecido — loga no servidor e NÃO vaza a mensagem interna para o cliente.

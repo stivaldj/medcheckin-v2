@@ -93,7 +93,7 @@ describe('patientTimeline', () => {
       created_by: ctx.userId,
     });
 
-    const days = await patientTimeline(db, session, patientId, { now: NOW });
+    const { days } = await patientTimeline(db, session, patientId, { now: NOW });
     expect(days.map((d) => d.day)).toEqual(['2026-09-12', '2026-09-10']);
     const d12 = days[0];
     expect(d12.notes).toEqual([]);
@@ -122,11 +122,39 @@ describe('patientTimeline', () => {
       NOW,
     );
     await db('clinical_notes').where({ id: n.id }).update({ deleted_at: NOW });
-    const days = await patientTimeline(db, session, patientId, { now: NOW });
+    const { days } = await patientTimeline(db, session, patientId, { now: NOW });
     expect(days.some((d) => d.day === '2026-09-01')).toBe(false);
     const outra = await seedClinic(db, 'outra-tl');
     await expect(
       patientTimeline(db, { ...session, clinicId: outra.clinicId }, patientId, { now: NOW }),
     ).rejects.toMatchObject({ code: 'not_found' });
+  });
+
+  it('janela de 60 dias com hasMore/nextBefore e before paginando para trás', async () => {
+    await createNote(db, session, patientId, { body: 'velha', occurred_at: '2026-01-05' }, NOW);
+    await createNote(db, session, patientId, { body: 'recente', occurred_at: '2026-09-01' }, NOW);
+    const p1 = await patientTimeline(db, session, patientId, { now: NOW });
+    // 2026-09-15 - 59 dias = 2026-07-18 (janela de 60 dias civis inclusive)
+    expect(p1.days.every((d) => d.day >= '2026-07-18')).toBe(true);
+    expect(p1.days.some((d) => d.notes.some((n) => n.body === 'velha'))).toBe(false);
+    expect(p1.hasMore).toBe(true);
+    expect(p1.nextBefore).toBe('2026-07-17');
+    const p2 = await patientTimeline(db, session, patientId, {
+      now: NOW,
+      before: p1.nextBefore,
+      limitDays: 400,
+    });
+    expect(p2.days.some((d) => d.notes.some((n) => n.body === 'velha'))).toBe(true);
+    expect(p2.hasMore).toBe(false);
+    expect(p2.nextBefore).toBeNull();
+  });
+
+  it('before com data-calendário inválida ou limitDays fora do intervalo → validation', async () => {
+    await expect(
+      patientTimeline(db, session, patientId, { now: NOW, before: '2026-02-30' }),
+    ).rejects.toMatchObject({ code: 'validation', field: 'before' });
+    await expect(
+      patientTimeline(db, session, patientId, { now: NOW, limitDays: 0 }),
+    ).rejects.toMatchObject({ code: 'validation', field: 'limitDays' });
   });
 });

@@ -1,3 +1,4 @@
+import os from 'node:os';
 import path from 'node:path';
 import { defineConfig } from '@playwright/test';
 import { loadEnvConfig } from '@next/env';
@@ -9,6 +10,11 @@ const PORT = 3210;
 const MAILPIT_SMTP = Number(process.env.MAILPIT_SMTP_PORT || 1025);
 const dbUrl = process.env.DATABASE_URL_TEST || process.env.DATABASE_URL;
 if (!dbUrl) throw new Error('DATABASE_URL_TEST (ou DATABASE_URL) obrigatória para o E2E.');
+// D38: `next start` roda em produção, onde UPLOADS_DIR é obrigatório (config fail-closed). O
+// processo de teste também chama o core direto (ex.: anexos.spec.ts), então precisa concordar
+// com a mesma pasta — daí fixar em `process.env` aqui, não só em `webServer.env`.
+const uploadsDir = path.join(os.tmpdir(), 'mc-e2e-uploads');
+process.env.UPLOADS_DIR = uploadsDir;
 
 export default defineConfig({
   testDir: './e2e',
@@ -32,6 +38,7 @@ export default defineConfig({
     env: {
       DATABASE_URL: dbUrl,
       APP_BASE_URL: `http://localhost:${PORT}`,
+      UPLOADS_DIR: uploadsDir,
       // P2-7: o login da médica passa por e-mail de verdade, contra o Mailpit do compose — com
       // `MAIL_TRANSPORT: 'fake'` o elo e-mail → /auth/verify → cookie nunca era exercitado.
       // Host e porta são FIXADOS aqui de propósito: herdar SMTP_* do .env de quem roda o teste

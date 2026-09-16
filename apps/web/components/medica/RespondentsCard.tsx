@@ -119,7 +119,7 @@ export function RespondentsCard({
   }
 
   return (
-    <Card data-testid="respondents-card" className="lg:col-span-2">
+    <Card id="respondents-card" data-testid="respondents-card" className="lg:col-span-2">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Respondentes</CardTitle>
         <Dialog open={open} onOpenChange={setOpen}>

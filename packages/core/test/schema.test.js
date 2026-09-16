@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { freshDb, seedClinic, seedPatient } from './helpers/db.js';
+import { catalogNameKey } from '../src/catalog/nameKey.js';
 
 const TABLES = [
   'clinics',
@@ -57,12 +58,18 @@ describe('migration 001 — schema', () => {
       db('patients').insert({
         clinic_id: '00000000-0000-0000-0000-000000000000',
         name: 'x',
+        name_key: catalogNameKey('x'),
         timezone: 'America/Cuiaba',
         created_by: userId,
       }),
     ).rejects.toMatchObject({ code: '23503' }); // foreign_key_violation
     await expect(
-      db('patients').insert({ name: 'x', timezone: 'America/Cuiaba', created_by: userId }),
+      db('patients').insert({
+        name: 'x',
+        name_key: catalogNameKey('x'),
+        timezone: 'America/Cuiaba',
+        created_by: userId,
+      }),
     ).rejects.toMatchObject({ code: '23502' }); // not_null_violation
   });
 
@@ -144,6 +151,7 @@ describe('migration 001 — schema', () => {
       db('patients').insert({
         clinic_id: ctx.clinicId,
         name: 'x',
+        name_key: catalogNameKey('x'),
         timezone: 'America/Cuiaba',
         created_by: ctx.userId,
         status: 'zumbi',

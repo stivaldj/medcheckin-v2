@@ -42,6 +42,8 @@ O que ele **não** faz, de propósito: agenda, prontuário completo, prescriçã
 | **Conduta**               | O que você fez ou orientou diante do alerta. É obrigatória para resolver o alerta e fica registrada com data e seu nome.                                                                                                                    |
 | **Score**                 | Uma nota diária de 0 a 10 que resume as respostas que você marcou para entrar no score (ex.: dor, sono, humor). Serve para ver tendência, não substitui a leitura das respostas. A pergunta de adesão não entra. Sem resposta, aparece "—". |
 | **—** (travessão)         | Sempre que você vir "—", significa **"não há dado"**. O sistema nunca inventa zero, "estável" ou "ok" para preencher espaço.                                                                                                                |
+| **Cadastrado**            | Status do paciente importado do sistema anterior. Ele tem histórico e documentos, mas ainda não começou o acompanhamento (não aceitou o termo nem recebe avisos). Vira "Ativo" no primeiro aceite de consentimento.                         |
+| **Anexo**                 | Documento (PDF, JPG ou PNG) guardado no prontuário do paciente: exame, ressonância, receita, prontuário antigo. Você é a única que vê; cada vez que abre fica registrado.                                                                   |
 
 ---
 
@@ -84,7 +86,9 @@ No canto superior direito há uma faixa **"Scheduler ativo · último ciclo há 
 
 ### 4.2 Pacientes — a lista
 
-Uma linha por paciente: **Nome**, **Status** (Ativo / Pausado / Alta), **Episódio** (ex.: Titulação · diário), **Dose vigente** de cada medicação (ou _"sem dose vigente"_), **Último check-in** respondido e quantos **Alertas** abertos. Toque no nome para abrir.
+Uma linha por paciente: **Nome**, **Status** (Ativo / Pausado / Alta / Cadastrado), **Episódio** (ex.: Titulação · diário), **Dose vigente** de cada medicação (ou _"sem dose vigente"_), **Último check-in** respondido e quantos **Alertas** abertos. Toque no nome para abrir.
+
+**Buscar por nome** — campo no topo da lista, busca enquanto digita. **Em acompanhamento · Cadastrados · Alta · Todos** — seletor ao lado; muda a lista e reseta a paginação. A lista mostra **50 por página**, com botões **Anterior / Próxima** ao fim da tabela.
 
 Filtro **Condição** ao lado do botão Novo paciente: mostra só quem tem aquela condição, com a contagem.
 
@@ -109,6 +113,8 @@ Toque em **Cadastrar paciente**. Você cai na página do paciente.
 
 **Cabeçalho** — nome, status, nascimento, _"check-in às 09:00"_ e as condições. À direita: **Pausar envios** (viagem, internação — nada é enviado até você tocar em **Retomar envios**) e **Dar alta** (encerra os envios e o convite do respondente para de funcionar; o sistema pede confirmação).
 
+**Paciente Cadastrado** — faixa amarela no topo da página. Significa que ele vem do sistema anterior (Versatilis) e está esperando começar o acompanhamento. Você vê o histórico e os anexos, mas ele não recebe avisos nem responde check-ins enquanto não aceita o consentimento. Toque em **Iniciar acompanhamento**, na faixa amarela no topo da página, para mudar para "Ativo" quando ele aceitar o termo pelo celular.
+
 As **condições** do paciente aparecem como etiquetas ao lado do nome. **Editar condições** abre um campo: escreva (ex.: _epilepsia_), Enter adiciona; o **×** remove. Nomes já usados em outros pacientes aparecem como sugestão, para não virar duas grafias da mesma coisa.
 
 **Para começar o acompanhamento** — enquanto faltar algo, aparece no topo uma lista com quatro itens, que se marcam sozinhos conforme você e o paciente avançam:
@@ -125,6 +131,8 @@ Abaixo, a página tem duas abas: **O caso** (para ler) e **A configuração** (p
 #### Aba "O caso"
 
 **Prontuário** — o primeiro card. Toque em **Nova nota**, escreva como você escreve (tipo: consulta, evolução ou contato; a data vem hoje e pode ser mudada) e salve com o botão ou **Ctrl+Enter**. Abaixo fica a **linha do tempo**: por dia, a sua nota e, logo embaixo, o **ajuste de dose** e a **conduta** daquele dia, sem você repetir nada no texto. **Editar** corrige; **Ocultar** tira da lista, mas a nota fica guardada (prontuário não se apaga). **Imprimir / salvar PDF** imprime a página do paciente, com a linha do tempo.
+
+**Anexos** — documentos do paciente (exames, prontuários antigos). Toque em **Anexar arquivo** e escolha PDF, JPG ou PNG, até 25 MB. A lista mostra o nome e a data; toque para abrir em nova aba. **Ocultar** tira da lista (arquivo fica guardado). Você é a única que vê; cada abertura fica registrada.
 
 **Sintoma × dose** — o gráfico. Escolha a pergunta (dor, sono, humor…) e o período (**14**, **30**, **60** ou **90 dias**). A área mostra a resposta do dia; a linha tracejada, o score; **as linhas verticais tracejadas em cobre marcam cada ajuste de dose**, com o valor. Dia sem resposta aparece como **lacuna** — o gráfico não liga os pontos por cima do vazio. Abaixo, uma tabelinha compara a média dos 7 dias **antes** e **depois** de cada ajuste (**Ajuste · Antes (7 d) · Depois (7 d) · Δ**), com quantas respostas entraram na conta. Onde não há dado suficiente, aparece "—".
 

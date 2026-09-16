@@ -1,3 +1,55 @@
+# E12.2 Anexos e importação (15/09, `feat/anexos-importacao`)
+
+Migration 014 `attachments` + volume `uploads` (backup two-part + restore drill); status **Cadastrado** e lista paginada com busca/status; timeline com janela + "Carregar mais"; CSV parser + `planImport`/`executeImport` (ensaio obrigatório, colisão recusada); script `import-versatilis`; rotas upload/stream com auditoria; card Anexos; faixa Cadastrado; toolbar da lista. Spec: `docs/superpowers/specs/2026-09-15-anexos-importacao-design.md`.
+
+- [x] 1. Migration 014 `attachments` (id, patient_id, original_name, sha256, size_bytes, mime_type, uploaded_by, uploaded_at, deleted_at), índice único (patient_id, sha256); UPLOADS_DIR (0441db0)
+- [x] 2. Módulo `attachments` no core: tipo pelos bytes (PDF/JPG/PNG), sha256, escrita atômica no volume com limpeza em falha, listar/abrir/ocultar, export com os arquivos no zip, anonimização apaga do disco após o commit e recalcula `name_key`; nome de arquivo higienizado; reenvio reativa anexo oculto. (8100820, fix 84d8538)
+- [x] 3. `listPatients` paginada com busca sem acento (`name_key`) e filtro de status (`following` por padrão); `acceptInvite` promove Cadastrado a Ativo e grava consentimento no paciente, tudo na mesma transação. (ed618a9, fix a99d2ac)
+- [x] 4. Timeline com janela (Carregar mais no UI) e `visible_from` na query (57e3038, fix 8ab7a57)
+- [x] 5. Core: `planImport` + `executeImport` logic com colisão guard, `external_ref` matchpoint (e5aa9b3, ajustes 30b042e, fix bc82b3c)
+- [x] 6. Script `import-versatilis` com ensaio obrigatório + `--gravar` (4b19ea6, fix 8b88f5c)
+- [x] 7. Rotas: `doctorUploadRoute` (não lê o corpo), `POST/GET /api/patients/:id/attachments`, `GET/DELETE .../:attachmentId` (stream com headers seguros; 404 quando o arquivo foi apagado pela anonimização), `GET /api/patients` com `q`/`status`/`page`; `errorResponse` mapeia 413/415; origem checada só em mutações; lint do core. (f2bd8d2, fix f2af8b3)
+- [x] 8. ListPatients paginada (50 × página) + busca por nome + seletor status + faixa Cadastrado (e6d8c0a, fix 07fabf3)
+- [x] 9. Página do paciente: card **Anexos** com visualizador embutido (PDF/imagem) e Ocultar com confirmação, faixa **Cadastrado** com orientação para convidar respondente, **Carregar mais** na linha do tempo, notas importadas rotuladas 'Versatilis'. (d878bf2)
+- [x] 10. Deploy: volume uploads, backup + restore drill (a1cb2ea, fix 2bd8bc7)
+- [x] 11. E2E: anexos (enviar, abrir, recusar tipo, ocultar), lista de pacientes (status, busca, paginação, faixa), importação (ensaio + gravar) (f3bd23b, fix e510c3c)
+
+## Revisão
+
+- Onda de correções da revisão final da branch: e06bd1b (UPLOADS_DIR em migrate e scheduler — sem isso o deploy não subia), 882d017 (tipos de anexo sem duplicata; ValidationError carrega status 413/415), 3678590 (piloto exclui Cadastrados; anonimização oculta anexos; rota confere o paciente), 8df5eb6 ("Iniciar acompanhamento" abre a aba via URL; manual alinhado), 71cd29b e o ajuste do manual 4.2.
+- Pré-requisito antes da importação real: isolamento de erro por item em `executeImport` com seção "Falhas" no relatório (hoje uma linha ruim aborta o lote no meio; o rerun idempotente atenua).
+
+**Desvios da spec:**
+
+- `executeImport` recusa colisões (guard restaurado, não fusão)
+- telefone do CSV vira respondente do paciente
+- homônimos ambíguos + id repetido = colisão
+- linhas ignoradas listadas
+- restore drill ignora anexos de pacientes anonimizados
+- troca de filtro reseta página; página além do fim redireciona
+- `name_key` recalculado na anonimização
+
+**Follow-ups deixados (não bloqueiam):**
+
+- sanitizer colapsa `..` em nomes legítimos
+- rm sequencial na anonimização
+- fsync do diretório
+- export carrega anexos em memória
+- `attached` subnotifica reativação
+- importação parcial em falha no meio (rerun idempotente atenua)
+- phone sem normalização
+- `linha` em ignoradas é índice de dados
+- teste de atomicidade do convite por spy
+- 3 queries de hasMore
+- filename* UTF-8 no Content-Disposition
+- AttachmentsCard duplica lógica do api()
+- aria-expanded no visualizador
+- setMore após refresh usa props antigas
+- STATUS_OPTIONS sem tipo
+- CoreConfig sem uso
+
+---
+
 # E12.1 Prontuário mínimo (15/09, `feat/prontuario-minimo`)
 
 Nota clínica livre datada, condições em catálogo da clínica com CID-10 opcional e fusão, linha do tempo agrupada por dia civil; filtro por condição; export/anonimização/auditoria cobrindo notas. Spec: `docs/superpowers/specs/2026-09-15-prontuario-minimo-design.md`.

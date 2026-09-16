@@ -1,3 +1,9 @@
+## 2026-09-15 — vitest e Playwright disputando o mesmo banco
+
+- Erro: para adiantar os totais de teste, rodei `npm test` em background enquanto um subagente rodava `npm run test:e2e`. O `global-setup` do Playwright faz rollback total + migrate + seed no mesmo `DATABASE_URL_TEST`; a suíte unitária viu tabelas sumindo e reportou 19 falhas e 229 testes pulados — tudo falso.
+- Regra: **nunca** rodar vitest (core ou web) e E2E ao mesmo tempo no mesmo banco. Um de cada vez, ou bancos separados (`DATABASE_URL_TEST` distinto para o E2E).
+- Regra: falha em massa e súbita (dezenas de arquivos) depois de uma suíte que estava verde é sinal de interferência externa, não de regressão — checar o que mais estava rodando antes de investigar código.
+
 ## 2026-09-14 — plano de verificação sem o gate que o repo já tem
 
 - Erro: o plano da feature "medicação por nome" listou lint, typecheck, vitest e E2E como verificação final, mas o repositório tem `npm run check` (que inclui `prettier --check .`) como hook de pre-push. O push falhou na primeira tentativa por formatação em 6 arquivos meus.

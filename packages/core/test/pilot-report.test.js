@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { DateTime } from 'luxon';
 import { freshDb, seedFixture, fakeNotifier } from './helpers/db.js';
+import { catalogNameKey } from '../src/catalog/nameKey.js';
 import { runCycle, resetCycleState } from '../src/scheduler/cycle.js';
 import { answerFromRespondent } from '../src/respondent/index.js';
 import { adjustDose } from '../src/medications/index.js';
@@ -84,6 +85,15 @@ describe('pilotReport — E10: critérios de sucesso e de aborto escritos ANTES'
       },
       new Date(new Date(a.first_seen_at).getTime() + 30 * 60000),
     );
+    // paciente importado/Cadastrado (D37) — não é inscrito no piloto, só contado à parte.
+    const name = 'Paciente Cadastrado Importado';
+    await db('patients').insert({
+      clinic_id: fx.clinic.id,
+      name,
+      name_key: catalogNameKey(name),
+      status: 'registered',
+      created_by: fx.doctor.id,
+    });
   });
   afterAll(async () => db.destroy());
 
@@ -115,7 +125,9 @@ describe('pilotReport — E10: critérios de sucesso e de aborto escritos ANTES'
   it('mede engajamento, adesão, cobertura da rotina, conduta clínica, ruído e confiabilidade', async () => {
     const r = await run();
     expect(r.period).toMatchObject({ from: DAY(-2), to: DAY(0), timezone: TZ });
+    // o paciente 'registered' (importado) não conta como inscrito, mas aparece à parte
     expect(r.patients.enrolled).toBe(2);
+    expect(r.patients.registered).toBe(1);
 
     // P1 respondeu os 3 check-ins; P2 (semanal) recebeu e não respondeu
     expect(r.engagement.completed).toBe(3);

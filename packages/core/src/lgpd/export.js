@@ -1,7 +1,9 @@
 import JSZip from 'jszip';
+import { readFile } from 'node:fs/promises';
 import { toDT } from '../time.js';
 import { AuthError } from '../auth/tokens.js';
 import { requirePatientInClinic, logAccess } from '../auth/access.js';
+import { attachmentAbsolutePath } from '../attachments/index.js';
 
 function requireDoctor(session) {
   if (!session || session.kind !== 'user')
@@ -133,6 +135,20 @@ export async function exportPatientData(db, session, patientId, now) {
     .where({ patient_id: patientId })
     .orderBy('occurred_at')
     .orderBy('created_at');
+  // D38: metadados de todos os anexos (inclusive ocultos) e os bytes dos que ainda existem no disco.
+  const attachments = await db('attachments')
+    .where({ patient_id: patientId })
+    .orderBy('created_at');
+  const attachmentFiles = {};
+  for (const a of attachments) {
+    try {
+      attachmentFiles[`anexos/${a.id}-${a.original_name}`] = await readFile(
+        attachmentAbsolutePath(a),
+      );
+    } catch {
+      // arquivo já removido (anonimização anterior) — só os metadados vão
+    }
+  }
 
   const files = {
     'patient.json': patient,
@@ -155,6 +171,8 @@ export async function exportPatientData(db, session, patientId, now) {
     'access_audit.json': audit,
     'conditions.json': conditions,
     'clinical_notes.json': clinicalNotes,
+    'attachments.json': attachments,
+    ...attachmentFiles,
   };
   const manifest = {
     generated_at: toDT(now).toISO(),
@@ -179,6 +197,7 @@ export async function exportPatientData(db, session, patientId, now) {
       access_audit: audit.length,
       conditions: conditions.length,
       clinical_notes: clinicalNotes.length,
+      attachments: attachments.length,
     },
     note:
       'notifications.json contém só metadados de entrega (sem conteúdo). ' +
@@ -193,6 +212,7 @@ export async function exportPatientData(db, session, patientId, now) {
 export async function buildExportZip({ manifest, files }) {
   const zip = new JSZip();
   zip.file('manifest.json', JSON.stringify(manifest, null, 2));
-  for (const [name, data] of Object.entries(files)) zip.file(name, JSON.stringify(data, null, 2));
+  for (const [name, data] of Object.entries(files))
+    zip.file(name, Buffer.isBuffer(data) ? data : JSON.stringify(data, null, 2));
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }

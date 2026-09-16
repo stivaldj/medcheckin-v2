@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon';
+import { catalogNameKey } from '../catalog/nameKey.js';
 import { setupStatus, activeSubscriptionCounts } from '../onboarding/index.js';
 import { toDT } from '../time.js';
 import { newToken, AuthError } from '../auth/tokens.js';
@@ -20,7 +21,7 @@ import {
 
 export { ValidationError };
 
-const PATIENT_STATUS = new Set(['active', 'paused', 'discharged']);
+const PATIENT_STATUS = new Set(['active', 'paused', 'discharged', 'registered']);
 const RESP_KIND = new Set(['patient', 'caregiver']);
 
 function requireDoctor(session) {
@@ -55,6 +56,7 @@ function patientPatch(input, { partial }) {
     if (name.length < 2)
       throw new ValidationError('Nome do paciente é obrigatório (mín. 2 caracteres).', 'name');
     patch.name = name;
+    patch.name_key = catalogNameKey(name);
   }
   if (has('birth_date'))
     patch.birth_date = input.birth_date ? String(input.birth_date).slice(0, 10) : null;
@@ -67,6 +69,8 @@ function patientPatch(input, { partial }) {
     }
   }
   if (has('status')) {
+    if (input.status === 'registered')
+      throw new ValidationError('Cadastrado só nasce pela importação.', 'status');
     if (!PATIENT_STATUS.has(input.status)) throw new ValidationError('Status inválido.', 'status');
     patch.status = input.status;
   }
@@ -193,18 +197,47 @@ async function medicationsWithDose(db, patientIds, now) {
   return byPatient;
 }
 
-/** Lista com resumo por paciente (fonte de cada número: consultas abaixo). */
-export async function listPatients(db, { clinicId, condition = null }, now) {
-  let q = db('patients as p').where('p.clinic_id', clinicId).orderBy('p.name').select('p.*');
+const LIST_STATUS = new Set(['following', 'active', 'paused', 'discharged', 'registered', 'all']);
+const PAGE_SIZE_MAX = 200;
+
+/**
+ * Lista paginada com resumo por paciente. D37: o padrão é "em acompanhamento" (ativos + pausados);
+ * `registered` (Cadastrado) só aparece quando pedido. `q` busca sem acento pela `name_key`.
+ * Obs.: `%`/`_` são removidos da chave de busca em vez de escapados — o `like` do knex/pg não usa
+ * cláusula ESCAPE por padrão, então `\$&` não teria efeito nenhum.
+ */
+export async function listPatients(
+  db,
+  { clinicId, condition = null, q = '', status = 'following', page = 1, pageSize = 50 },
+  now,
+) {
+  if (!LIST_STATUS.has(status)) throw new ValidationError('Status de filtro inválido.', 'status');
+  const size = Math.min(Math.max(Number(pageSize) || 50, 1), PAGE_SIZE_MAX);
+  const pg = Math.max(Number(page) || 1, 1);
+  const key = catalogNameKey(String(q ?? '')).replace(/[%_]/g, '');
+
+  let base = db('patients as p').where('p.clinic_id', clinicId);
+  if (status === 'following') base = base.whereIn('p.status', ['active', 'paused']);
+  else if (status !== 'all') base = base.where('p.status', status);
+  if (key.length >= 2) base = base.where('p.name_key', 'like', `%${key}%`);
   if (condition)
-    q = q.whereExists(
+    base = base.whereExists(
       db('patient_conditions as pc')
         .whereRaw('pc.patient_id = p.id')
         .andWhere('pc.condition_id', condition),
     );
-  const patients = await q;
+
+  const [{ count }] = await base.clone().count('* as count');
+  const total = Number(count);
+  const patients = await base
+    .clone()
+    .orderBy('p.name')
+    .orderBy('p.id')
+    .limit(size)
+    .offset((pg - 1) * size)
+    .select('p.*');
   const ids = patients.map((p) => p.id);
-  if (!ids.length) return [];
+  if (!ids.length) return { rows: [], total, page: pg, pageSize: size };
   const episodes = await db('episodes').whereIn('patient_id', ids).whereNull('ended_at');
   const alerts = await db('alerts')
     .whereIn('patient_id', ids)
@@ -230,7 +263,7 @@ export async function listPatients(db, { clinicId, condition = null }, now) {
   const al = byId(alerts);
   const lc = byId(lastCheckins);
   const rc = byId(respCounts);
-  return patients.map((p) => ({
+  const rows = patients.map((p) => ({
     ...p,
     episode: ep[p.id]
       ? {
@@ -246,6 +279,7 @@ export async function listPatients(db, { clinicId, condition = null }, now) {
     medications: meds.get(p.id) ?? [],
     conditions: conds.get(p.id) ?? [],
   }));
+  return { rows, total, page: pg, pageSize: size };
 }
 
 /** Grade: últimos N dias (fuso do paciente) × perguntas do episódio; célula = última resposta do dia. */

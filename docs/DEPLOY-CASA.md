@@ -167,7 +167,9 @@ Limite do Gmail: ~500 e-mails por dia. Para o piloto sobra.
 
 1. **No PC**, crie a pasta de backup dentro de uma pasta que o Syncthing já sincroniza com o Mac —
    ex.: `C:\Users\<você>\Sync\medcheckin-backups`. Pelo WSL ela aparece como
-   `/mnt/c/Users/<você>/Sync/medcheckin-backups` — esse caminho vai em `BACKUP_HOST_DIR`.
+   `/mnt/c/Users/<você>/Sync/medcheckin-backups` — esse caminho vai em `BACKUP_HOST_DIR`. Cada rodada de
+   backup grava **dois** arquivos nessa pasta: `medcheckin-*.dump.enc` (banco) e `uploads-*.tar.enc`
+   (anexos, D38) — os dois seguem para o Mac pelo Syncthing.
 2. **No Mac**, nas opções dessa pasta no Syncthing:
    - **Tipo de pasta: "Receive Only"** — o Mac só recebe; se algo apagar ou corromper os arquivos no
      PC, a cópia do Mac não é sobrescrita de volta.
@@ -278,9 +280,10 @@ Faça cada item **pelo celular, fora do Wi-Fi de casa**:
 - [ ] Médica entra em `/login` → o e-mail com o link chega → login funciona
 - [ ] Cadastra um paciente de teste → o link de convite abre no celular → aceite → instalar o PWA
 - [ ] Ativar notificações no PWA → uma notificação de lembrete chega no horário
-- [ ] **Backup:** `mc exec backup /usr/local/bin/backup.sh` → aparece `backup.ok` → o arquivo
-      `medcheckin-*.dump.enc` aparece **no Mac** em alguns minutos
-- [ ] **Restore:** `mc exec backup /usr/local/bin/restore-drill.sh` → `RESTORE DRILL OK`
+- [ ] **Backup:** `mc exec backup /usr/local/bin/backup.sh` → aparecem `backup.ok` e `backup.uploads_ok` →
+      os arquivos `medcheckin-*.dump.enc` e `uploads-*.tar.enc` aparecem **no Mac** em alguns minutos
+- [ ] **Restore:** `mc exec backup /usr/local/bin/restore-drill.sh` → `RESTORE DRILL OK` seguido de
+      `RESTORE DRILL anexos OK`
 - [ ] **Reinício:** o teste da parte 3 (reiniciar sem login e abrir o health pelo 4G)
 - [ ] Apague o paciente de teste antes de cadastrar os pacientes reais (anonimizar, na tela do paciente)
 

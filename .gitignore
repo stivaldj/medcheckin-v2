@@ -20,6 +20,7 @@ test-results/
 *.tsbuildinfo
 .env.prod
 backups/
+uploads/
 
 # design-sync (claude.ai/design)
 .ds-sync/

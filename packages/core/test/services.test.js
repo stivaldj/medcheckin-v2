@@ -101,7 +101,7 @@ describe('patients — cadastro, lista, detalhe, respondentes', () => {
   });
 
   it('listPatients: escopo de clínica + resumo (episódio, alertas abertos, dose vigente)', async () => {
-    const rows = await listPatients(db, { clinicId: fx.clinic.id }, NOW);
+    const rows = (await listPatients(db, { clinicId: fx.clinic.id }, NOW)).rows;
     expect(rows.map((r) => r.name).sort()).toEqual([
       'Paciente Novo',
       'Paciente Sintético Dois',
@@ -118,7 +118,7 @@ describe('patients — cadastro, lista, detalhe, respondentes', () => {
     expect(novo.medications).toEqual([]);
     expect(novo.last_checkin_at).toBeNull();
     expect(
-      await listPatients(db, { clinicId: '00000000-0000-0000-0000-000000000000' }, NOW),
+      (await listPatients(db, { clinicId: '00000000-0000-0000-0000-000000000000' }, NOW)).rows,
     ).toEqual([]);
   });
 

@@ -1,0 +1,7 @@
+id;Nome do Paciente;Nascimento;Telefone;Diagnósticos;Consultas
+101;José da Silva;05/03/1970;65999990001;"Epilepsia; Dor crônica";10/02/2024|15/08/2025
+102;"Maria ""Mary"" Souza";20/11/1985;;TEA;
+103;Ana Paula Lima;;65999990003;Ansiedade;01/01/2026
+104;Carlos Existente;01/01/1990;;Insônia;
+105;Carlos Existente;02/02/1991;;Insônia;
+;Sem Id;01/01/2000;;;

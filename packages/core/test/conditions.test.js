@@ -159,9 +159,10 @@ describe('condições (catálogo da clínica)', () => {
     expect(detail.conditions.map((c) => c.name)).toEqual(['Dor crônica', 'Insônia']);
     expect(detail.patient.condition_tags).toBeUndefined();
     const dor = detail.conditions[0];
-    const filtrada = await listPatients(db, { clinicId: ctx.clinicId, condition: dor.id }, NOW);
+    const filtrada = (await listPatients(db, { clinicId: ctx.clinicId, condition: dor.id }, NOW))
+      .rows;
     expect(filtrada.map((p) => p.id)).toEqual([patient.id]);
-    const todas = await listPatients(db, { clinicId: ctx.clinicId }, NOW);
+    const todas = (await listPatients(db, { clinicId: ctx.clinicId }, NOW)).rows;
     const row = todas.find((p) => p.id === patient.id);
     expect(row.conditions.map((c) => c.name)).toEqual(['Dor crônica', 'Insônia']);
   });

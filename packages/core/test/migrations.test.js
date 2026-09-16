@@ -171,4 +171,58 @@ describe('migrations — latest → seed → rollback total → latest', () => {
     expect(pb.condition_tags).toEqual(['ansiedade']);
     await db.migrate.up(migrationConfig);
   });
+
+  /**
+   * D37/D38 — a 014 adiciona status `registered`, colunas de origem, `name_key` com backfill e a
+   * tabela `attachments`; o `down` leva `registered` para `paused` antes de restaurar o CHECK.
+   */
+  it('014: registered, name_key com backfill, attachments; down rebaixa registered para paused', async () => {
+    await db.raw('drop schema public cascade; create schema public');
+    const [, pendentes] = await db.migrate.list(migrationConfig);
+    const idx = pendentes.findIndex((m) => m.file.startsWith('014_'));
+    for (let i = 0; i < idx; i += 1) await db.migrate.up(migrationConfig);
+    expect(await db.schema.hasColumn('patients', 'name_key')).toBe(false);
+
+    const [clinic] = await db('clinics').insert({ name: 'Clínica 014' }).returning('id');
+    const [user] = await db('users')
+      .insert({ clinic_id: clinic.id, role: 'doctor', email: 'dra-014@example.test', name: 'Dra.' })
+      .returning('id');
+    const [p] = await db('patients')
+      .insert({
+        clinic_id: clinic.id,
+        name: '  José  da Silva ',
+        timezone: 'America/Cuiaba',
+        created_by: user.id,
+      })
+      .returning('id');
+
+    await db.migrate.up(migrationConfig);
+    const row = await db('patients').where({ id: p.id }).first();
+    expect(row.name_key).toBe('jose da silva');
+    expect(row.status).toBe('active');
+    await db('patients')
+      .where({ id: p.id })
+      .update({ status: 'registered', external_source: 'versatilis', external_ref: '42' });
+    await expect(
+      db('patients').insert({
+        clinic_id: clinic.id,
+        name: 'Outro',
+        name_key: 'outro',
+        timezone: 'America/Cuiaba',
+        created_by: user.id,
+        external_source: 'versatilis',
+        external_ref: '42',
+      }),
+    ).rejects.toMatchObject({ code: '23505' });
+    expect(await db.schema.hasTable('attachments')).toBe(true);
+
+    await db.migrate.down(migrationConfig);
+    expect(await db.schema.hasTable('attachments')).toBe(false);
+    expect(await db.schema.hasColumn('patients', 'name_key')).toBe(false);
+    expect((await db('patients').where({ id: p.id }).first()).status).toBe('paused');
+    await expect(
+      db('patients').where({ id: p.id }).update({ status: 'registered' }),
+    ).rejects.toMatchObject({ code: '23514' });
+    await db.migrate.up(migrationConfig);
+  });
 });

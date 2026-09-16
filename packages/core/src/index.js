@@ -131,3 +131,14 @@ export {
   PILOT_CRITERIA,
   PILOT_ABORT_RULES,
 } from './report/pilotReport.js';
+export {
+  ATTACHMENT_MAX_BYTES,
+  sniffKind,
+  storeAttachment,
+  listAttachments,
+  openAttachment,
+  hideAttachment,
+  attachmentAbsolutePath,
+} from './attachments/index.js';
+export { parseCsv } from './import/csv.js';
+export { planImport, executeImport } from './import/versatilis.js';
